@@ -1,23 +1,24 @@
 ---
 layout: archive
-title: "Theoretical Investigation of the u-d anti-quark Asymmetry of the Proton"
-permalink: /research/pion-cloud
+title: "Search for BSM Physics in di-Higgs Decays"
+permalink: /research/CERN
 author_profile: true
-topic: "pion-cloud"
+topic: "cern"
 ---
 
 <p>
-    We study the flavor asymmetry of the proton sea using a meson cloud model. In this model, the proton is described as a bare proton plus virtual meson-baryon states. We calculate the light-cone momentum distributions of pions in these states using chiral Lagrangians, and fit the parameters of the model to experimental data on the dbar-ubar asymmetry. Notably, experimental results from Fermi-lab's Seaquest experiment show good agreement with our predictions (which are not fit the the Seaquest data and were made before the data was released).
+    As a part of the CERN summer student program, I worked with a team at UC Berkeley to develop a Graphical Neural Network machine learning algorithm to search for pair production of Higgs via HH → γγ + X̸ ≠ bb decays.
 </p>
+
 
 
 
 <h2>Relevant publications and Talks</h2>
 
-{% assign emc_src_pubs = site.publications | where: "topic", page.topic %}
-{% if emc_src_pubs.size > 0 %}
+{% assign cern_pubs = site.publications | where: "topic", page.topic %}
+{% if cern_pubs.size > 0 %}
     <h3>Publications</h3><hr />
-    {% for post in emc_src_pubs reversed %}
+    {% for post in cern_pubs reversed %}
         <li>
             <em>{{ post.title }}</em>
             {% if post.authors %}<br>{% assign authors = post.authors | split: "; " %}{% for author in authors %}{% if author contains site.author.name %}​<strong>{{ author }}</strong>{% else %}{{ author }}{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}
@@ -29,10 +30,10 @@ topic: "pion-cloud"
     {% endfor %}
 {% endif %}
 
-{% assign emc_src_talks = site.talks | where: "topic", page.topic %}
-{% if emc_src_talks.size > 0 %}
+{% assign cern_talks = site.talks | where: "topic", page.topic %}
+{% if cern_talks.size > 0 %}
     <h3>Talks</h3><hr />
-    {% for post in emc_src_talks reversed %}
+    {% for post in cern_talks reversed %}
         <li>
             {% if post.title %}<em><a href="{{ post.link }}">{{ post.title }}</a></em><br>{% endif %}
             {% if post.venue %}{{ post.venue }}{% endif %}{% if post.date %} ({{ post.date | date: '%Y' }}){% endif %}{% if post.location %}, {{ post.location }}{% endif %}

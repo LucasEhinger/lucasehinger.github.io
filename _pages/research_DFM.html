@@ -1,27 +1,59 @@
 ---
 layout: archive
-title: "The EMC-SRC Effect"
+title: "Design of a tabletop dynamic force microscopy setup"
 permalink: /research/DFM
 author_profile: true
 topic: "dfm"
 ---
 
-<p>
-    Scale separation between the quark (~GeV) and nuclear (~MeV) regimes holds extremely well, and explains the success of the IPM shell model in describing most nuclear dynamics. However, In 1983 it was discovered that this scale separation breaks down, in what is now known as the EMC effect. Over 40 years and 1000 publications later, the scientific community still has no widely accepted explanation, though only two primary mechanics remain.
-</p>
 
 <p>
-    The Large Acceptance Detector experiment at Jefferson Lab aims to test one of these mechanics—the EMC-SRC hypothesis, whereby the breakdown in scale separation occurs predominantly in high momentum proton-neutron pairs. If successful, this experiment could provide the first definitive answer to the >40-year old unsolved EMC Effect.
+    We develop a low-cost tabletop dynamic force microscopy (DFM) setup using an autocollimator with sub-microradian sensitivity to measure the deflection of a gold-plated cantelever. We demonstrate the functionality of the device through measurement of the electric force at micrometer scales, with intent to extend the apparatus for measurements of casimir forces and tests of the gravitational inverse square law.
 </p>
 
 
+
+<h2>Photos</h2>
+<div style="position: relative; max-width: 800px; margin: 20px auto;">
+    <div style="position: relative; overflow: hidden; background: #f0f0f0; border-radius: 8px;">
+        <img id="photoCarousel" src="/images/DFM-photo-1.jpg" alt="DFM photos" style="width: 100%; display: block;">
+    </div>
+    <button onclick="changePhoto(-1)" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-size: 18px;">❮</button>
+    <button onclick="changePhoto(1)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-size: 18px;">❯</button>
+    <div style="text-align: center; padding: 10px; background: #f9f9f9;">
+        <span id="photoCounter" style="font-size: 14px; color: #666;"></span>
+    </div>
+</div>
+
+<script>
+    const photos = [
+        '/images/research/DFM/DFM_1.jpg',
+        '/images/research/DFM/DFM_2.jpg',
+        '/images/research/DFM/DFM_3.jpg',
+        '/images/research/DFM/DFM_4.jpg',
+        '/images/research/DFM/DFM_5.jpg',
+    ];
+    let currentPhotoIndex = 0;
+
+    function updatePhoto() {
+        document.getElementById('photoCarousel').src = photos[currentPhotoIndex];
+        document.getElementById('photoCounter').textContent = (currentPhotoIndex + 1) + ' / ' + photos.length;
+    }
+
+    function changePhoto(direction) {
+        currentPhotoIndex = (currentPhotoIndex + direction + photos.length) % photos.length;
+        updatePhoto();
+    }
+
+    updatePhoto();
+</script>
 
 <h2>Relevant publications and Talks</h2>
 
-{% assign emc_src_pubs = site.publications | where: "topic", page.topic %}
-{% if emc_src_pubs.size > 0 %}
+{% assign dfm_pubs = site.publications | where: "topic", page.topic %}
+{% if dfm_pubs.size > 0 %}
     <h3>Publications</h3><hr />
-    {% for post in emc_src_pubs reversed %}
+    {% for post in dfm_pubs reversed %}
         <li>
             <em>{{ post.title }}</em>
             {% if post.authors %}<br>{% assign authors = post.authors | split: "; " %}{% for author in authors %}{% if author contains site.author.name %}​<strong>{{ author }}</strong>{% else %}{{ author }}{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}
@@ -33,10 +65,10 @@ topic: "dfm"
     {% endfor %}
 {% endif %}
 
-{% assign emc_src_talks = site.talks | where: "topic", page.topic %}
-{% if emc_src_talks.size > 0 %}
+{% assign dfm_talks = site.talks | where: "topic", page.topic %}
+{% if dfm_talks.size > 0 %}
     <h3>Talks</h3><hr />
-    {% for post in emc_src_talks reversed %}
+    {% for post in dfm_talks reversed %}
         <li>
             {% if post.title %}<em><a href="{{ post.link }}">{{ post.title }}</a></em><br>{% endif %}
             {% if post.venue %}{{ post.venue }}{% endif %}{% if post.date %} ({{ post.date | date: '%Y' }}){% endif %}{% if post.location %}, {{ post.location }}{% endif %}

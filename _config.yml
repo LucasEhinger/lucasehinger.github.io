@@ -89,7 +89,7 @@ publication_category:
   manuscripts:
     title: 'Journal Articles' 
   preprints:
-    title: 'Unpublished Works'   
+    title: 'Non-Peer Reviewed Works'   
   conferences:
     title: 'Conference Papers'
 

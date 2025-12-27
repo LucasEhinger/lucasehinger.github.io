@@ -1,20 +1,50 @@
 ---
 layout: archive
-title: "The EMC-SRC Effect"
+title: "Developpment of a portable Cold Atom Vacuum Standard"
 permalink: /research/pCAVS
 author_profile: true
 topic: "pCAVS"
 ---
 
 <p>
-    Scale separation between the quark (~GeV) and nuclear (~MeV) regimes holds extremely well, and explains the success of the IPM shell model in describing most nuclear dynamics. However, In 1983 it was discovered that this scale separation breaks down, in what is now known as the EMC effect. Over 40 years and 1000 publications later, the scientific community still has no widely accepted explanation, though only two primary mechanics remain.
+    It is a challenge to measure pressure in ultra-high vacuum (UHV) and extreme-high vacuum (XHV) regimes. At NIST, we developed a portable cold atom vacuum standard (pCAVS) for absolute pressure measurement; the pCAVS uses laser-cooled atoms as a sensing element, where the loss rate of atoms from a magnetic trap is used to determine the background gas pressure.
 </p>
-
-<p>
-    The Large Acceptance Detector experiment at Jefferson Lab aims to test one of these mechanics—the EMC-SRC hypothesis, whereby the breakdown in scale separation occurs predominantly in high momentum proton-neutron pairs. If successful, this experiment could provide the first definitive answer to the >40-year old unsolved EMC Effect.
-</p>
+    
 
 
+<h2>Photos</h2>
+<div style="position: relative; max-width: 800px; margin: 20px auto;">
+    <div style="position: relative; overflow: hidden; background: #f0f0f0; border-radius: 8px;">
+        <img id="photoCarousel" src="/images/jpsi-photo-1.jpg" alt="JPsi photos" style="width: 100%; display: block;">
+    </div>
+    <button onclick="changePhoto(-1)" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-size: 18px;">❮</button>
+    <button onclick="changePhoto(1)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; font-size: 18px;">❯</button>
+    <div style="text-align: center; padding: 10px; background: #f9f9f9;">
+        <span id="photoCounter" style="font-size: 14px; color: #666;"></span>
+    </div>
+</div>
+
+<script>
+    const photos = [
+        '/images/research/pCAVS/pCAVS_1.jpg',
+        '/images/research/pCAVS/pCAVS_2.jpg',
+        '/images/research/pCAVS/pCAVS_3.jpg',
+        '/images/research/pCAVS/pCAVS_4.jpeg'
+    ];
+    let currentPhotoIndex = 0;
+
+    function updatePhoto() {
+        document.getElementById('photoCarousel').src = photos[currentPhotoIndex];
+        document.getElementById('photoCounter').textContent = (currentPhotoIndex + 1) + ' / ' + photos.length;
+    }
+
+    function changePhoto(direction) {
+        currentPhotoIndex = (currentPhotoIndex + direction + photos.length) % photos.length;
+        updatePhoto();
+    }
+
+    updatePhoto();
+</script>
 
 <h2>Relevant publications and Talks</h2>
 
