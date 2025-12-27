@@ -1,0 +1,7 @@
+{
+  "NWS": "https://forecast.weather.gov/MapClick.php?lon=-71.64439&lat=44.16065",
+  "NWS_Hourly": "https://forecast.weather.gov/MapClick.php?lat=44.1607&lon=-71.6444&unit=0&lg=english&FcstType=graphical",
+  "NWS_Discussion": "https://forecast.weather.gov/product.php?site=GYX&issuedby=GYX&product=AFD&format=CI&version=1&glossary=1&highlight=off",
+  "Windy": "https://www.windy.com/44.161/-71.644?44.154,-71.644,14",
+  "Higher_Summits": "https://mountwashington.org/weather/higher-summits-forecast/"
+}

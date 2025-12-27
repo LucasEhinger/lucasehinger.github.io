@@ -5,4 +5,111 @@ permalink: /weather/
 author_profile: true
 ---
 
-Some weather modeling I've done to determine whether it'll be undercast in the moutains. 
+<div style="margin-bottom: 20px; width: 100%;">
+    <label for="weather-toggle">Forecast Location: </label>
+    <select id="weather-toggle" style="width: 300px; background-color: var(--bg-color, #fff); color: var(--text-color, #333); border: 1px solid var(--border-color, #ccc);">
+        <option value="1">Mt. Washington</option>
+        <option value="2">Mt. Lafayette</option>
+        <option value="3">Mt. Moosilauke</option>
+        <option value="4">Mt. Monadnock</option>
+    </select>
+</div>
+
+<h3>Quick Links:</h3>
+
+<div id="weather-links" style="margin-bottom: 20px;">
+    <!-- Links will be populated here -->
+</div>
+
+<script>
+    const linkConfigs = {
+        '1': '/files/weather/links/MtWashington.json',
+        '2': '/files/weather/links/MtLafayette.json',
+        '3': '/files/weather/links/MtMoosilauke.json',
+        '4': '/files/weather/links/MtMonadnock.json'
+    };
+
+    const defaultLinks = {
+        'NWS': 'https://forecast.weather.gov/MapClick.php?lon=-71.30327&lat=44.27049',
+        'NWS_Hourly': 'https://forecast.weather.gov/MapClick.php?lat=44.2705&lon=-71.3033&unit=0&lg=english&FcstType=graphical',
+        'NWS_Discussion': 'https://forecast.weather.gov/product.php?site=GYX&issuedby=GYX&product=AFD&format=CI&version=1&glossary=1&highlight=off',
+        'Windy': 'https://www.windy.com/44.270/-71.303?44.255,-71.304,13'
+    };
+
+    function loadWeatherLinks(datasetId) {
+        const jsonFile = linkConfigs[datasetId];
+        
+        fetch(jsonFile)
+            .then(response => response.json())
+            .then(links => {
+                const linksDiv = document.getElementById('weather-links');
+                linksDiv.innerHTML = '';
+                
+                Object.entries(links).forEach(([name, url]) => {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.textContent = name;
+                    link.style.marginRight = '15px';
+                    link.target = '_blank';
+                    linksDiv.appendChild(link);
+                });
+            })
+            .catch(() => {
+                const linksDiv = document.getElementById('weather-links');
+                linksDiv.innerHTML = '';
+                Object.entries(defaultLinks).forEach(([name, url]) => {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.textContent = name;
+                    link.style.marginRight = '15px';
+                    link.target = '_blank';
+                    linksDiv.appendChild(link);
+                });
+            });
+    }
+
+    document.getElementById('weather-toggle').addEventListener('change', (e) => {
+        loadWeatherLinks(e.target.value);
+    });
+
+    loadWeatherLinks('1');
+</script>
+
+
+Some weather modeling I've done to determine whether it'll be undercast in the moutains. Currently has dummy data.
+
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<div id="plot1" style="width:48%;display:inline-block;"></div>
+<div id="plot2" style="width:48%;display:inline-block;"></div>
+<div id="plot3" style="width:48%;display:inline-block;"></div>
+<div id="plot4" style="width:48%;display:inline-block;"></div>
+
+<script>
+    function loadWeatherPlots(datasetId) {
+        const mountainNames = ['MtWashington', 'MtLafayette', 'MtMoosilauke', 'MtMonadnock'];
+        const jsonFile = `/files/weather/weather_data_${mountainNames[parseInt(datasetId) - 1]}.json`;
+        
+        fetch(jsonFile)
+            .then(response => response.json())
+            .then(data => {
+                const plots = ['plot1', 'plot2', 'plot3', 'plot4'];
+                plots.forEach((plotId, index) => {
+                    const trace = {
+                        x: data[`dataset${index + 1}`].x,
+                        y: data[`dataset${index + 1}`].y,
+                        mode: 'markers',
+                        type: 'scatter'
+                    };
+                    Plotly.newPlot(plotId, [trace]);
+                });
+            });
+    }
+
+    document.getElementById('weather-toggle').addEventListener('change', (e) => {
+        loadWeatherPlots(e.target.value);
+    });
+
+    loadWeatherPlots('1');
+</script>
