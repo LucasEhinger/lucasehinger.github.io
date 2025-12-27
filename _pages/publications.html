@@ -11,9 +11,9 @@ author_profile: true
 
 {% include base_path %}
 
-<!-- New style rendering if publication categories are defined -->
+<ul>
 {% if site.publication_category %}
-  {% for category in site.publication_category  %}
+  {% for category in site.publication_category %}
     {% assign title_shown = false %}
     {% for post in site.publications reversed %}
       {% if post.category != category[0] %}
@@ -23,14 +23,33 @@ author_profile: true
         <h2>{{ category[1].title }}</h2><hr />
         {% assign title_shown = true %}
       {% endunless %}
-      {% include archive-single.html %}
+      <li>
+        <em>{{ post.title }}</em>
+        {% if post.authors %}<br>{% assign authors = post.authors | split: "; " %}{% for author in authors %}{% assign author_last_name = site.author.name | split: " " | last %}{% if author contains author_last_name %}<strong>{{ author }}</strong>{% else %}{{ author }}{% endif %}{% if forloop.last == false %}, {% endif %}{% endfor %}{% endif %}
+        <br>
+        {% if post.url or post.arxiv %}
+          {% if post.paperurl %}<a href="{{ post.paperurl }}">{{ post.venue }} ({{ post.date | date: '%Y' }})</a>{% endif %}
+          {% if post.paperurl and post.arxivurl %} | {% endif %}
+          {% if post.arxivurl %}<a href="{{ post.arxivurl }}">arXiv</a>{% endif %}
+        {% endif %}
+        {% if post.comment %}<br><small><em>{{ post.comment }}</em></small>{% endif %}
+      </li>
     {% endfor %}
   {% endfor %}
 {% else %}
   {% for post in site.publications reversed %}
-    {% include archive-single.html %}
+    <li>
+      <em>{{ post.title }}</em>
+      {% if post.authors %}<br>{% assign authors = post.authors | split: "; " %}{% for author in authors %}{% assign author_last_name = site.author.name | split: " " | last %}{% if author contains author_last_name %}<strong>{{ author }}</strong>{% else %}{{ author }}{% endif %}{% if forloop.last == false %}, {% endif %}{% endfor %}{% endif %}
+      <br>
+      {% if post.url or post.arxiv %}
+        {% if post.paperurl %}<a href="{{ post.paperurl }}">{{ post.venue }} ({{ post.date | date: '%Y' }})</a>{% endif %}
+        {% if post.paperurl and post.arxivurl %} | {% endif %}
+        {% if post.arxivurl %}<a href="{{ post.arxivurl }}">arXiv</a>{% endif %}
+      {% endif %}
+      {% if post.comment %}<br><small><em>{{ post.comment }}</em></small>{% endif %}
+    </li>
   {% endfor %}
 {% endif %}
-
-
+</ul>
 

@@ -11,6 +11,29 @@ author_profile: true
 
 {% endif %}
 
-{% for post in site.talks reversed %}
-  {% include archive-single-talk.html %}
-{% endfor %}
+
+{% if site.talk_category %}
+  {% for category in site.talk_category %}
+    {% assign title_shown = false %}
+    {% for post in site.talks reversed %}
+      {% if post.category != category[0] %}
+        {% continue %}
+      {% endif %}
+      {% unless title_shown %}
+        <h2>{{ category[1].title }}</h2><hr />
+        {% assign title_shown = true %}
+      {% endunless %}
+      <li>
+        {% if post.title %}<em><a href="{{ post.link }}">{{ post.title }}</a></em><br>{% endif %}
+        {% if post.venue %}{{ post.venue }}{% endif %}{% if post.date %} ({{ post.date | date: '%Y' }}){% endif %}{% if post.location %}, {{ post.location }}{% endif %}
+      </li>
+    {% endfor %}
+  {% endfor %}
+{% else %}
+  {% for post in site.talks reversed %}
+    <li>
+      {% if post.title %}<em><a href="{{ post.link }}">{{ post.title }}</a></em><br>{% endif %}
+      {% if post.venue %}{{ post.venue }}{% endif %}{% if post.date %} ({{ post.date | date: '%Y' }}){% endif %}{% if post.location %}, {{ post.location }}{% endif %}
+    </li>
+  {% endfor %}
+{% endif %}

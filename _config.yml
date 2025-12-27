@@ -23,7 +23,7 @@ repository               : "lucasehinger.github.io"
 #               Additional customization can be done by editing /_includes/author-profile.html
 author:
   # Biographic information
-  avatar           : "profile.png"
+  avatar           : "Lucas Ehinger Mt St Helens Cropped.jpg"
   name             : "Lucas Ehinger"
   pronouns         : # example: "she/her"  
   bio              : "Experimental Nuclear Physics PhD Student at MIT"
@@ -34,8 +34,8 @@ author:
 
   # Academic websites
   academia         : # URL
-  arxiv            : # URL - Update with the correct link to your profile
-  googlescholar    : "https://arxiv.org/search/?searchtype=author&query=Ehinger%2C+L"
+  arxiv            : "https://arxiv.org/search/?searchtype=author&query=Ehinger%2C+L"
+  googlescholar    : # URL
   inspire-hep      : "https://inspirehep.net/authors/1913355"
   impactstory      : # URL
   orcid            : "https://orcid.org/0000-0001-6164-1504"
@@ -87,9 +87,19 @@ publication_category:
   books:
     title: 'Books'
   manuscripts:
-    title: 'Journal Articles'    
+    title: 'Journal Articles' 
+  preprints:
+    title: 'Unpublished Works'   
   conferences:
     title: 'Conference Papers'
+
+talk_category:
+  invited:
+    title: 'Invited Talks'
+  contributed:
+    title: 'Contributed Talks'
+  poster:
+    title: 'Posters'
 
 # Site Settings
 teaser                   :  # filename of teaser fallback teaser image placed in /images/ for social media previews
