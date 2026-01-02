@@ -203,7 +203,7 @@ Some weather modeling I've done to determine whether it'll be undercast in the m
 <div id="plot6" style="width:48%;display:inline-block;"></div>
 <div id="plot7" style="width:48%;display:inline-block;"></div>
 
-
+{% raw %}
 <script>
     const defaultColors = [
         '#1f77b4', // 1st
@@ -924,6 +924,7 @@ Some weather modeling I've done to determine whether it'll be undercast in the m
 
     loadWeatherPlots('1', getSelectedModel(), getSelectedUnits());
 </script>
+{% endraw %}
 
 <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color, #ccc); font-size: 0.85em; color: var(--text-color, #999); text-align: center;">
     <p>Admospheric models produced and provided by the National Oceanic and Atmospheric Administration (NOAA), and accessed via the <a href="https://herbie.readthedocs.io/en/stable/#" target="_blank" style="color: var(--border-color, #999);">Herbie</a> python package.</p>
