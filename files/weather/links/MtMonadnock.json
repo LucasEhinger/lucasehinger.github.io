@@ -3,5 +3,6 @@
   "NWS_Hourly": "https://forecast.weather.gov/MapClick.php?lat=42.861&lon=-72.108&unit=0&lg=english&FcstType=graphical",
   "NWS_Discussion": "https://forecast.weather.gov/product.php?site=GYX&issuedby=GYX&product=AFD&format=CI&version=1&glossary=1&highlight=off",
   "Windy": "https://www.windy.com/42.861/-72.108?42.855,-72.108,14",
-  "Higher_Summits": "https://mountwashington.org/weather/higher-summits-forecast/"
+  "Higher_Summits": "https://mountwashington.org/weather/higher-summits-forecast/",
+  "MWAC": "https://www.mountwashingtonavalanchecenter.org/"
 }

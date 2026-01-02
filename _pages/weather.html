@@ -5,20 +5,118 @@ permalink: /weather/
 author_profile: true
 ---
 
-<div style="margin-bottom: 20px; width: 100%;">
-    <label for="weather-toggle">Forecast Location: </label>
-    <select id="weather-toggle" style="width: 300px; background-color: var(--bg-color, #fff); color: var(--text-color, #333); border: 1px solid var(--border-color, #ccc);">
-        <option value="1">Mt. Washington</option>
-        <option value="2">Mt. Lafayette</option>
-        <option value="3">Mt. Moosilauke</option>
-        <option value="4">Mt. Monadnock</option>
-    </select>
-</div>
+<div style="margin-bottom: 20px; width: 100%; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: inline-flex; align-items: center; gap: 8px;">
+            <label for="weather-toggle">Forecast Location:</label>
+            <div class="info-circle" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: var(--border-color, #ccc); color: var(--bg-color, #fff); font-size: 12px; font-weight: bold; cursor: help;">
+                ?
+                <div style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
+                    Select a summit. Quick links and plots will automatically update.
+                </div>
+            </div>
+            <select id="weather-toggle" style="width: 300px; background-color: var(--bg-color, #fff); color: var(--text-color, #333); border: 1px solid var(--border-color, #ccc);">
+                <option value="1">Mt. Washington</option>
+                <option value="2">Mt. Lafayette</option>
+                <option value="3">Mt. Moosilauke</option>
+                <option value="4">Mt. Monadnock</option>
+            </select>
+        </div>
+        <div id="model-toggle" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; background-color: var(--bg-color, #fff); color: var(--text-color, #333);">
+            <span style="font-weight: 600; color: var(--text-color, #333);">Model:</span>
+            <div class="info-circle" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: var(--border-color, #ccc); color: var(--bg-color, #fff); font-size: 12px; font-weight: bold; cursor: help;">
+                ?
+                <div style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
+                    Check HRRR and/or GFS to show those model traces on the plots.
+                </div>
+            </div>
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-color, #333);">
+                <input type="checkbox" name="model-toggle" value="hrrr" aria-label="HRRR" checked /> HRRR
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-color, #333);">
+                <input type="checkbox" name="model-toggle" value="gfs" aria-label="GFS" /> GFS
+            </label>
+        </div>
+        <div id="units-toggle" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; background-color: var(--bg-color, #fff); color: var(--text-color, #333);">
+            <span style="font-weight: 600; color: var(--text-color, #333);">Units:</span>
+            <div class="info-circle" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: var(--border-color, #ccc); color: var(--bg-color, #fff); font-size: 12px; font-weight: bold; cursor: help;">
+                ?
+                <div style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
+                    Switch between metric (C, m) and imperial (F, ft) for all plots.
+                </div>
+            </div>
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-color, #333);">
+                <input type="radio" name="units-toggle" value="metric" aria-label="Metric" checked /> Metric
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-color, #333);">
+                <input type="radio" name="units-toggle" value="imperial" aria-label="Imperial" /> Imperial
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-color, #333);">
+                <input type="radio" name="units-toggle" value="stupid" aria-label="Stupid" /> Stupid
+            </label>
+        </div>
+        <div id="last-update" style="font-size: 0.85em; color: var(--text-color, #666); margin-top: 8px;">
+            <!-- Last model update time will be populated here -->
+        </div>
+    </div>
 
-<h3>Quick Links:</h3>
-
-<div id="weather-links" style="margin-bottom: 20px;">
-    <!-- Links will be populated here -->
+    <div style="border: 1px solid var(--border-color, #ccc); border-radius: 6px; padding: 12px; background-color: var(--bg-color, #fff); min-width: 280px; margin-left: auto;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px;">
+            <h4 style="margin: 0; font-size: 1em; color: var(--text-color, #333);">Quick Links</h4>
+            <div class="info-circle" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: var(--border-color, #ccc); color: var(--bg-color, #fff); font-size: 12px; font-weight: bold; cursor: help;">
+                ?
+                <div style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
+                    Links to weather forecasts and tools<br>for specified forecast location.
+                </div>
+            </div>
+        </div>
+        <style>
+            .info-circle:hover > div {
+                opacity: 1 !important;
+            }
+            .plot-info-button {
+                cursor: help;
+                color: var(--border-color, #999);
+                font-size: 16px;
+                font-weight: bold;
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                background-color: rgba(255, 255, 255, 0.9);
+                border: 1px solid var(--border-color, #ccc);
+                transition: background-color 0.2s, color 0.2s;
+            }
+            .plot-info-button:hover {
+                background-color: var(--border-color, #ccc);
+                color: var(--bg-color, #fff);
+            }
+            .plot-info-tooltip {
+                position: absolute;
+                background-color: #333;
+                color: #fff;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                white-space: pre-line;
+                max-width: 250px;
+                opacity: 0.95;
+                pointer-events: auto;
+                z-index: 1000;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            }
+        </style>
+        <div id="weather-links" style="display: flex; gap: 20px; justify-content: center;">
+            <div id="weather-links-left" style="display: flex; flex-direction: column; gap: 6px;">
+                <!-- NWS links will be populated here -->
+            </div>
+            <div id="weather-links-right" style="display: flex; flex-direction: column; gap: 6px;">
+                <!-- Other links will be populated here -->
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -42,28 +140,43 @@ author_profile: true
         fetch(jsonFile)
             .then(response => response.json())
             .then(links => {
-                const linksDiv = document.getElementById('weather-links');
-                linksDiv.innerHTML = '';
+                const linksLeft = document.getElementById('weather-links-left');
+                const linksRight = document.getElementById('weather-links-right');
+                linksLeft.innerHTML = '';
+                linksRight.innerHTML = '';
                 
                 Object.entries(links).forEach(([name, url]) => {
                     const link = document.createElement('a');
                     link.href = url;
                     link.textContent = name;
-                    link.style.marginRight = '15px';
+                    link.style.display = 'block';
                     link.target = '_blank';
-                    linksDiv.appendChild(link);
+                    
+                    if (name.startsWith('NWS')) {
+                        linksLeft.appendChild(link);
+                    } else {
+                        linksRight.appendChild(link);
+                    }
                 });
             })
             .catch(() => {
-                const linksDiv = document.getElementById('weather-links');
-                linksDiv.innerHTML = '';
+                const linksLeft = document.getElementById('weather-links-left');
+                const linksRight = document.getElementById('weather-links-right');
+                linksLeft.innerHTML = '';
+                linksRight.innerHTML = '';
+                
                 Object.entries(defaultLinks).forEach(([name, url]) => {
                     const link = document.createElement('a');
                     link.href = url;
                     link.textContent = name;
-                    link.style.marginRight = '15px';
+                    link.style.display = 'block';
                     link.target = '_blank';
-                    linksDiv.appendChild(link);
+                    
+                    if (name.startsWith('NWS')) {
+                        linksLeft.appendChild(link);
+                    } else {
+                        linksRight.appendChild(link);
+                    }
                 });
             });
     }
@@ -78,38 +191,740 @@ author_profile: true
 
 Some weather modeling I've done to determine whether it'll be undercast in the moutains. Currently has dummy data.
 
+<br><br>
 
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 <div id="plot1" style="width:48%;display:inline-block;"></div>
 <div id="plot2" style="width:48%;display:inline-block;"></div>
 <div id="plot3" style="width:48%;display:inline-block;"></div>
-<div id="plot4" style="width:48%;display:inline-block;"></div>
+<div id="plot4" style="width:48%;display:none;"></div>
+<div id="plot5" style="width:48%;display:inline-block;"></div>
+<div id="plot6" style="width:48%;display:inline-block;"></div>
+<div id="plot7" style="width:48%;display:inline-block;"></div>
+
 
 <script>
-    function loadWeatherPlots(datasetId) {
+    const defaultColors = [
+        '#1f77b4', // 1st
+        '#ff7f0e', // 2nd
+        '#2ca02c', // 3rd
+        '#d62728', // 4th
+        '#9467bd', // 5th
+        '#8c564b', // 6th
+        '#e377c2', // 7th
+        '#7f7f7f', // 8th
+        '#bcbd22', // 9th
+        '#17becf'  // 10th
+    ];
+
+    const METERS_TO_FEET = 3.28084;
+    const METERS_TO_MILES = 0.000621371;
+    const METERS_TO_FEMTO_PARSECS = 3.24078e-2; // 1 femto-parsec ≈ 30.86 meters
+
+    function visibilityToUnits(valueMeters, units) {
+        if (units === 'imperial') {
+            return valueMeters * METERS_TO_MILES;
+        } else if (units === 'stupid') {
+            return valueMeters * METERS_TO_FEMTO_PARSECS;
+        }
+        return valueMeters;
+    }
+
+    function visibilityLabel(units) {
+        if (units === 'imperial') return 'mi';
+        if (units === 'stupid') return 'fempto-pc';
+        return 'm';
+    }
+
+    function getSelectedModel() {
+        const selected = Array.from(document.querySelectorAll('input[name="model-toggle"]:checked')).map((el) => el.value);
+        return {
+            hrrr: selected.includes('hrrr'),
+            gfs: selected.includes('gfs')
+        };
+    }
+
+    function getSelectedUnits() {
+        return document.querySelector('input[name="units-toggle"]:checked')?.value || 'metric';
+    }
+
+    function heightToUnits(valueMeters, units) {
+        if (units === 'imperial') {
+            return valueMeters * METERS_TO_FEET;
+        } else if (units === 'stupid') {
+            return valueMeters * METERS_TO_FEMTO_PARSECS;
+        }
+        return valueMeters;
+    }
+
+    function heightLabel(units) {
+        if (units === 'imperial') return 'ft';
+        if (units === 'stupid') return 'fempto-pc';
+        return 'm';
+    }
+
+    function tempLabel(units) {
+        if (units === 'imperial') return 'F';
+        if (units === 'stupid') return '°R';
+        return 'C';
+    }
+
+    function chartTextColor() {
+        const val = getComputedStyle(document.documentElement).getPropertyValue('--text-color');
+        return (val && val.trim()) || '#000';
+    }
+
+    function axisStyle(titleText, color) {
+        return {
+            title: { text: titleText, font: { color } },
+            tickfont: { color },
+            linecolor: color,
+            tickcolor: color,
+            zeroline: false
+        };
+    }
+
+    const convertTemp = (kelvin, units) => {
+        if (units === 'imperial') {
+            return ((kelvin - 273.15) * 9 / 5 + 32).toFixed(2);
+        } else if (units === 'stupid') {
+            return (kelvin * 9 / 5).toFixed(2);
+        }
+        return (kelvin - 273.15).toFixed(2);
+    };
+
+    function approxAltitude(meters, units) {
+        const unitLabel = heightLabel(units);
+        const sigRound = (val, sig = 2) => {
+            if (!isFinite(val) || val === 0) return val;
+            const power = sig - Math.ceil(Math.log10(Math.abs(val)));
+            const factor = Math.pow(10, power);
+            return Math.round(val * factor) / factor;
+        };
+
+        const raw = units === 'imperial' ? meters * METERS_TO_FEET : meters;
+        const value = units === 'imperial' ? sigRound(raw, 2) : Math.round(raw);
+        return `${value}${unitLabel}`;
+    }
+
+    function levelLabel(pressure, approxMeters, model, units) {
+        return `${pressure}mb (~${approxAltitude(approxMeters, units)})<br>(${model})`;
+    }
+    function convertTimeToDateTime(timeValues, dateStr) {
+        // Parse date_str like "2025-11-08 00:00" (UTC)
+        const baseParts = dateStr.split(' ');
+        const dateOnly = baseParts[0]; // "2025-11-08"
+        const timeOnly = baseParts[1]; // "00:00"
+        
+        const [year, month, day] = dateOnly.split('-').map(Number);
+        const [hour, minute] = timeOnly.split(':').map(Number);
+        
+        // Create date in UTC
+        const baseDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+        
+        return timeValues.map((time) => {
+            const offsetDate = new Date(baseDate.getTime() + time * 60 * 60 * 1000); // time in hours
+            
+            // Convert to Eastern Time using toLocaleString
+            const easternTime = offsetDate.toLocaleString('en-US', {
+                timeZone: 'America/New_York',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+            
+            // Parse the formatted string back to YYYY-MM-DD HH:mm format
+            const parts = easternTime.split(', ');
+            const [m, d, y] = parts[0].split('/');
+            const [h, min] = parts[1].split(':');
+            
+            return `${y}-${m}-${d} ${h}:${min}`;
+        });
+    }
+    function loadWeatherPlots(datasetId, modelChoice = getSelectedModel(), unitChoice = getSelectedUnits()) {
         const mountainNames = ['MtWashington', 'MtLafayette', 'MtMoosilauke', 'MtMonadnock'];
         const jsonFile = `/files/weather/weather_data_${mountainNames[parseInt(datasetId) - 1]}.json`;
-        
+        const modelSelection = modelChoice;
+        const showHRRR = !!modelSelection.hrrr;
+        const showGFS = !!modelSelection.gfs;
+        const selectedUnits = unitChoice;
+        const convertHeight = (m) => heightToUnits(m, selectedUnits);
+        const textColor = chartTextColor();
+
         fetch(jsonFile)
             .then(response => response.json())
             .then(data => {
-                const plots = ['plot1', 'plot2', 'plot3', 'plot4'];
-                plots.forEach((plotId, index) => {
-                    const trace = {
-                        x: data[`dataset${index + 1}`].x,
-                        y: data[`dataset${index + 1}`].y,
-                        mode: 'markers',
-                        type: 'scatter'
-                    };
-                    Plotly.newPlot(plotId, [trace]);
-                });
+                // Convert time values to full date/time using date_str
+                const dateStr = data.date_str || '2025-01-01 00:00';
+                console.log('date_str:', dateStr);
+                console.log('time values sample:', data.low_cloud_layer_percent_hrrr.x.slice(0, 5));
+                
+                // Update last model update time display
+                const lastUpdateEl = document.getElementById('last-update');
+                if (lastUpdateEl) {
+                    // Parse the UTC date string
+                    const baseParts = dateStr.split(' ');
+                    const dateOnly = baseParts[0];
+                    const timeOnly = baseParts[1];
+                    const [year, month, day] = dateOnly.split('-').map(Number);
+                    const [hour, minute] = timeOnly.split(':').map(Number);
+                    const utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+                    
+                    // Convert to Eastern Time
+                    const easternTime = utcDate.toLocaleString('en-US', {
+                        timeZone: 'America/New_York',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+                    
+                    lastUpdateEl.textContent = `Last model update: ${easternTime} ET`;
+                }
+                
+                let convertedDates;
+                try {
+                    convertedDates = convertTimeToDateTime(data.low_cloud_layer_percent_hrrr.x, dateStr);
+                    console.log('converted dates sample:', convertedDates.slice(0, 5));
+                } catch (err) {
+                    console.error('Error converting dates:', err);
+                    // Fallback to using raw time values if conversion fails
+                    convertedDates = data.low_cloud_layer_percent_hrrr.x;
+                }
+                
+                // cloud_layer_percent
+                const c1 = defaultColors;
+
+                const trace_pct_low_hrrr = {
+                    x: convertedDates,
+                    y: data.low_cloud_layer_percent_hrrr.y,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Low (HRRR)',
+                    line: { color: c1[0] }
+                };
+                const trace_pct_mid_hrrr = {
+                    x: convertedDates,
+                    y: data.middle_cloud_layer_percent_hrrr.y,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Middle (HRRR)',
+                    line: { color: c1[1] }
+                };
+                const trace_pct_high_hrrr = {
+                    x: convertedDates,
+                    y: data.high_cloud_layer_percent_hrrr.y,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'High (HRRR)',
+                    line: { color: c1[2] }
+                };
+                const trace_pct_boundary_hrrr = {
+                    x: convertedDates,
+                    y: data.boundary_layer_cloud_layer_hrrr.y,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Boundary (HRRR)',
+                    line: { color: c1[3] }
+                };
+
+                const trace_pct_low_gfs = {
+                    x: convertedDates,
+                    y: data.low_cloud_layer_percent_gfs.y,
+                    mode: 'lines+markers',
+                    line: { dash: 'dot', color: c1[0] },
+                    type: 'scatter',
+                    name: 'Low (GFS)'
+                };
+                const trace_pct_mid_gfs = {
+                    x: convertedDates,
+                    y: data.middle_cloud_layer_percent_gfs.y,
+                    mode: 'lines+markers',
+                    line: { dash: 'dot', color: c1[1] },
+                    type: 'scatter',
+                    name: 'Middle (GFS)',
+                };
+                const trace_pct_high_gfs = {
+                    x: convertedDates,
+                    y: data.high_cloud_layer_percent_gfs.y,
+                    mode: 'lines+markers',
+                    line: { dash: 'dot', color: c1[2] },
+                    type: 'scatter',
+                    name: 'High (GFS)'
+                };
+                const trace_pct_boundary_gfs = {
+                    x: convertedDates,
+                    y: data.boundary_layer_cloud_layer_gfs.y,
+                    mode: 'lines+markers',
+                    line: { dash: 'dot', color: c1[3] },
+                    type: 'scatter',
+                    name: 'Boundary (GFS)'
+                };
+
+                const layout1 = {
+                    title: { 
+                        text: 'Cloud Layer Coverage',
+                        font: { color: textColor } 
+                    },
+                    xaxis: { ...axisStyle('', textColor) },
+                    yaxis: { ...axisStyle('Coverage (%)', textColor) },
+                    legend: { font: { color: textColor } },
+                    showlegend: true
+                };
+
+                const plot1Traces = [];
+                if (showHRRR) {
+                    plot1Traces.push(trace_pct_high_hrrr, trace_pct_mid_hrrr, trace_pct_low_hrrr, trace_pct_boundary_hrrr);
+                }
+                if (showGFS) {
+                    plot1Traces.push(trace_pct_low_gfs, trace_pct_mid_gfs, trace_pct_high_gfs, trace_pct_boundary_gfs);
+                }
+                Plotly.newPlot('plot1', plot1Traces, layout1);
+
+                // Cloud ceiling + base height
+                const c2 = defaultColors;
+
+                const trace2_a = {
+                    x: convertedDates,
+                    y: data.cloud_ceiling_m_hrrr.y.map(convertHeight),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Cloud<br>Ceiling (HRRR)',
+                    line: { color: c2[0] },
+                    showlegend: true
+                };
+                const trace2_b = {
+                    x: convertedDates,
+                    y: data.cloud_base_m_hrrr.y.map(convertHeight),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Cloud<br>Base (HRRR)',
+                    line: { color: c2[1] },
+                    showlegend: true
+                };
+                const trace2_c = {
+                    x: convertedDates,
+                    y: data.cloud_ceiling_gfs.y.map(convertHeight),
+                    mode: 'lines+markers',
+                    line: { dash: 'dot', color: c2[0] },
+                    type: 'scatter',
+                    name: 'Cloud<br>Ceiling (GFS)',
+                };
+
+                const layout2 = {
+                    title: { 
+                        text: 'Cloud Ceiling and Base Height',
+                        font: { color: textColor } 
+                    },
+                    xaxis: { ...axisStyle('', textColor) },
+                    yaxis: { ...axisStyle(`Height (${heightLabel(selectedUnits)})`, textColor) },
+                    legend: { font: { color: textColor } },
+                    showlegend: true
+                };
+
+                const plot2Traces = [];
+                if (showHRRR) {
+                    plot2Traces.push(trace2_a, trace2_b);
+                }
+                if (showGFS) {
+                    plot2Traces.push(trace2_c);
+                }
+                Plotly.newPlot('plot2', plot2Traces, layout2);
+
+                // Temperature 
+
+                const c3 = defaultColors;
+                const tempUnitLabel = tempLabel(selectedUnits);
+
+                const trace_tmp_1000mb_hrr = {
+                    x: convertedDates,
+                    y: data.tmp_1000mb_hrrr.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: levelLabel('1000', 100, 'HRRR', selectedUnits),
+                    visible: true,
+                    line: { color: c3[0] }
+                };
+                const tmp_925mb_hrr = {
+                    x: convertedDates,
+                    y: data.tmp_925mb_hrrr.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: levelLabel('925', 750, 'HRRR', selectedUnits),
+                    line: { color: c3[1] },
+                };
+                const tmp_850mb_hrr = {
+                    x: convertedDates,
+                    y: data.tmp_850mb_hrrr.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: levelLabel('850', 1500, 'HRRR', selectedUnits),
+                    line: { color: c3[2] }
+                };
+                const tmp_700mb_hrr = {
+                    x: convertedDates,
+                    y: data.tmp_700mb_hrrr.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: levelLabel('700', 3000, 'HRRR', selectedUnits),
+                    visible: false,
+                    line: { color: c3[3] }
+                };
+                const tmp_500mb_hrr = {
+                    x: convertedDates,
+                    y: data.tmp_500mb_hrrr.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: levelLabel('500', 5500, 'HRRR', selectedUnits),
+                    visible: false,
+                    line: { color: c3[4] }
+                };
+                const tmp_2m_hrr = {
+                    x: convertedDates,
+                    y: data.tmp_2m_hrrr.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: '2m (HRRR)',
+                    visible: true,
+                    line: { color: c3[5] }
+                };
+                const tmp_1000mb_gfs = {
+                    x: convertedDates,
+                    y: data.tmp_1000mb_gfs.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: levelLabel('1000', 100, 'GFS', selectedUnits),
+                    visible: true,
+                    line: { dash: 'dot', color: c3[0] }
+                };
+                const tmp_925mb_gfs = {
+                    x: convertedDates,
+                    y: data.tmp_925mb_gfs.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: levelLabel('925', 750, 'GFS', selectedUnits),
+                    line: { dash: 'dot', color: c3[1] }
+                };
+                const tmp_850mb_gfs = {
+                    x: convertedDates,
+                    y: data.tmp_850mb_gfs.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: levelLabel('850', 1500, 'GFS', selectedUnits),
+                    line: { dash: 'dot', color: c3[2] }
+                };
+                const tmp_700mb_gfs = {
+                    x: convertedDates,
+                    y: data.tmp_700mb_gfs.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: levelLabel('700', 3000, 'GFS', selectedUnits),
+                    visible: false,
+                    line: { dash: 'dot', color: c3[3] }
+                };
+                const tmp_500mb_gfs = {
+                    x: convertedDates,
+                    y: data.tmp_500mb_gfs.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: levelLabel('500', 5500, 'GFS', selectedUnits),
+                    visible: false,
+                    line: { dash: 'dot', color: c3[4] }
+                };
+                const tmp_2m_gfs = {
+                    x: convertedDates,
+                    y: data.tmp_2m_gfs.y.map((v) => convertTemp(v, selectedUnits)),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: '2m (GFS)',
+                    visible: true,
+                    line: { dash: 'dot', color: c3[5] }
+                };
+                const layout3 = {
+                    title: { 
+                        text: 'Temperature at Various Altitudes',
+                        font: { color: textColor } 
+                    },
+                    xaxis: { ...axisStyle('', textColor) },
+                    yaxis: { ...axisStyle(`Temperature (${tempUnitLabel})`, textColor) },
+                    legend: { font: { color: textColor } },
+                    showlegend: true
+                };
+                const plot3Traces = [];
+                if (showHRRR) {
+                    plot3Traces.push(trace_tmp_1000mb_hrr, tmp_925mb_hrr, tmp_850mb_hrr, tmp_700mb_hrr, tmp_500mb_hrr, tmp_2m_hrr);
+                }
+                if (showGFS) {
+                    plot3Traces.push(tmp_1000mb_gfs, tmp_925mb_gfs, tmp_850mb_gfs, tmp_700mb_gfs, tmp_500mb_gfs, tmp_2m_gfs);
+                }
+                Plotly.newPlot('plot3', plot3Traces, layout3);
+                
+                const c4 = defaultColors;
+
+                const trace_hpbl_hrrr = {
+                    x: convertedDates,
+                    y: data.hpbl_surface_hrrr.y.map(convertHeight),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'HPBL (HRRR)',
+                    line: { color: c4[0] }
+                };
+                const trace_bpbl_gfs = {
+                    x: convertedDates,
+                    y: data.hpbl_surface_gfs.y.map(convertHeight),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'BPBL (GFS)',
+                    line: { dash: 'dot', color: c4[1] }
+                };
+                const layout4 = {
+                    title: { 
+                        text: 'Planetary Boundary Layer Height',
+                        font: { color: textColor } 
+                    },
+                    xaxis: { ...axisStyle('', textColor) },
+                    yaxis: { ...axisStyle(`Height (${heightLabel(selectedUnits)})`, textColor) },
+                    legend: { font: { color: textColor } },
+                    showlegend: true
+                };
+                const plot4Traces = [];
+                if (showHRRR) {
+                    plot4Traces.push(trace_hpbl_hrrr);
+                }
+                if (showGFS) {
+                    plot4Traces.push(trace_bpbl_gfs);
+                }
+                Plotly.newPlot('plot4', plot4Traces, layout4);
+
+                const c5 = defaultColors;
+
+                const trace5_a = {
+                    x: convertedDates,
+                    y: data.rh_2m_hrrr.y,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: '2m RH (HRRR)',
+                    line: { color: c5[0] }
+                };
+                const trace5_b = {
+                    x: convertedDates,
+                    y: data.rh_2m_gfs.y,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: '2m RH (GFS)',
+                    line: { dash: 'dot', color: c5[0] }
+                };
+                const trace5_c = {
+                    x: convertedDates,
+                    y: data.rh_925mb_gfs.y,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: '925mb RH (GFS)',
+                    line: { dash: 'dot', color: c5[1] }
+                };
+                const layout5 = {
+                    title: { 
+                        text: 'Relative Humidity',
+                        font: { color: textColor } 
+                    },
+                    xaxis: { ...axisStyle('', textColor) },
+                    yaxis: { ...axisStyle('Relative Humidity (%)', textColor) },
+                    legend: { font: { color: textColor } },
+                    showlegend: true
+                };
+                const plot5Traces = [];
+                if (showHRRR) {
+                    plot5Traces.push(trace5_a);
+                }
+                if (showGFS) {
+                    plot5Traces.push(trace5_b, trace5_c);
+                }
+                Plotly.newPlot('plot5', plot5Traces, layout5);
+
+                const c6 = defaultColors;
+
+                const trace6_a = {
+                    x: convertedDates,
+                    y: data.hgt_0C_iso_hrrr.y.map(convertHeight),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: '0°C Isotherm<br>Height (HRRR)',
+                    line: { color: c6[0] }
+                };
+                const trace6_b = {
+                    x: convertedDates,
+                    y: data.hgt_0C_iso_gfs.y.map(convertHeight),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: '0°C Isotherm<br>Height (GFS)',
+                    line: { dash: 'dot', color: c6[0] }
+                };
+                const layout6 = {
+                    title: { 
+                        text: '0°C Isotherm Height',
+                        font: { color: textColor } 
+                    },
+                    xaxis: { ...axisStyle('', textColor) },
+                    yaxis: { ...axisStyle(`Height (${heightLabel(selectedUnits)})`, textColor) },
+                    legend: { font: { color: textColor } },
+                    showlegend: true
+                };
+                const plot6Traces = [];
+                if (showHRRR) {
+                    plot6Traces.push(trace6_a);
+                }
+                if (showGFS) {
+                    plot6Traces.push(trace6_b);
+                }
+                Plotly.newPlot('plot6', plot6Traces, layout6);
+
+                const c7 = defaultColors;
+
+                const convertVisibility = (m) => visibilityToUnits(m, selectedUnits);
+
+                const trace7_a = {
+                    x: convertedDates,
+                    y: data.vis_surface_hrrr.y.map(convertVisibility),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Surface Visibility (HRRR)',
+                    line: { color: c7[0] }
+                };
+
+                const trace7_b = {
+                    x: convertedDates,
+                    y: data.vis_surface_gfs.y.map(convertVisibility),
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Surface Visibility (GFS)',
+                    line: { dash: 'dot', color: c7[0] }
+                };
+
+                const layout7 = {
+                    title: { 
+                        text: 'Surface Visibility',
+                        font: { color: textColor } 
+                    },
+                    xaxis: { ...axisStyle('', textColor) },
+                    yaxis: { ...axisStyle(`Visibility (${visibilityLabel(selectedUnits)})`, textColor) },
+                    legend: { font: { color: textColor } },
+                    showlegend: true
+                };
+                const plot7Traces = [];
+                if (showHRRR) {
+                    plot7Traces.push(trace7_a);
+                }
+                if (showGFS) {
+                    plot7Traces.push(trace7_b);
+                }
+                Plotly.newPlot('plot7', plot7Traces, layout7);
+                
+                // Add tooltips to plot info icons after Plotly renders
+                setTimeout(() => {
+                    attachPlotInfoTooltips();
+                }, 100);
+            })
+            .catch(error => console.error('Error loading weather data:', error));
+    }
+
+    function attachPlotInfoTooltips() {
+        const unit = getSelectedUnits();
+        const isImperial = unit === 'imperial';
+        const useKm = unit !== 'imperial'; // metric and stupid both use km per request
+
+        const plot1Desc = `Cloud coverage percentage for\n- High (${isImperial ? '20,000–43,000 ft' : '6–13 km'})\n- Middle (${isImperial ? '6,500–20,000 ft' : '2–6 km'})\n- Low (${isImperial ? '1,500–6,500 ft' : '0.5–2 km'})\n- Boundary Layer (${isImperial ? '0–6500 ft' : '0–2 km'})`;
+
+        const plotInfoMap = {
+            'plot1': plot1Desc,
+            'plot2': 'Cloud base: the lowest height above ground level (AGL) at which cloud cover exists.\nCloud height: the lowest height above ground level (AGL) at which >60% cloud cover exists.',
+            'plot3': 'Temperature at different pressure levels (altitudes) and at 2m above ground',
+            'plot4': 'The height of the atmospheric boundary layer where surface effects dominate',
+            'plot5': 'Relative humidity at 2m above ground and at the 925mb level',
+            'plot6': 'Height at which temperature reaches 0°C (32°F) - important for rain/snow line',
+            'plot7': 'Horizontal visibility at surface level - affected by fog, precipitation, and haze'
+        };
+
+        Object.entries(plotInfoMap).forEach(([plotId, tooltipText]) => {
+            const plotDiv = document.getElementById(plotId);
+            if (!plotDiv) return;
+            
+            // Remove old button if exists
+            const oldButton = plotDiv.querySelector('.plot-info-button');
+            if (oldButton) oldButton.remove();
+            
+            // Remove old tooltip if exists
+            const oldTooltip = plotDiv.querySelector('.plot-info-tooltip');
+            if (oldTooltip) oldTooltip.remove();
+            
+            // Ensure plot div is positioned relatively
+            plotDiv.style.position = 'relative';
+            
+            // Create info button at top-left
+            const button = document.createElement('div');
+            button.className = 'plot-info-button';
+            button.textContent = 'ⓘ';
+            button.style.position = 'absolute';
+            button.style.top = '8px';
+            button.style.left = '8px';
+            button.style.zIndex = '10';
+            plotDiv.appendChild(button);
+            
+            // Create tooltip
+            const tooltip = document.createElement('div');
+            tooltip.className = 'plot-info-tooltip';
+            tooltip.textContent = tooltipText;
+            tooltip.style.position = 'absolute';
+            tooltip.style.top = '30px';
+            tooltip.style.left = '8px';
+            tooltip.style.display = 'none';
+            plotDiv.appendChild(tooltip);
+            
+            // Show/hide tooltip on button hover
+            button.addEventListener('mouseenter', () => {
+                tooltip.style.display = 'block';
             });
+            button.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+            tooltip.addEventListener('mouseenter', () => {
+                tooltip.style.display = 'block';
+            });
+            tooltip.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+        });
     }
 
     document.getElementById('weather-toggle').addEventListener('change', (e) => {
-        loadWeatherPlots(e.target.value);
+        loadWeatherPlots(e.target.value, getSelectedModel(), getSelectedUnits());
+        setTimeout(attachPlotInfoTooltips, 150);
     });
 
-    loadWeatherPlots('1');
+    document.querySelectorAll('input[name="model-toggle"]').forEach((input) => {
+        input.addEventListener('change', () => {
+            const datasetId = document.getElementById('weather-toggle').value;
+            loadWeatherPlots(datasetId, getSelectedModel(), getSelectedUnits());
+            setTimeout(attachPlotInfoTooltips, 150);
+        });
+    });
+
+    document.querySelectorAll('input[name="units-toggle"]').forEach((input) => {
+        input.addEventListener('change', () => {
+            const datasetId = document.getElementById('weather-toggle').value;
+            loadWeatherPlots(datasetId, getSelectedModel(), getSelectedUnits());
+            setTimeout(attachPlotInfoTooltips, 150);
+        });
+    });
+
+    loadWeatherPlots('1', getSelectedModel(), getSelectedUnits());
 </script>
+
+<div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color, #ccc); font-size: 0.85em; color: var(--text-color, #999); text-align: center;">
+    <p>Admospheric models produced and provided by the National Oceanic and Atmospheric Administration (NOAA), and accessed via the <a href="https://herbie.readthedocs.io/en/stable/#" target="_blank" style="color: var(--border-color, #999);">Herbie</a> python package.</p>
+</div>
