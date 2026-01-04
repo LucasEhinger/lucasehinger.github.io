@@ -10,6 +10,7 @@ from datetime import timedelta
 import sys
 from io import StringIO
 import csv
+import tempfile
 
 
 
@@ -76,116 +77,109 @@ for index, row in enumerate(undercast_data[1:]):  # Skip header row
     FXX_LIST_NAM = list(range(2, 8+1, 2))  # every 2 hour  
     if avg is not None and avg_next is not None:
         if float(avg_next) == float(avg):
-            FXX_LIST_NAM = list(range(2, 26+1, 2))  # every 2 hour
+            FXX_LIST_NAM = list(range(2, 26+1, 4))  # every 4 hour
             
     date_str = datetime.strptime(short_date, "%m/%d/%y").strftime("%Y-%m-%d %H:%M")
     
-    # Create a Herbie object for HRRR model data
-    # Example: create Herbie objects for multiple forecast hours and keep a default H for
-    # backward compatibility with the rest of the script.
-    # FXX_LIST = list(range(0, 24+1, 9))  # every 1 hour
-    # FXX_LIST_GFS = list(range(0, 24+1, 9))  # every 2 hours
-    # FXX_LIST_NAM = list(range(0, 24+1, 9))  # every 1 hour
-    
+    # Use a temporary directory for Herbie downloads
+    with tempfile.TemporaryDirectory() as tmp:
+        # Create a Herbie object for HRRR model data
+        # Example: create Herbie objects for multiple forecast hours and keep a default H for
+        # backward compatibility with the rest of the script.
+
+        # Use a small helper container that preserves insertion order and allows
+        # multiple Herbie objects for the same fxx (no overwriting).
+        class HsCollection:
+            def __init__(self):
+                # internal list of (fxx, Herbie) tuples in insertion order
+                self._entries = []
+
+            def add(self, fxx, hobj):
+                self._entries.append((fxx, hobj))
+
+            def update_from_iterable(self, iterable):
+                for fxx, hobj in iterable:
+                    self.add(fxx, hobj)
+
+            def items(self):
+                # behave like dict.items() but keep duplicates and insertion order
+                return iter(self._entries)
+
+            def keys(self):
+                return [fxx for fxx, _ in self._entries]
+
+            def __len__(self):
+                return len(self._entries)
+
+            def __getitem__(self, key):
+                # return the first Herbie for this fxx (keeps compatibility with code that expects Hs[fxx])
+                for fxx, h in self._entries:
+                    if fxx == key:
+                        return h
+                raise KeyError(key)
+
+            def get_all(self, key):
+                # helper to fetch all Herbie objects for a given fxx
+                return [h for fxx, h in self._entries if fxx == key]
 
 
-    
-    # FXX_LIST = list(range(0, 49))
-    # Replace these with the latitude/longitude you want to sample.
-    # Provide a list of locations (name, lat, lon). The script will save a separate
-    # JSON for each location in the `jsons` directory.
+        # create the container
+        Hs = HsCollection()
 
-    # HRRR entries
-    # Use a small helper container that preserves insertion order and allows
-    # multiple Herbie objects for the same fxx (no overwriting).
-    class HsCollection:
-        def __init__(self):
-            # internal list of (fxx, Herbie) tuples in insertion order
-            self._entries = []
-
-        def add(self, fxx, hobj):
-            self._entries.append((fxx, hobj))
-
-        def update_from_iterable(self, iterable):
-            for fxx, hobj in iterable:
-                self.add(fxx, hobj)
-
-        def items(self):
-            # behave like dict.items() but keep duplicates and insertion order
-            return iter(self._entries)
-
-        def keys(self):
-            return [fxx for fxx, _ in self._entries]
-
-        def __len__(self):
-            return len(self._entries)
-
-        def __getitem__(self, key):
-            # return the first Herbie for this fxx (keeps compatibility with code that expects Hs[fxx])
-            for fxx, h in self._entries:
-                if fxx == key:
-                    return h
-            raise KeyError(key)
-
-        def get_all(self, key):
-            # helper to fetch all Herbie objects for a given fxx
-            return [h for fxx, h in self._entries if fxx == key]
-
-
-    # create the container
-    Hs = HsCollection()
-
-    # HRRR entries (preserve insertion order)
-    Hs.update_from_iterable(
-        (
+        # HRRR entries (preserve insertion order)
+        Hs.update_from_iterable(
             (
-                fxx,
-                Herbie(
-                    date_str,
-                    model="hrrr",
-                    product="sfc",
-                    fxx=fxx,
-                ),
+                (
+                    fxx,
+                    Herbie(
+                        date_str,
+                        model="hrrr",
+                        product="sfc",
+                        fxx=fxx,
+                        save_dir=tmp,
+                    ),
+                )
+                for fxx in FXX_LIST
             )
-            for fxx in FXX_LIST
         )
-    )
 
-    # GFS entries (added into the same ordered collection; will NOT overwrite HRRR entries)
-    Hs.update_from_iterable(
-        (
+        # GFS entries (added into the same ordered collection; will NOT overwrite HRRR entries)
+        Hs.update_from_iterable(
             (
-                fxx,
-                Herbie(
-                    date_str,
-                    model="gfs",
-                    # product="pgrb2.0p25",
-                    fxx=fxx,
-                ),
+                (
+                    fxx,
+                    Herbie(
+                        date_str,
+                        model="gfs",
+                        # product="pgrb2.0p25",
+                        fxx=fxx,
+                        save_dir=tmp,
+                    ),
+                )
+                for fxx in FXX_LIST_GFS
             )
-            for fxx in FXX_LIST_GFS
         )
-    )
 
-    # NAM entries (added into the same ordered collection; will NOT overwrite HRRR/GFS entries)
-    Hs.update_from_iterable(
-        (
+        # NAM entries (added into the same ordered collection; will NOT overwrite HRRR/GFS entries)
+        Hs.update_from_iterable(
             (
-                fxx,
-                Herbie(
-                    date_str,
-                    model="nam",
-                    # product="conusnest.hiresf",
-                    fxx=fxx,
-                ),
+                (
+                    fxx,
+                    Herbie(
+                        date_str,
+                        model="nam",
+                        # product="conusnest.hiresf",
+                        fxx=fxx,
+                        save_dir=tmp,
+                    ),
+                )
+                for fxx in FXX_LIST_NAM
             )
-            for fxx in FXX_LIST_NAM
         )
-    )
 
-    # Keep a default H so the rest of the script (which expects `H`) continues to work.
-    # Use Hs[f] to access a specific forecast-hour Herbie object when you need to iterate.
-    H = Hs[FXX_LIST_NAM[0]]
+        # Keep a default H so the rest of the script (which expects `H`) continues to work.
+        # Use Hs[f] to access a specific forecast-hour Herbie object when you need to iterate.
+        H = Hs[FXX_LIST_NAM[0]]
 
 
     # Map friendly labels to candidate Herbie variable names (try each until one loads)
@@ -523,6 +517,13 @@ for index, row in enumerate(undercast_data[1:]):  # Skip header row
                     results[lname][label][fxx] = entry
                 except Exception as exc:
                     results[lname][label][fxx] = {"variable": used_name, "error": str(exc)}
+            
+            # Close the dataset after processing this variable
+            try:
+                if hasattr(da, 'close'):
+                    da.close()
+            except Exception:
+                pass
 
         total = len(Hs)
         pct = int(round((i + 1) / total * 100))
@@ -569,3 +570,4 @@ for index, row in enumerate(undercast_data[1:]):  # Skip header row
                 f.write(','.join(row) + '\n')
         
         print(f"Saved {csv_path}")
+    # Temporary directory is automatically cleaned up here
