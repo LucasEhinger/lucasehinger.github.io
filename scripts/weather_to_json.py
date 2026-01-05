@@ -6,13 +6,47 @@ import re
 from datetime import datetime, timezone
 import json
 import math
+from datetime import timedelta
+import sys
+from io import StringIO
 
 
 # Set date_str to the most recent date at the nearest 6-hour increment
 now = datetime.now().astimezone(timezone.utc)
-buffer_hr = 3
-hours = ((now.hour-buffer_hr) // 6) * 6
+hours = (now.hour // 6) * 6
+if hours == 24:
+    hours = 0
+    now = now + timedelta(days=1)
 date_str = now.replace(hour=hours, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M")
+try:
+    # validate by creating a Herbie object
+    h = Herbie(date_str, model="hrrr", product="sfc", fxx=48)
+    # Check if Herbie printed "Did not find" by capturing output
+
+    # Re-run with output capture to check for warning
+    old_stdout = sys.stdout
+    sys.stdout = StringIO()
+    try:
+        h = Herbie(date_str, model="hrrr", product="sfc", fxx=48)
+        output = sys.stdout.getvalue()
+    finally:
+        sys.stdout = old_stdout
+
+    if "Did not find" in output:
+        raise Exception(f"Herbie initialization failed: {output}")
+
+except Exception as e:
+    # If the most recent 6-hour increment fails, fall back to 6 hours prior
+    # print(f"Warning: Failed to load data for {date_str}. Falling back to 6 hours prior.")
+    hours = ((now.hour // 6) * 6 - 6) % 24
+    # Adjust date if we wrapped around midnight
+    if hours > now.hour:
+        now = now - timedelta(days=1)
+    date_str = now.replace(hour=hours, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M")
+    # print(f"Using date_str: {date_str}")
+
+# Hard code date string for testing
+# date_str = "2025-11-02 00:00"
 
 
 # Helper to convert NaN/numpy types to JSON-serializable values (NaN -> None)
@@ -40,8 +74,9 @@ def _clean_for_json(obj):
 # Create a Herbie object for HRRR model data
 # Example: create Herbie objects for multiple forecast hours and keep a default H for
 # backward compatibility with the rest of the script.
-FXX_LIST = list(range(0, 49, 5))  # every 5 hours
-FXX_LIST_GFS = list(range(0, 120, 20))  # every 20 hours
+FXX_LIST = list(range(0, 48 + 1, 1))  # every 1 hour
+FXX_LIST_GFS = list(range(0, 120 + 1, 2))  # every 2 hours
+FXX_LIST_NAM = list(range(0, 60 + 1, 1))  # every 1 hour
 # FXX_LIST = list(range(0, 49))
 # Replace these with the latitude/longitude you want to sample.
 # Provide a list of locations (name, lat, lon). The script will save a separate
@@ -52,9 +87,6 @@ LOCATIONS = [
     {"name": "MtMoosilauke", "lat": 44.02343, "lon": -71.83139},
     {"name": "MtMonadnock", "lat": 42.86137, "lon": -72.10800},
 ]
-
-# Backwards-compatible single date string used to init Herbie objects
-date_str = "2025-11-08 00:00"
 
 # Create a single flat Hs dict containing Herbie objects for both HRRR and GFS fxx lists.
 # If a forecast hour appears in both lists, the GFS entry will overwrite the HRRR one.
@@ -125,11 +157,27 @@ Hs.update_from_iterable(
             Herbie(
                 date_str,
                 model="gfs",
-                # product="sfc",
+                # product="pgrb2.0p25",
                 fxx=fxx,
             ),
         )
         for fxx in FXX_LIST_GFS
+    )
+)
+
+# NAM entries (added into the same ordered collection; will NOT overwrite HRRR/GFS entries)
+Hs.update_from_iterable(
+    (
+        (
+            fxx,
+            Herbie(
+                date_str,
+                model="nam",
+                # product="conusnest.hiresf",
+                fxx=fxx,
+            ),
+        )
+        for fxx in FXX_LIST_NAM
     )
 )
 
@@ -190,6 +238,11 @@ variables = {
     "hpbl_surface_hrrr": {"aliases": [":HPBL:surface"], "model": "hrrr"},
     "hgt_0C_iso_hrrr": {"aliases": [":HGT:0C isotherm:"], "model": "hrrr"},
     "vis_surface_hrrr": {"aliases": [":VIS:surface"], "model": "hrrr"},
+    "prate_surface_hrrr": {"aliases": [":PRATE:surface:%n hour"], "model": "hrrr"},
+    "apcp_surface_hrrr": {
+        "aliases": [":APCP:surface"],
+        "model": "hrrr",
+    },
     "cloud_ceiling_gfs": {
         "aliases": ["cloudCeiling", "HGT:cloud ceiling", "HGT_ceiling"],
         "model": "gfs",
@@ -211,6 +264,11 @@ variables = {
         "model": "gfs",
     },
     "vis_surface_gfs": {"aliases": [":VIS:surface"], "model": "gfs"},
+    "prate_surface_gfs": {"aliases": [":PRATE:surface:%n hour"], "model": "gfs"},
+    "apcp_surface_gfs": {
+        "aliases": [":APCP:surface"],
+        "model": "gfs",
+    },
     "tmp_500mb_gfs": {"aliases": [":TMP:500 mb"], "model": "gfs"},
     "tmp_700mb_gfs": {"aliases": [":TMP:700 mb"], "model": "gfs"},
     "tmp_850mb_gfs": {"aliases": [":TMP:850 mb"], "model": "gfs"},
@@ -221,6 +279,42 @@ variables = {
     "rh_925mb_gfs": {"aliases": [":RH:925 mb"], "model": "gfs"},
     "hpbl_surface_gfs": {"aliases": [":HPBL:surface"], "model": "gfs"},
     "hgt_0C_iso_gfs": {"aliases": [":HGT:0C isotherm:"], "model": "gfs"},
+    "cloud_ceiling_nam": {
+        "aliases": ["cloudCeiling", "HGT:cloud ceiling", "HGT_ceiling"],
+        "model": "nam",
+    },
+    "low_cloud_layer_percent_nam": {
+        "aliases": [":LCDC:low cloud layer:%n hour"],
+        "model": "nam",
+    },
+    "middle_cloud_layer_percent_nam": {
+        "aliases": [":MCDC:middle cloud layer:%n hour"],
+        "model": "nam",
+    },
+    "high_cloud_layer_percent_nam": {
+        "aliases": [":HCDC:high cloud layer:%n hour"],
+        "model": "nam",
+    },
+    "boundary_layer_cloud_layer_nam": {
+        "aliases": [":TCDC:boundary layer cloud layer:%n hour"],
+        "model": "nam",
+    },
+    "vis_surface_nam": {"aliases": [":VIS:surface"], "model": "nam"},
+    "tmp_500mb_nam": {"aliases": [":TMP:500 mb"], "model": "nam"},
+    "tmp_700mb_nam": {"aliases": [":TMP:700 mb"], "model": "nam"},
+    "tmp_850mb_nam": {"aliases": [":TMP:850 mb"], "model": "nam"},
+    "tmp_925mb_nam": {"aliases": [":TMP:925 mb"], "model": "nam"},
+    "tmp_1000mb_nam": {"aliases": [":TMP:1000 mb"], "model": "nam"},
+    "tmp_2m_nam": {"aliases": [":TMP:2 m above ground"], "model": "nam"},
+    "rh_2m_nam": {"aliases": [":RH:2 m above ground"], "model": "nam"},
+    "rh_925mb_nam": {"aliases": [":RH:925 mb"], "model": "nam"},
+    "hpbl_surface_nam": {"aliases": [":HPBL:surface"], "model": "nam"},
+    "hgt_0C_iso_nam": {"aliases": [":HGT:0C isotherm:"], "model": "nam"},
+    "prate_surface_nam": {"aliases": [":PRATE:surface:%n hour"], "model": "nam"},
+    "apcp_surface_nam": {
+        "aliases": [":APCP:surface"],
+        "model": "nam",
+    },
 }
 
 graphs = {
@@ -509,7 +603,9 @@ for loc in LOCATIONS:
         # determine output label: append model if not already present
         req_model = variables.get(label, {}).get("model")
         out_label = label
-        if req_model and not (label.endswith("_gfs") or label.endswith("_hrrr")):
+        if req_model and not (
+            label.endswith("_gfs") or label.endswith("_hrrr") or label.endswith("_nam")
+        ):
             out_label = f"{label}_{req_model}"
 
         # sort forecast hours numerically
@@ -538,9 +634,58 @@ for loc in LOCATIONS:
 
         json_results[out_label] = {"x": xs, "y": ys}
 
+    # Compute undercast probability
+    undercast_probs = {}
+    for model_name in ["hrrr", "gfs", "nam"]:
+        undercast_probs[model_name] = {"x": [], "y": []}
+
+        for fxx in fxx_sorted:
+            n = 0
+
+            # Condition 1: TMP(850 mb) - TMP(2 m) >= 5°C
+            tmp_850_key = f"tmp_850mb_{model_name}"
+            tmp_2m_key = f"tmp_2m_{model_name}"
+            if tmp_850_key in results[lname] and tmp_2m_key in results[lname]:
+                tmp_850 = results[lname][tmp_850_key].get(fxx, {}).get("value")
+                tmp_2m = results[lname][tmp_2m_key].get(fxx, {}).get("value")
+                if tmp_850 is not None and tmp_2m is not None:
+                    if float(tmp_850) - float(tmp_2m) >= 5:
+                        n += 1
+
+            # Condition 2: TCDC(BL) >= 0.7
+            tcdc_key = f"boundary_layer_cloud_layer_{model_name}"
+            if tcdc_key in results[lname]:
+                tcdc = results[lname][tcdc_key].get(fxx, {}).get("value")
+                if tcdc is not None and float(tcdc) >= 0.7:
+                    n += 1
+
+            # Condition 3: RH(2 m) >= 90%
+            rh_2m_key = f"rh_2m_{model_name}"
+            if rh_2m_key in results[lname]:
+                rh_2m = results[lname][rh_2m_key].get(fxx, {}).get("value")
+                if rh_2m is not None and float(rh_2m) >= 90:
+                    n += 1
+
+            # Condition 4: PBL height <= 500 m
+            hpbl_key = f"hpbl_surface_{model_name}"
+            if hpbl_key in results[lname]:
+                hpbl = results[lname][hpbl_key].get(fxx, {}).get("value")
+                if hpbl is not None and float(hpbl) <= 500:
+                    n += 1
+
+            undercast_probs[model_name]["x"].append(
+                int(fxx) if not isinstance(fxx, str) or fxx.isdigit() else fxx
+            )
+            undercast_probs[model_name]["y"].append(n / 5.0)
+
+        json_results[f"undercast_prob_{model_name}"] = undercast_probs[model_name]
+
+    # Save run time info
     try:
         json_results["date_str"] = _clean_for_json(globals().get("date_str", None))
-        json_results["run_time"] = datetime.now().astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        json_results["run_time"] = (
+            datetime.now().astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        )
     except Exception:
         json_results["date_str"] = None
         json_results["run_time"] = None

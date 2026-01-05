@@ -11,11 +11,41 @@ const defaultColors = [
   "#17becf", // 10th
 ];
 
+const modelMarkers = {
+  hrrr: "circle",
+  nam: "square",
+  gfs: "diamond",
+};
+
 const METERS_TO_FEET = 3.28084;
 const METERS_TO_MILES = 0.000621371;
 const METERS_TO_FEMTO_PARSECS = 3.24078e-2; // 1 femto-parsec ≈ 30.86 meters
+const MM_TO_INCHES = 0.0393701;
+
+function precipToUnits(valueMm, units) {
+  if (valueMm == null) return null;
+  if (units === "imperial") {
+    return valueMm * MM_TO_INCHES;
+  } else if (units === "stupid") {
+    return valueMm * METERS_TO_FEMTO_PARSECS * 0.001; // mm to m to femto-parsecs
+  }
+  return valueMm;
+}
+
+function precipLabel(units) {
+  if (units === "imperial") return "in";
+  if (units === "stupid") return "fempto-pc";
+  return "mm";
+}
+
+function precipRateLabel(units) {
+  if (units === "imperial") return "in/hr";
+  if (units === "stupid") return "fempto-pc/hr";
+  return "mm/hr";
+}
 
 function visibilityToUnits(valueMeters, units) {
+  if (valueMeters==null) return null;
   if (units === "imperial") {
     return valueMeters * METERS_TO_MILES;
   } else if (units === "stupid") {
@@ -36,6 +66,7 @@ function getSelectedModel() {
   ).map((el) => el.value);
   return {
     hrrr: selected.includes("hrrr"),
+    nam: selected.includes("nam"),
     gfs: selected.includes("gfs"),
   };
 }
@@ -48,6 +79,7 @@ function getSelectedUnits() {
 }
 
 function heightToUnits(valueMeters, units) {
+  if (valueMeters==null) return null;
   if (units === "imperial") {
     return valueMeters * METERS_TO_FEET;
   } else if (units === "stupid") {
@@ -86,6 +118,7 @@ function axisStyle(titleText, color) {
 }
 
 const convertTemp = (kelvin, units) => {
+  if (kelvin==null) return null;
   if (units === "imperial") {
     return (((kelvin - 273.15) * 9) / 5 + 32).toFixed(2);
   } else if (units === "stupid") {
@@ -164,6 +197,7 @@ function loadWeatherPlots(
   }.json`;
   const modelSelection = modelChoice;
   const showHRRR = !!modelSelection.hrrr;
+  const showNAM = !!modelSelection.nam;
   const showGFS = !!modelSelection.gfs;
   const selectedUnits = unitChoice;
   const convertHeight = (m) => heightToUnits(m, selectedUnits);
@@ -230,6 +264,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: "Low (HRRR)",
         line: { color: c1[0] },
+        marker: { symbol: modelMarkers.hrrr },
       };
       const trace_pct_mid_hrrr = {
         x: convertedDates,
@@ -238,6 +273,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: "Middle (HRRR)",
         line: { color: c1[1] },
+        marker: { symbol: modelMarkers.hrrr },
       };
       const trace_pct_high_hrrr = {
         x: convertedDates,
@@ -246,6 +282,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: "High (HRRR)",
         line: { color: c1[2] },
+        marker: { symbol: modelMarkers.hrrr },
       };
       const trace_pct_boundary_hrrr = {
         x: convertedDates,
@@ -254,6 +291,44 @@ function loadWeatherPlots(
         type: "scatter",
         name: "Boundary (HRRR)",
         line: { color: c1[3] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+
+      const trace_pct_low_nam = {
+        x: convertedDates,
+        y: data.low_cloud_layer_percent_nam.y,
+        mode: "lines+markers",
+        line: { dash: "dash", color: c1[0] },
+        type: "scatter",
+        name: "Low (NAM)",
+        marker: { symbol: modelMarkers.nam },
+      };
+      const trace_pct_mid_nam = {
+        x: convertedDates,
+        y: data.middle_cloud_layer_percent_nam.y,
+        mode: "lines+markers",
+        line: { dash: "dash", color: c1[1] },
+        type: "scatter",
+        name: "Middle (NAM)",
+        marker: { symbol: modelMarkers.nam },
+      };
+      const trace_pct_high_nam = {
+        x: convertedDates,
+        y: data.high_cloud_layer_percent_nam.y,
+        mode: "lines+markers",
+        line: { dash: "dash", color: c1[2] },
+        type: "scatter",
+        name: "High (NAM)",
+        marker: { symbol: modelMarkers.nam },
+      };
+      const trace_pct_boundary_nam = {
+        x: convertedDates,
+        y: data.boundary_layer_cloud_layer_nam.y,
+        mode: "lines+markers",
+        line: { dash: "dash", color: c1[3] },
+        type: "scatter",
+        name: "Boundary (NAM)",
+        marker: { symbol: modelMarkers.nam },
       };
 
       const trace_pct_low_gfs = {
@@ -263,6 +338,7 @@ function loadWeatherPlots(
         line: { dash: "dot", color: c1[0] },
         type: "scatter",
         name: "Low (GFS)",
+        marker: { symbol: modelMarkers.gfs },
       };
       const trace_pct_mid_gfs = {
         x: convertedDates,
@@ -271,6 +347,7 @@ function loadWeatherPlots(
         line: { dash: "dot", color: c1[1] },
         type: "scatter",
         name: "Middle (GFS)",
+        marker: { symbol: modelMarkers.gfs },
       };
       const trace_pct_high_gfs = {
         x: convertedDates,
@@ -279,6 +356,7 @@ function loadWeatherPlots(
         line: { dash: "dot", color: c1[2] },
         type: "scatter",
         name: "High (GFS)",
+        marker: { symbol: modelMarkers.gfs },
       };
       const trace_pct_boundary_gfs = {
         x: convertedDates,
@@ -287,6 +365,7 @@ function loadWeatherPlots(
         line: { dash: "dot", color: c1[3] },
         type: "scatter",
         name: "Boundary (GFS)",
+        marker: { symbol: modelMarkers.gfs },
       };
 
       const layout1 = {
@@ -309,6 +388,14 @@ function loadWeatherPlots(
           trace_pct_boundary_hrrr
         );
       }
+      if (showNAM) {
+        plot1Traces.push(
+          trace_pct_high_nam,
+          trace_pct_mid_nam,
+          trace_pct_low_nam,
+          trace_pct_boundary_nam
+        );
+      }
       if (showGFS) {
         plot1Traces.push(
           trace_pct_low_gfs,
@@ -329,6 +416,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: "Cloud<br>Ceiling (HRRR)",
         line: { color: c2[0] },
+        marker: { symbol: modelMarkers.hrrr },
         showlegend: true,
       };
       const trace2_b = {
@@ -338,7 +426,17 @@ function loadWeatherPlots(
         type: "scatter",
         name: "Cloud<br>Base (HRRR)",
         line: { color: c2[1] },
+        marker: { symbol: modelMarkers.hrrr },
         showlegend: true,
+      };
+      const trace2_c_nam = {
+        x: convertedDates,
+        y: data.cloud_ceiling_nam.y.map(convertHeight),
+        mode: "lines+markers",
+        line: { dash: "dash", color: c2[0] },
+        type: "scatter",
+        name: "Cloud<br>Ceiling (NAM)",
+        marker: { symbol: modelMarkers.nam },
       };
       const trace2_c = {
         x: convertedDates,
@@ -347,6 +445,7 @@ function loadWeatherPlots(
         line: { dash: "dot", color: c2[0] },
         type: "scatter",
         name: "Cloud<br>Ceiling (GFS)",
+        marker: { symbol: modelMarkers.gfs },
       };
 
       const layout2 = {
@@ -366,6 +465,9 @@ function loadWeatherPlots(
       if (showHRRR) {
         plot2Traces.push(trace2_a, trace2_b);
       }
+      if (showNAM) {
+        plot2Traces.push(trace2_c_nam);
+      }
       if (showGFS) {
         plot2Traces.push(trace2_c);
       }
@@ -384,6 +486,7 @@ function loadWeatherPlots(
         name: levelLabel("1000", 100, "HRRR", selectedUnits),
         visible: true,
         line: { color: c3[0] },
+        marker: { symbol: modelMarkers.hrrr },
       };
       const tmp_925mb_hrr = {
         x: convertedDates,
@@ -392,6 +495,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: levelLabel("925", 750, "HRRR", selectedUnits),
         line: { color: c3[1] },
+        marker: { symbol: modelMarkers.hrrr },
       };
       const tmp_850mb_hrr = {
         x: convertedDates,
@@ -400,6 +504,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: levelLabel("850", 1500, "HRRR", selectedUnits),
         line: { color: c3[2] },
+        marker: { symbol: modelMarkers.hrrr },
       };
       const tmp_700mb_hrr = {
         x: convertedDates,
@@ -409,6 +514,7 @@ function loadWeatherPlots(
         name: levelLabel("700", 3000, "HRRR", selectedUnits),
         visible: false,
         line: { color: c3[3] },
+        marker: { symbol: modelMarkers.hrrr },
       };
       const tmp_500mb_hrr = {
         x: convertedDates,
@@ -418,6 +524,7 @@ function loadWeatherPlots(
         name: levelLabel("500", 5500, "HRRR", selectedUnits),
         visible: false,
         line: { color: c3[4] },
+        marker: { symbol: modelMarkers.hrrr },
       };
       const tmp_2m_hrr = {
         x: convertedDates,
@@ -427,6 +534,65 @@ function loadWeatherPlots(
         name: "2m (HRRR)",
         visible: true,
         line: { color: c3[5] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+      const tmp_1000mb_nam = {
+        x: convertedDates,
+        y: data.tmp_1000mb_nam.y.map((v) => convertTemp(v, selectedUnits)),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("1000", 100, "NAM", selectedUnits),
+        visible: true,
+        line: { dash: "dash", color: c3[0] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const tmp_925mb_nam = {
+        x: convertedDates,
+        y: data.tmp_925mb_nam.y.map((v) => convertTemp(v, selectedUnits)),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("925", 750, "NAM", selectedUnits),
+        line: { dash: "dash", color: c3[1] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const tmp_850mb_nam = {
+        x: convertedDates,
+        y: data.tmp_850mb_nam.y.map((v) => convertTemp(v, selectedUnits)),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("850", 1500, "NAM", selectedUnits),
+        line: { dash: "dash", color: c3[2] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const tmp_700mb_nam = {
+        x: convertedDates,
+        y: data.tmp_700mb_nam.y.map((v) => convertTemp(v, selectedUnits)),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("700", 3000, "NAM", selectedUnits),
+        visible: false,
+        line: { dash: "dash", color: c3[3] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const tmp_500mb_nam = {
+        x: convertedDates,
+        y: data.tmp_500mb_nam.y.map((v) => convertTemp(v, selectedUnits)),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("500", 5500, "NAM", selectedUnits),
+        visible: false,
+        line: { dash: "dash", color: c3[4] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const tmp_2m_nam = {
+        x: convertedDates,
+        y: data.tmp_2m_nam.y.map((v) => convertTemp(v, selectedUnits)),
+        mode: "lines+markers",
+        type: "scatter",
+        name: "2m (NAM)",
+        visible: true,
+        line: { dash: "dash", color: c3[5] },
+        marker: { symbol: modelMarkers.nam },
       };
       const tmp_1000mb_gfs = {
         x: convertedDates,
@@ -436,6 +602,7 @@ function loadWeatherPlots(
         name: levelLabel("1000", 100, "GFS", selectedUnits),
         visible: true,
         line: { dash: "dot", color: c3[0] },
+        marker: { symbol: modelMarkers.gfs },
       };
       const tmp_925mb_gfs = {
         x: convertedDates,
@@ -444,6 +611,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: levelLabel("925", 750, "GFS", selectedUnits),
         line: { dash: "dot", color: c3[1] },
+        marker: { symbol: modelMarkers.gfs },
       };
       const tmp_850mb_gfs = {
         x: convertedDates,
@@ -452,6 +620,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: levelLabel("850", 1500, "GFS", selectedUnits),
         line: { dash: "dot", color: c3[2] },
+        marker: { symbol: modelMarkers.gfs },
       };
       const tmp_700mb_gfs = {
         x: convertedDates,
@@ -461,6 +630,7 @@ function loadWeatherPlots(
         name: levelLabel("700", 3000, "GFS", selectedUnits),
         visible: false,
         line: { dash: "dot", color: c3[3] },
+        marker: { symbol: modelMarkers.gfs },
       };
       const tmp_500mb_gfs = {
         x: convertedDates,
@@ -470,6 +640,7 @@ function loadWeatherPlots(
         name: levelLabel("500", 5500, "GFS", selectedUnits),
         visible: false,
         line: { dash: "dot", color: c3[4] },
+        marker: { symbol: modelMarkers.gfs },
       };
       const tmp_2m_gfs = {
         x: convertedDates,
@@ -479,6 +650,7 @@ function loadWeatherPlots(
         name: "2m (GFS)",
         visible: true,
         line: { dash: "dot", color: c3[5] },
+        marker: { symbol: modelMarkers.gfs },
       };
       const layout3 = {
         title: {
@@ -499,6 +671,16 @@ function loadWeatherPlots(
           tmp_700mb_hrr,
           tmp_500mb_hrr,
           tmp_2m_hrr
+        );
+      }
+      if (showNAM) {
+        plot3Traces.push(
+          tmp_1000mb_nam,
+          tmp_925mb_nam,
+          tmp_850mb_nam,
+          tmp_700mb_nam,
+          tmp_500mb_nam,
+          tmp_2m_nam
         );
       }
       if (showGFS) {
@@ -522,6 +704,16 @@ function loadWeatherPlots(
         type: "scatter",
         name: "HPBL (HRRR)",
         line: { color: c4[0] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+      const trace_hpbl_nam = {
+        x: convertedDates,
+        y: data.hpbl_surface_nam.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: "HPBL (NAM)",
+        line: { dash: "dash", color: c4[0] },
+        marker: { symbol: modelMarkers.nam },
       };
       const trace_bpbl_gfs = {
         x: convertedDates,
@@ -530,6 +722,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: "BPBL (GFS)",
         line: { dash: "dot", color: c4[1] },
+        marker: { symbol: modelMarkers.gfs },
       };
       const layout4 = {
         title: {
@@ -547,6 +740,9 @@ function loadWeatherPlots(
       if (showHRRR) {
         plot4Traces.push(trace_hpbl_hrrr);
       }
+      if (showNAM) {
+        plot4Traces.push(trace_hpbl_nam);
+      }
       if (showGFS) {
         plot4Traces.push(trace_bpbl_gfs);
       }
@@ -561,6 +757,25 @@ function loadWeatherPlots(
         type: "scatter",
         name: "2m RH (HRRR)",
         line: { color: c5[0] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+      const trace5_b_nam = {
+        x: convertedDates,
+        y: data.rh_2m_nam.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "2m RH (NAM)",
+        line: { dash: "dash", color: c5[0] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const trace5_c_nam = {
+        x: convertedDates,
+        y: data.rh_925mb_nam.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "925mb RH (NAM)",
+        line: { dash: "dash", color: c5[1] },
+        marker: { symbol: modelMarkers.nam },
       };
       const trace5_b = {
         x: convertedDates,
@@ -569,6 +784,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: "2m RH (GFS)",
         line: { dash: "dot", color: c5[0] },
+        marker: { symbol: modelMarkers.gfs },
       };
       const trace5_c = {
         x: convertedDates,
@@ -577,6 +793,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: "925mb RH (GFS)",
         line: { dash: "dot", color: c5[1] },
+        marker: { symbol: modelMarkers.gfs },
       };
       const layout5 = {
         title: {
@@ -592,6 +809,9 @@ function loadWeatherPlots(
       if (showHRRR) {
         plot5Traces.push(trace5_a);
       }
+      if (showNAM) {
+        plot5Traces.push(trace5_b_nam, trace5_c_nam);
+      }
       if (showGFS) {
         plot5Traces.push(trace5_b, trace5_c);
       }
@@ -606,6 +826,16 @@ function loadWeatherPlots(
         type: "scatter",
         name: "0°C Isotherm<br>Height (HRRR)",
         line: { color: c6[0] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+      const trace6_b_nam = {
+        x: convertedDates,
+        y: data.hgt_0C_iso_nam.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: "0°C Isotherm<br>Height (NAM)",
+        line: { dash: "dash", color: c6[0] },
+        marker: { symbol: modelMarkers.nam },
       };
       const trace6_b = {
         x: convertedDates,
@@ -614,6 +844,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: "0°C Isotherm<br>Height (GFS)",
         line: { dash: "dot", color: c6[0] },
+        marker: { symbol: modelMarkers.gfs },
       };
       const layout6 = {
         title: {
@@ -631,6 +862,9 @@ function loadWeatherPlots(
       if (showHRRR) {
         plot6Traces.push(trace6_a);
       }
+      if (showNAM) {
+        plot6Traces.push(trace6_b_nam);
+      }
       if (showGFS) {
         plot6Traces.push(trace6_b);
       }
@@ -647,6 +881,17 @@ function loadWeatherPlots(
         type: "scatter",
         name: "Surface Visibility (HRRR)",
         line: { color: c7[0] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+
+      const trace7_b_nam = {
+        x: convertedDates,
+        y: data.vis_surface_nam.y.map(convertVisibility),
+        mode: "lines+markers",
+        type: "scatter",
+        name: "Surface Visibility (NAM)",
+        line: { dash: "dash", color: c7[0] },
+        marker: { symbol: modelMarkers.nam },
       };
 
       const trace7_b = {
@@ -656,6 +901,7 @@ function loadWeatherPlots(
         type: "scatter",
         name: "Surface Visibility (GFS)",
         line: { dash: "dot", color: c7[0] },
+        marker: { symbol: modelMarkers.gfs },
       };
 
       const layout7 = {
@@ -677,10 +923,128 @@ function loadWeatherPlots(
       if (showHRRR) {
         plot7Traces.push(trace7_a);
       }
+      if (showNAM) {
+        plot7Traces.push(trace7_b_nam);
+      }
       if (showGFS) {
         plot7Traces.push(trace7_b);
       }
       Plotly.newPlot("plot7", plot7Traces, layout7);
+
+      // Plot 8: Undercast Probability
+      const c8 = defaultColors;
+
+      const trace8_a = {
+        x: convertedDates,
+        y: data.undercast_prob_hrrr.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "Undercast Probability (HRRR)",
+        line: { color: c8[0] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+
+      const trace8_b_nam = {
+        x: convertedDates,
+        y: data.undercast_prob_nam.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "Undercast Probability (NAM)",
+        line: { dash: "dash", color: c8[0] },
+        marker: { symbol: modelMarkers.nam },
+      };
+
+      const trace8_b = {
+        x: convertedDates,
+        y: data.undercast_prob_gfs.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "Undercast Probability (GFS)",
+        line: { dash: "dot", color: c8[0] },
+        marker: { symbol: modelMarkers.gfs },
+      };
+
+      const layout8 = {
+        title: {
+          text: "Undercast Probability",
+          font: { color: textColor },
+        },
+        xaxis: { ...axisStyle("", textColor) },
+        yaxis: { ...axisStyle("Probability (%)", textColor) },
+        legend: { font: { color: textColor } },
+        showlegend: true,
+      };
+
+      const plot8Traces = [];
+      if (showHRRR) {
+        plot8Traces.push(trace8_a);
+      }
+      if (showNAM) {
+        plot8Traces.push(trace8_b_nam);
+      }
+      if (showGFS) {
+        plot8Traces.push(trace8_b);
+      }
+      Plotly.newPlot("plot8", plot8Traces, layout8);
+
+      // Plot 9: Precipitation
+      const c9 = defaultColors;
+
+      const convertPrecip = (mm) => precipToUnits(mm, selectedUnits);
+      const convertPrecipRate = (mmPerSec) => {
+        if (mmPerSec == null) return null;
+        const mmPerHr = mmPerSec * 3600; // Convert mm/s to mm/hr
+        return precipToUnits(mmPerHr, selectedUnits);
+      };
+
+      const trace9_apcp_hrrr = {
+        x: convertedDates,
+        y: data.apcp_surface_hrrr.y.map(convertPrecip),
+        mode: "lines+markers",
+        type: "scatter",
+        name: "Accumulated Precip (HRRR)",
+        line: { color: c9[0] },
+        marker: { symbol: modelMarkers.hrrr },
+        yaxis: "y",
+      };
+
+      const trace9_prate_hrrr = {
+        x: convertedDates,
+        y: data.prate_surface_hrrr.y.map(convertPrecipRate),
+        mode: "lines+markers",
+        type: "scatter",
+        name: "Precip Rate (HRRR)",
+        line: { color: c9[1] },
+        marker: { symbol: modelMarkers.hrrr },
+        yaxis: "y2",
+      };
+
+      const layout9 = {
+        title: {
+          text: "Precipitation",
+          font: { color: textColor },
+        },
+        xaxis: { ...axisStyle("", textColor) },
+        yaxis: { 
+          ...axisStyle(`Accumulated (${precipLabel(selectedUnits)})`, textColor),
+          rangemode: "tozero",
+        },
+        yaxis2: {
+          ...axisStyle(`Rate (${precipRateLabel(selectedUnits)})`, textColor),
+          overlaying: "y",
+          side: "right",
+          rangemode: "tozero",
+          matches: "y",
+        },
+        legend: { font: { color: textColor } },
+        showlegend: true,
+      };
+
+      const plot9Traces = [];
+      if (showHRRR) {
+        plot9Traces.push(trace9_apcp_hrrr, trace9_prate_hrrr);
+      }
+      Plotly.newPlot("plot9", plot9Traces, layout9);
 
       // Add tooltips to plot info icons after Plotly renders
       setTimeout(() => {
@@ -711,9 +1075,15 @@ function attachPlotInfoTooltips() {
       "The height of the atmospheric boundary layer where surface effects dominate",
     plot5: "Relative humidity at 2m above ground and at the 925mb level",
     plot6:
-      "Height at which temperature reaches 0°C (32°F) - important for rain/snow line",
+      "Elevation at which temperature reaches 0°C (32°F) - important for rain/snow line. If 0, then freezing point is at sea level.",
     plot7:
-      "Horizontal visibility at surface level - affected by fog, precipitation, and haze",
+      "Horizontal visibility at surface level - affected by fog, precipitation, and haze.",
+    plot8:
+      "Probability of undercast conditions - when clouds form below summit elevation.",
+    plot9:
+      `Accumulated precipitation and precipitation rate at the surface. Units adjust based on selection (${
+        unit === "imperial" ? "inches" : unit === "stupid" ? "fempto-parsecs" : "millimeters"
+      }).`,
   };
 
   Object.entries(plotInfoMap).forEach(([plotId, tooltipText]) => {

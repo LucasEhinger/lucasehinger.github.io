@@ -9,74 +9,90 @@ author_profile: true
     <div style="display: flex; flex-direction: column; gap: 12px;">
         <div style="display: inline-flex; align-items: center; gap: 8px;">
             <label for="weather-toggle">Forecast Location:</label>
-            <div class="info-circle" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: var(--border-color, #ccc); color: var(--bg-color, #fff); font-size: 12px; font-weight: bold; cursor: help;">
+            <div class="info-circle"
+                style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: #ccc; color:  #fff; font-size: 12px; font-weight: bold; cursor: help;">
                 ?
-                <div style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
+                <div
+                    style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
                     Select a summit. Quick links and plots will automatically update.
                 </div>
             </div>
-            <select id="weather-toggle" style="width: 300px; background-color: var(--bg-color, #fff); color: var(--text-color, #333); border: 1px solid var(--border-color, #ccc);">
+            <select id="weather-toggle"
+                style="width: 300px; background-color: var(background-color, #fff); color: #333; border: 1px solid  #ccc;">
                 <option value="1">Mt. Washington</option>
                 <option value="2">Mt. Lafayette</option>
                 <option value="3">Mt. Moosilauke</option>
                 <option value="4">Mt. Monadnock</option>
             </select>
         </div>
-        <div id="model-toggle" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; background-color: var(--bg-color, #fff); color: var(--text-color, #333);">
-            <span style="font-weight: 600; color: var(--text-color, #333);">Model:</span>
-            <div class="info-circle" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: var(--border-color, #ccc); color: var(--bg-color, #fff); font-size: 12px; font-weight: bold; cursor: help;">
+        <div id="model-toggle"
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid  #ccc; border-radius: 6px; background-color: var(background-color, #fff); color: var(color, #333);">
+            <span style="font-weight: 600; color: var(color, #333);">Model:</span>
+            <div class="info-circle"
+                style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: #ccc; color: #fff; font-size: 12px; font-weight: bold; cursor: help;">
                 ?
-                <div style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
-                    Check HRRR and/or GFS to show those model traces on the plots.
+                <div
+                    style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
+                    Check HRRR, NAM, and/or GFS to show those model traces on the plots.
                 </div>
             </div>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
                 <input type="checkbox" name="model-toggle" value="hrrr" aria-label="HRRR" checked /> HRRR
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+                <input type="checkbox" name="model-toggle" value="nam" aria-label="NAM" /> NAM
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
                 <input type="checkbox" name="model-toggle" value="gfs" aria-label="GFS" /> GFS
             </label>
         </div>
-        <div id="units-toggle" style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; background-color: var(--bg-color, #fff); color: var(--text-color, #333);">
-            <span style="font-weight: 600; color: var(--text-color, #333);">Units:</span>
-            <div class="info-circle" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: var(--border-color, #ccc); color: var(--bg-color, #fff); font-size: 12px; font-weight: bold; cursor: help;">
+        <div id="units-toggle"
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid  #ccc; border-radius: 6px; background-color: var(background-color, #fff); color: var(color, #333);">
+            <span style="font-weight: 600; color: var(color, #333);">Units:</span>
+            <div class="info-circle"
+                style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: #ccc; color:  #fff; font-size: 12px; font-weight: bold; cursor: help;">
                 ?
-                <div style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
+                <div
+                    style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
                     Switch between metric (C, m) and imperial (F, ft) for all plots.
                 </div>
             </div>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
                 <input type="radio" name="units-toggle" value="metric" aria-label="Metric" checked /> Metric
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
                 <input type="radio" name="units-toggle" value="imperial" aria-label="Imperial" /> Imperial
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--text-color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
                 <input type="radio" name="units-toggle" value="stupid" aria-label="Stupid" /> Stupid
             </label>
         </div>
-        <div id="last-update" style="font-size: 0.85em; color: var(--text-color, #666); margin-top: 8px;">
+        <div id="last-update" style="font-size: 0.80em; color: var(color, #666); margin-top: 8px; opacity: 0.5;">
             <!-- Last model update time will be populated here -->
         </div>
     </div>
 
-    <div style="border: 1px solid var(--border-color, #ccc); border-radius: 6px; padding: 12px; background-color: var(--bg-color, #fff); min-width: 280px; margin-left: auto;">
+    <div
+        style="border: 1px solid  #ccc; border-radius: 6px; padding: 12px; background-color: var(background-color, #fff); min-width: 280px; margin-left: auto;">
         <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px;">
-            <h4 style="margin: 0; font-size: 1em; color: var(--text-color, #333);">Quick Links</h4>
-            <div class="info-circle" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: var(--border-color, #ccc); color: var(--bg-color, #fff); font-size: 12px; font-weight: bold; cursor: help;">
+            <h4 style="margin: 0; font-size: 1em; color: var(color, #333);">Quick Links</h4>
+            <div class="info-circle"
+                style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: #ccc; color:  #fff; font-size: 12px; font-weight: bold; cursor: help;">
                 ?
-                <div style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
+                <div
+                    style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
                     Links to weather forecasts and tools<br>for specified forecast location.
                 </div>
             </div>
         </div>
         <style>
-            .info-circle:hover > div {
+            .info-circle:hover>div {
                 opacity: 1 !important;
             }
+
             .plot-info-button {
                 cursor: help;
-                color: var(--border-color, #999);
+                color: #999;
                 font-size: 16px;
                 font-weight: bold;
                 width: 20px;
@@ -86,13 +102,15 @@ author_profile: true
                 justify-content: center;
                 border-radius: 50%;
                 background-color: rgba(255, 255, 255, 0.9);
-                border: 1px solid var(--border-color, #ccc);
+                border: 1px solid var(border-color, #ccc);
                 transition: background-color 0.2s, color 0.2s;
             }
+
             .plot-info-button:hover {
-                background-color: var(--border-color, #ccc);
-                color: var(--bg-color, #fff);
+                background-color: var(border-color, #ccc);
+                color: var(background-color, #fff);
             }
+
             .plot-info-tooltip {
                 position: absolute;
                 background-color: #333;
@@ -105,7 +123,7 @@ author_profile: true
                 opacity: 0.95;
                 pointer-events: auto;
                 z-index: 1000;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
             }
         </style>
         <div id="weather-links" style="display: flex; gap: 20px; justify-content: center;">
@@ -136,7 +154,7 @@ author_profile: true
 
     function loadWeatherLinks(datasetId) {
         const jsonFile = linkConfigs[datasetId];
-        
+
         fetch(jsonFile)
             .then(response => response.json())
             .then(links => {
@@ -144,14 +162,14 @@ author_profile: true
                 const linksRight = document.getElementById('weather-links-right');
                 linksLeft.innerHTML = '';
                 linksRight.innerHTML = '';
-                
+
                 Object.entries(links).forEach(([name, url]) => {
                     const link = document.createElement('a');
                     link.href = url;
                     link.textContent = name;
                     link.style.display = 'block';
                     link.target = '_blank';
-                    
+
                     if (name.startsWith('NWS')) {
                         linksLeft.appendChild(link);
                     } else {
@@ -164,14 +182,14 @@ author_profile: true
                 const linksRight = document.getElementById('weather-links-right');
                 linksLeft.innerHTML = '';
                 linksRight.innerHTML = '';
-                
+
                 Object.entries(defaultLinks).forEach(([name, url]) => {
                     const link = document.createElement('a');
                     link.href = url;
                     link.textContent = name;
                     link.style.display = 'block';
                     link.target = '_blank';
-                    
+
                     if (name.startsWith('NWS')) {
                         linksLeft.appendChild(link);
                     } else {
@@ -189,12 +207,88 @@ author_profile: true
 </script>
 
 
-Some weather modeling I've done to determine whether it'll be undercast in the moutains. Currently has dummy data.
+Some weather modeling I've done to determine whether it'll be undercast in the mountains. Undercast probability has
+dummy values until I process enough data to retrain my ML model.
 
+<details style="margin-bottom: 20px;">
+    <summary style="cursor: pointer; font-weight: 600; color: var(color, #333); user-select: none;">Model
+        Explanations & Details
+    </summary>
+    <div
+        style="margin-top: 12px; padding: 12px; background-color: var(background-color, #f9f9f9); border-left: 3px solid var(border-color, #ccc); color: var(color, #666);">
+        This site uses atmospheric model data from NOAA's <a href="https://rapidrefresh.noaa.gov/hrrr/"
+            target="_blank">HRRR</a>, <a
+            href="https://www.ncei.noaa.gov/products/weather-climate-models/north-american-mesoscale"
+            target="_blank">NAM</a>, and <a
+            href="https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast" target="_blank">GFS</a>
+        models to generate forecasts for undercast probability at several summits in New
+        Hampshire. Forecast resolution, accuracy, and update frequency vary between the models.
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
+            <thead>
+                <tr>
+                    <th
+                        style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0);">
+                        Model</th>
+                    <th
+                        style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0);">
+                        Forecast Range (Hours)</th>
+                    <th
+                        style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0);">
+                        Spatial Resolution</th>
+                    <th
+                        style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0);">
+                        Strengths</th>
+                    <th
+                        style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0);">
+                        Weaknesses</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">HRRR</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-48</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">3 km</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">High temporal resolution,
+                        good for short-term forecasts</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Limited range, may struggle
+                        with longer-term trends</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">NAM</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-60</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">3 km</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Good for medium-range
+                        forecasts, covers larger areas</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Lower resolution compared to
+                        HRRR, less accurate for local events</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">GFS</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-120</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">13 km</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Long-range forecasts, global
+                        coverage</td>
+                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Coarser resolution, may miss
+                        localized weather phenomena</td>
+                </tr>
+            </tbody>
+        </table>
+
+        The forecasts you see on NWS and other sites are often based on a combination of these models along with
+        observational data and expert analysis. Trust them, before you trust my plots, which come from individual models
+        and are interpreted by a dumb particle physicist.
+        <br><br>
+        I built this to visualize data not readily available from the NWS website. While exact wind speeds from an
+        individual, non-local, coarse-grain model may be inaccurate, larger trends such as sky coverage and cloud
+        elevation can be informative.
+    </div>
+</details>
 <br><br>
 
 <script src="https://cdn.plot.ly/plotly-3.3.1.min.js"></script>
 
+<div id="plot8" style="width:96%;display:inline-block;"></div>
 <div id="plot1" style="width:48%;display:inline-block;"></div>
 <div id="plot2" style="width:48%;display:inline-block;"></div>
 <div id="plot3" style="width:48%;display:inline-block;"></div>
@@ -202,10 +296,15 @@ Some weather modeling I've done to determine whether it'll be undercast in the m
 <div id="plot5" style="width:48%;display:inline-block;"></div>
 <div id="plot6" style="width:48%;display:inline-block;"></div>
 <div id="plot7" style="width:48%;display:inline-block;"></div>
+<div id="plot9" style="width:48%;display:inline-block;"></div>
+
 
 
 <script src="/assets/js/weather-plots.js"></script>
 
-<div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color, #ccc); font-size: 0.85em; color: var(--text-color, #999); text-align: center;">
-    <p>Admospheric models produced and provided by the National Oceanic and Atmospheric Administration (NOAA), and accessed via the <a href="https://herbie.readthedocs.io/en/stable/#" target="_blank" style="color: var(--border-color, #999);">Herbie</a> python package.</p>
+<div
+    style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(border-color, #ccc); font-size: 0.85em; color: var(color, #999); text-align: center;">
+    <p>Admospheric models produced and provided by the National Oceanic and Atmospheric Administration (NOAA), and
+        accessed via the <a href="https://herbie.readthedocs.io/en/stable/#" target="_blank"
+            style="color: var(border-color, #999);">Herbie</a> python package.</p>
 </div>

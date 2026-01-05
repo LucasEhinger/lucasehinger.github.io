@@ -1,9 +1,9 @@
-name: Daily Weather Data Update
+name: Weather Data Update
 
 on:
   schedule:
-    # Run at 6 AM UTC every day
-    - cron: '0 6 * * *'
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
   workflow_dispatch: # Allows manual trigger
 
 jobs:
