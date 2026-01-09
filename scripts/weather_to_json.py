@@ -510,9 +510,9 @@ if __name__ == "__main__":
             "%Y-%m-%d %H:%M"
         )
 
-    FXX_LIST = list(range(0, 48 + 1, 20))  # every 1 hour
-    FXX_LIST_GFS = list(range(0, 120 + 1, 20))  # every 2 hours
-    FXX_LIST_NAM = list(range(0, 60 + 1, 20))  # every 1 hour
+    FXX_LIST = list(range(0, 48 + 1, 2))  # every 2 hour
+    FXX_LIST_GFS = list(range(0, 120 + 1, 2))  # every 2 hours
+    FXX_LIST_NAM = list(range(0, 60 + 1, 2))  # every 2 hour
 
     tasks = []
     for fxx in FXX_LIST:
