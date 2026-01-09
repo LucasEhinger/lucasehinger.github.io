@@ -1,0 +1,73 @@
+{
+  "XGBoost": {
+    "threshold_best_f1": 0.3136363636363636,
+    "precision": 0.5757575757575758,
+    "recall": 0.7037037037037037,
+    "f1_score": 0.6333333333333333,
+    "fp": 14,
+    "fn": 8
+  },
+  "Random Forest": {
+    "threshold_best_f1": 0.48636363636363633,
+    "precision": 0.5416666666666666,
+    "recall": 0.48148148148148145,
+    "f1_score": 0.5098039215686274,
+    "fp": 11,
+    "fn": 14
+  },
+  "Gradient Boosting": {
+    "threshold_best_f1": 0.6136363636363636,
+    "precision": 0.46153846153846156,
+    "recall": 0.4444444444444444,
+    "f1_score": 0.4528301886792453,
+    "fp": 14,
+    "fn": 15
+  },
+  "feature_columns": [
+    "cloud_ceiling_gfs",
+    "low_cloud_layer_percent_gfs",
+    "middle_cloud_layer_percent_gfs",
+    "high_cloud_layer_percent_gfs",
+    "boundary_layer_cloud_layer_gfs",
+    "vis_surface_gfs",
+    "prate_surface_gfs",
+    "apcp_surface_gfs",
+    "tmp_500mb_gfs",
+    "tmp_700mb_gfs",
+    "tmp_850mb_gfs",
+    "tmp_925mb_gfs",
+    "tmp_1000mb_gfs",
+    "tmp_2m_gfs",
+    "rh_2m_gfs",
+    "rh_925mb_gfs",
+    "hpbl_surface_gfs",
+    "hgt_0C_iso_gfs",
+    "month",
+    "day"
+  ],
+  "categorical_columns": [],
+  "numerical_columns": [
+    "cloud_ceiling_gfs",
+    "low_cloud_layer_percent_gfs",
+    "middle_cloud_layer_percent_gfs",
+    "high_cloud_layer_percent_gfs",
+    "boundary_layer_cloud_layer_gfs",
+    "vis_surface_gfs",
+    "prate_surface_gfs",
+    "apcp_surface_gfs",
+    "tmp_500mb_gfs",
+    "tmp_700mb_gfs",
+    "tmp_850mb_gfs",
+    "tmp_925mb_gfs",
+    "tmp_1000mb_gfs",
+    "tmp_2m_gfs",
+    "rh_2m_gfs",
+    "rh_925mb_gfs",
+    "hpbl_surface_gfs",
+    "hgt_0C_iso_gfs",
+    "month",
+    "day"
+  ],
+  "target_column": "is_undercast",
+  "random_state": 23
+}
