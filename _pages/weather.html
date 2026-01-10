@@ -5,9 +5,64 @@ permalink: /weather/
 author_profile: true
 ---
 
-<div style="margin-bottom: 20px; width: 100%; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
-    <div style="display: flex; flex-direction: column; gap: 12px;">
-        <div style="display: inline-flex; align-items: center; gap: 8px;">
+<style>
+    @media (max-width: 768px) {
+        .weather-controls {
+            flex-direction: column !important;
+            gap: 12px !important;
+        }
+
+        .weather-controls>div {
+            width: 100% !important;
+        }
+
+        #weather-toggle {
+            width: 100% !important;
+        }
+
+        .weather-location-control {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+        }
+
+        #model-toggle,
+        #units-toggle {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 12px !important;
+        }
+
+        .weather-links-container {
+            margin-left: 0 !important;
+            width: 100% !important;
+            min-width: auto !important;
+            order: 3;
+        }
+
+        #weather-links {
+            flex-direction: column !important;
+            gap: 12px !important;
+        }
+
+        .weather-main-container {
+            flex-direction: column !important;
+        }
+
+        .plot-info-tooltip {
+            max-width: 200px !important;
+            font-size: 11px !important;
+        }
+
+        .info-circle>div {
+            white-space: normal !important;
+        }
+    }
+</style>
+
+<div style="margin-bottom: 20px; width: 100%; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;"
+    class="weather-main-container">
+    <div style="display: flex; flex-direction: column; gap: 12px;" class="weather-controls">
+        <div style="display: inline-flex; align-items: center; gap: 8px;" class="weather-location-control">
             <label for="weather-toggle">Forecast Location:</label>
             <div class="info-circle"
                 style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: #ccc; color:  #fff; font-size: 12px; font-weight: bold; cursor: help;">
@@ -72,8 +127,8 @@ author_profile: true
         </div>
     </div>
 
-    <div
-        style="border: 1px solid  #ccc; border-radius: 6px; padding: 12px; background-color: var(background-color, #fff); min-width: 280px; margin-left: auto;">
+    <div style="border: 1px solid  #ccc; border-radius: 6px; padding: 12px; background-color: var(background-color, #fff); min-width: 280px; margin-left: auto;"
+        class="weather-links-container">
         <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px;">
             <h4 style="margin: 0; font-size: 1em; color: var(color, #333);">Quick Links</h4>
             <div class="info-circle"
@@ -134,6 +189,13 @@ author_profile: true
                 <!-- Other links will be populated here -->
             </div>
         </div>
+        <style>
+            @media (max-width: 480px) {
+                #weather-links {
+                    flex-direction: column !important;
+                }
+            }
+        </style>
     </div>
 </div>
 
@@ -207,8 +269,8 @@ author_profile: true
 </script>
 
 
-Some weather modeling I've done to determine whether it'll be undercast in the mountains. Undercast probability has
-dummy values until I process enough data to retrain my ML model.
+Some weather modeling I've done to determine whether it'll be undercast in the mountains. Will add documentation and
+accuracy of ML models later. TLDR; it's undercast only a handful of times per year on Mt. Washington.
 
 <details style="margin-bottom: 20px;">
     <summary style="cursor: pointer; font-weight: 600; color: var(color, #333); user-select: none;">Model
@@ -224,56 +286,61 @@ dummy values until I process enough data to retrain my ML model.
         models to generate forecasts for undercast probability at several summits in New
         Hampshire. Forecast resolution, accuracy, and update frequency vary between the models.
 
-        <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
-            <thead>
-                <tr>
-                    <th
-                        style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0);">
-                        Model</th>
-                    <th
-                        style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0);">
-                        Forecast Range (Hours)</th>
-                    <th
-                        style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0);">
-                        Spatial Resolution</th>
-                    <th
-                        style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0);">
-                        Strengths</th>
-                    <th
-                        style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0);">
-                        Weaknesses</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">HRRR</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-48</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">3 km</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">High temporal resolution,
-                        good for short-term forecasts</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Limited range, may struggle
-                        with longer-term trends</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">NAM</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-60</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">3 km</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Good for medium-range
-                        forecasts, covers larger areas</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Lower resolution compared to
-                        HRRR, less accurate for local events</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">GFS</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-120</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">13 km</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Long-range forecasts, global
-                        coverage</td>
-                    <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Coarser resolution, may miss
-                        localized weather phenomena</td>
-                </tr>
-            </tbody>
-        </table>
+        <div style="overflow-x: auto; margin-top: 12px;">
+            <table style="width: 100%; border-collapse: collapse; margin-top: 12px; min-width: 500px;">
+                <thead>
+                    <tr>
+                        <th
+                            style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0); font-size: 0.9em;">
+                            Model</th>
+                        <th
+                            style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0); font-size: 0.9em;">
+                            Forecast Range (Hours)</th>
+                        <th
+                            style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0); font-size: 0.9em;">
+                            Spatial Resolution</th>
+                        <th
+                            style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0); font-size: 0.9em;">
+                            Strengths</th>
+                        <th
+                            style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0); font-size: 0.9em;">
+                            Weaknesses</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">HRRR</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-48</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">3 km</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">High temporal resolution,
+                            good for short-term forecasts</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Limited range, may struggle
+                            with longer-term trends</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">NAM</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-60</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">3 km</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Good for medium-range
+                            forecasts, covers larger areas</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Lower resolution compared
+                            to
+                            HRRR, less accurate for local events</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">GFS</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-120</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">13 km</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Long-range forecasts,
+                            global
+                            coverage</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Coarser resolution, may
+                            miss
+                            localized weather phenomena</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
         The forecasts you see on NWS and other sites are often based on a combination of these models along with
         observational data and expert analysis. Trust them, before you trust my plots, which come from individual models
@@ -288,7 +355,42 @@ dummy values until I process enough data to retrain my ML model.
 
 <script src="https://cdn.plot.ly/plotly-3.3.1.min.js"></script>
 
+<style>
+    @media (max-width: 768px) {
+
+        #plot1,
+        #plot2,
+        #plot3,
+        #plot4,
+        #plot5,
+        #plot6,
+        #plot7,
+        #plot8,
+        #plot9,
+        #plot10 {
+            width: 100% !important;
+            display: block !important;
+            margin-bottom: 20px;
+        }
+    }
+
+    @media (min-width: 769px) {
+
+        #plot1,
+        #plot2,
+        #plot3,
+        #plot5,
+        #plot6,
+        #plot7,
+        #plot9,
+        #plot10 {
+            margin-right: 10px;
+        }
+    }
+</style>
+
 <div id="plot8" style="width:96%;display:inline-block;"></div>
+<div id="plot9" style="width:96%;display:inline-block;"></div>
 <div id="plot1" style="width:48%;display:inline-block;"></div>
 <div id="plot2" style="width:48%;display:inline-block;"></div>
 <div id="plot3" style="width:48%;display:inline-block;"></div>
@@ -296,8 +398,7 @@ dummy values until I process enough data to retrain my ML model.
 <div id="plot5" style="width:48%;display:inline-block;"></div>
 <div id="plot6" style="width:48%;display:inline-block;"></div>
 <div id="plot7" style="width:48%;display:inline-block;"></div>
-<div id="plot9" style="width:48%;display:inline-block;"></div>
-
+<div id="plot10" style="width:96%;display:inline-block;"></div>
 
 
 <script src="/assets/js/weather-plots.js"></script>
@@ -306,5 +407,5 @@ dummy values until I process enough data to retrain my ML model.
     style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(border-color, #ccc); font-size: 0.85em; color: var(color, #999); text-align: center;">
     <p>Admospheric models produced and provided by the National Oceanic and Atmospheric Administration (NOAA), and
         accessed via the <a href="https://herbie.readthedocs.io/en/stable/#" target="_blank"
-            style="color: var(border-color, #999);">Herbie</a> python package.</p>
+            style="color: var(border-color, #999);">Herbie</a> python package. Machine learning datasets utilized Mt. Washington webcams (<a href="https://mountwashington.org/" target="_blank" style="color: var(border-color, #999);">MWOB</a>).</p>
 </div>

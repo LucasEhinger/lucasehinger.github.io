@@ -15,6 +15,7 @@ const modelMarkers = {
   hrrr: "circle",
   nam: "square",
   gfs: "diamond",
+  all: "star",
 };
 
 const METERS_TO_FEET = 3.28084;
@@ -195,6 +196,7 @@ function loadWeatherPlots(
   const jsonFile = `/files/weather/weather_data_${
     mountainNames[parseInt(datasetId) - 1]
   }.json`;
+  const predictionsFile = "/files/weather/predictions_all.json";
   const modelSelection = modelChoice;
   const showHRRR = !!modelSelection.hrrr;
   const showNAM = !!modelSelection.nam;
@@ -203,9 +205,11 @@ function loadWeatherPlots(
   const convertHeight = (m) => heightToUnits(m, selectedUnits);
   const textColor = chartTextColor();
 
-  fetch(jsonFile)
-    .then((response) => response.json())
-    .then((data) => {
+  Promise.all([
+    fetch(jsonFile).then((response) => response.json()),
+    fetch(predictionsFile).then((response) => response.json()),
+  ])
+    .then(([data, data_ML]) => {
       // Convert time values to full date/time using date_str
       const dateStr = data.date_str || "2025-01-01 00:00";
       console.log("date_str:", dateStr);
@@ -213,6 +217,18 @@ function loadWeatherPlots(
         "time values sample:",
         data.low_cloud_layer_percent_hrrr.x.slice(0, 5)
       );
+
+      // Convert ML prediction time values
+      let convertedDatesML;
+      try {
+        convertedDatesML = convertTimeToDateTime(
+          data_ML.XGBoost_hrrr.x,
+          data_ML.date_str || dateStr
+        );
+      } catch (err) {
+        console.error("Error converting ML dates:", err);
+        convertedDatesML = data_ML.XGBoost_hrrr.x;
+      }
 
       // Update last model update time display
       const lastUpdateEl = document.getElementById("last-update");
@@ -370,11 +386,11 @@ function loadWeatherPlots(
 
       const layout1 = {
         title: {
-          text: "Cloud Layer Coverage",
+          text: "Cloud Coverage Percentage",
           font: { color: textColor },
         },
         xaxis: { ...axisStyle("", textColor) },
-        yaxis: { ...axisStyle("Coverage (%)", textColor) },
+        yaxis: { ...axisStyle("Cloud Coverage (%)", textColor) },
         legend: { font: { color: textColor } },
         showlegend: true,
       };
@@ -382,9 +398,9 @@ function loadWeatherPlots(
       const plot1Traces = [];
       if (showHRRR) {
         plot1Traces.push(
-          trace_pct_high_hrrr,
-          trace_pct_mid_hrrr,
           trace_pct_low_hrrr,
+          trace_pct_mid_hrrr,
+          trace_pct_high_hrrr,
           trace_pct_boundary_hrrr
         );
       }
@@ -879,7 +895,7 @@ function loadWeatherPlots(
         y: data.vis_surface_hrrr.y.map(convertVisibility),
         mode: "lines+markers",
         type: "scatter",
-        name: "Surface Visibility (HRRR)",
+        name: "Surface<br>Visibility (HRRR)",
         line: { color: c7[0] },
         marker: { symbol: modelMarkers.hrrr },
       };
@@ -889,7 +905,7 @@ function loadWeatherPlots(
         y: data.vis_surface_nam.y.map(convertVisibility),
         mode: "lines+markers",
         type: "scatter",
-        name: "Surface Visibility (NAM)",
+        name: "Surface<br>Visibility (NAM)",
         line: { dash: "dash", color: c7[0] },
         marker: { symbol: modelMarkers.nam },
       };
@@ -899,14 +915,14 @@ function loadWeatherPlots(
         y: data.vis_surface_gfs.y.map(convertVisibility),
         mode: "lines+markers",
         type: "scatter",
-        name: "Surface Visibility (GFS)",
+        name: "Surface<br>Visibility (GFS)",
         line: { dash: "dot", color: c7[0] },
         marker: { symbol: modelMarkers.gfs },
       };
 
       const layout7 = {
         title: {
-          text: "Surface Visibility",
+          text: "Surface<br>Visibility",
           font: { color: textColor },
         },
         xaxis: { ...axisStyle("", textColor) },
@@ -933,61 +949,245 @@ function loadWeatherPlots(
 
       // Plot 8: Undercast Probability
       const c8 = defaultColors;
+      const mlColors = {
+        xgb: c8[0],
+        rf: c8[1],
+        gbdt: c8[2],
+        consensus: c8[3],
+      };
 
-      const trace8_a = {
-        x: convertedDates,
-        y: data.undercast_prob_hrrr.y,
+      const trace8_xgb_hrrr = {
+        x: convertedDatesML,
+        y: data_ML.XGBoost_hrrr.y,
         mode: "lines+markers",
         type: "scatter",
-        name: "Undercast Probability (HRRR)",
-        line: { color: c8[0] },
+        name: "HRRR (XGBoost)",
+        line: { color: mlColors.xgb },
         marker: { symbol: modelMarkers.hrrr },
       };
 
-      const trace8_b_nam = {
-        x: convertedDates,
-        y: data.undercast_prob_nam.y,
+      const trace8_rf_hrrr = {
+        x: convertedDatesML,
+        y: data_ML["Random Forest_hrrr"].y,
         mode: "lines+markers",
         type: "scatter",
-        name: "Undercast Probability (NAM)",
-        line: { dash: "dash", color: c8[0] },
+        name: "HRRR (Random Forest)",
+        line: { dash: "dash", color: mlColors.rf },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+
+      const trace8_gbdt_hrrr = {
+        x: convertedDatesML,
+        y: data_ML["Gradient Boosting_hrrr"].y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "HRRR (Gradient Boosting)",
+        line: { dash: "dot", color: mlColors.gbdt },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+
+      const trace8_consensus_hrrr = {
+        x: convertedDatesML,
+        y: data_ML.consensus_hrrr.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "HRRR (Consensus)",
+        line: { dash: "longdash", color: mlColors.consensus },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+
+      const trace8_xgb_nam = {
+        x: convertedDatesML,
+        y: data_ML.XGBoost_nam.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "NAM (XGBoost)",
+        line: { color: mlColors.xgb },
         marker: { symbol: modelMarkers.nam },
       };
 
-      const trace8_b = {
-        x: convertedDates,
-        y: data.undercast_prob_gfs.y,
+      const trace8_rf_nam = {
+        x: convertedDatesML,
+        y: data_ML["Random Forest_nam"].y,
         mode: "lines+markers",
         type: "scatter",
-        name: "Undercast Probability (GFS)",
-        line: { dash: "dot", color: c8[0] },
+        name: "NAM (Random Forest)",
+        line: { dash: "dash", color: mlColors.rf },
+        marker: { symbol: modelMarkers.nam },
+      };
+
+      const trace8_gbdt_nam = {
+        x: convertedDatesML,
+        y: data_ML["Gradient Boosting_nam"].y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "NAM (Gradient Boosting)",
+        line: { dash: "dot", color: mlColors.gbdt },
+        marker: { symbol: modelMarkers.nam },
+      };
+
+      const trace8_consensus_nam = {
+        x: convertedDatesML,
+        y: data_ML.consensus_nam.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "NAM (Consensus)",
+        line: { dash: "longdash", color: mlColors.consensus },
+        marker: { symbol: modelMarkers.nam },
+      };
+
+      const trace8_xgb_gfs = {
+        x: convertedDatesML,
+        y: data_ML.XGBoost_gfs.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "GFS (XGBoost)",
+        line: { color: mlColors.xgb },
         marker: { symbol: modelMarkers.gfs },
+      };
+
+      const trace8_rf_gfs = {
+        x: convertedDatesML,
+        y: data_ML["Random Forest_gfs"].y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "GFS (Random Forest)",
+        line: { dash: "dash", color: mlColors.rf },
+        marker: { symbol: modelMarkers.gfs },
+      };
+
+      const trace8_gbdt_gfs = {
+        x: convertedDatesML,
+        y: data_ML["Gradient Boosting_gfs"].y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "GFS (Gradient Boosting)",
+        line: { dash: "dot", color: mlColors.gbdt },
+        marker: { symbol: modelMarkers.gfs },
+      };
+
+      const trace8_consensus_gfs = {
+        x: convertedDatesML,
+        y: data_ML.consensus_gfs.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "GFS (Consensus)",
+        line: { dash: "longdash", color: mlColors.consensus },
+        marker: { symbol: modelMarkers.gfs },
+      };
+
+      const trace8_xgb_all = {
+        x: convertedDatesML,
+        y: data_ML.XGBoost_all.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "All (XGBoost)",
+        line: { color: mlColors.xgb },
+        marker: { symbol: modelMarkers.all },
+      };
+
+      const trace8_rf_all = {
+        x: convertedDatesML,
+        y: data_ML["Random Forest_all"].y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "All (Random Forest)",
+        line: { dash: "dash", color: mlColors.rf },
+        marker: { symbol: modelMarkers.all },
+      };
+
+      const trace8_gbdt_all = {
+        x: convertedDatesML,
+        y: data_ML["Gradient Boosting_all"].y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "All (Gradient Boosting)",
+        line: { dash: "dot", color: mlColors.gbdt },
+        marker: { symbol: modelMarkers.all },
+      };
+
+      const trace8_consensus_all = {
+        x: convertedDatesML,
+        y: data_ML.consensus_all.y,
+        mode: "lines+markers",
+        type: "scatter",
+        name: "All (Consensus)",
+        line: { dash: "longdash", color: mlColors.consensus },
+        marker: { symbol: modelMarkers.all },
       };
 
       const layout8 = {
         title: {
-          text: "Undercast Probability",
+          text: "Undercast Prediction",
           font: { color: textColor },
         },
         xaxis: { ...axisStyle("", textColor) },
-        yaxis: { ...axisStyle("Probability (%)", textColor) },
+        yaxis: {
+          ...axisStyle("", textColor),
+          range: [-0.5, 1.5],
+          tickmode: "array",
+          tickvals: [1, 0],
+          ticktext: ["Undercast", "Not Undercast"],
+          tickangle: 90,
+        },
         legend: { font: { color: textColor } },
         showlegend: true,
       };
 
       const plot8Traces = [];
       if (showHRRR) {
-        plot8Traces.push(trace8_a);
+        plot8Traces.push(
+          trace8_consensus_hrrr
+        );
       }
       if (showNAM) {
-        plot8Traces.push(trace8_b_nam);
+        plot8Traces.push(
+          trace8_consensus_nam
+        );
       }
       if (showGFS) {
-        plot8Traces.push(trace8_b);
+        plot8Traces.push(
+          trace8_consensus_gfs
+        );
       }
+      plot8Traces.push(
+        trace8_consensus_all
+      );
       Plotly.newPlot("plot8", plot8Traces, layout8);
 
-      // Plot 9: Precipitation
+      // Plot 9: Undercast Probability (Other Models)
+      const layout9 = {
+        title: {
+          text: "Undercast Prediction (Other Models)",
+          font: { color: textColor },
+        },
+        xaxis: { ...axisStyle("", textColor) },
+        yaxis: {
+          ...axisStyle("", textColor),
+          range: [-0.5, 1.5],
+          tickmode: "array",
+          tickvals: [1, 0],
+          ticktext: ["Undercast", "Not Undercast"],
+          tickangle: 90,
+        },
+        legend: { font: { color: textColor } },
+        showlegend: true,
+      };
+
+      const plot9Traces = [];
+      if (showHRRR) {
+        plot9Traces.push(trace8_xgb_hrrr, trace8_rf_hrrr, trace8_gbdt_hrrr);
+      }
+      if (showNAM) {
+        plot9Traces.push(trace8_xgb_nam, trace8_rf_nam, trace8_gbdt_nam);
+      }
+      if (showGFS) {
+        plot9Traces.push(trace8_xgb_gfs, trace8_rf_gfs, trace8_gbdt_gfs);
+      }
+      plot9Traces.push(trace8_xgb_all, trace8_rf_all, trace8_gbdt_all);
+      Plotly.newPlot("plot9", plot9Traces, layout9);
+
+      // Plot 10: Precipitation
       const c9 = defaultColors;
 
       const convertPrecip = (mm) => precipToUnits(mm, selectedUnits);
@@ -997,7 +1197,7 @@ function loadWeatherPlots(
         return precipToUnits(mmPerHr, selectedUnits);
       };
 
-      const trace9_apcp_hrrr = {
+      const trace10_apcp_hrrr = {
         x: convertedDates,
         y: data.apcp_surface_hrrr.y.map(convertPrecip),
         mode: "lines+markers",
@@ -1008,7 +1208,7 @@ function loadWeatherPlots(
         yaxis: "y",
       };
 
-      const trace9_prate_hrrr = {
+      const trace10_prate_hrrr = {
         x: convertedDates,
         y: data.prate_surface_hrrr.y.map(convertPrecipRate),
         mode: "lines+markers",
@@ -1019,7 +1219,51 @@ function loadWeatherPlots(
         yaxis: "y2",
       };
 
-      const layout9 = {
+      const trace10_apcp_nam = {
+        x: convertedDates,
+        y: data.apcp_surface_nam.y.map(convertPrecip),
+        mode: "lines+markers",
+        type: "scatter",
+        name: "Accumulated Precip (NAM)",
+        line: { dash: "dash", color: c9[0] },
+        marker: { symbol: modelMarkers.nam },
+        yaxis: "y",
+      };
+
+      const trace10_prate_nam = {
+        x: convertedDates,
+        y: data.prate_surface_nam.y.map(convertPrecipRate),
+        mode: "lines+markers",
+        type: "scatter",
+        name: "Precip Rate (NAM)",
+        line: { dash: "dash", color: c9[1] },
+        marker: { symbol: modelMarkers.nam },
+        yaxis: "y2",
+      };
+
+      const trace10_apcp_gfs = {
+        x: convertedDates,
+        y: data.apcp_surface_gfs.y.map(convertPrecip),
+        mode: "lines+markers",
+        type: "scatter",
+        name: "Accumulated Precip (GFS)",
+        line: { dash: "dot", color: c9[0] },
+        marker: { symbol: modelMarkers.gfs },
+        yaxis: "y",
+      };
+
+      const trace10_prate_gfs = {
+        x: convertedDates,
+        y: data.prate_surface_gfs.y.map(convertPrecipRate),
+        mode: "lines+markers",
+        type: "scatter",
+        name: "Precip Rate (GFS)",
+        line: { dash: "dot", color: c9[1] },
+        marker: { symbol: modelMarkers.gfs },
+        yaxis: "y2",
+      };
+
+      const layout10 = {
         title: {
           text: "Precipitation",
           font: { color: textColor },
@@ -1040,11 +1284,18 @@ function loadWeatherPlots(
         showlegend: true,
       };
 
-      const plot9Traces = [];
+      const plot10Traces = [];
       if (showHRRR) {
-        plot9Traces.push(trace9_apcp_hrrr, trace9_prate_hrrr);
+        plot10Traces.push(trace10_apcp_hrrr, trace10_prate_hrrr);
       }
-      Plotly.newPlot("plot9", plot9Traces, layout9);
+      if (showNAM) {
+        plot10Traces.push(trace10_apcp_nam, trace10_prate_nam);
+      }
+      if (showGFS) {
+        plot10Traces.push(trace10_apcp_gfs, trace10_prate_gfs);
+      }
+      
+      Plotly.newPlot("plot10", plot10Traces, layout10);
 
       // Add tooltips to plot info icons after Plotly renders
       setTimeout(() => {
