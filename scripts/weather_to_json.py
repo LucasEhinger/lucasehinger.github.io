@@ -627,21 +627,21 @@ if __name__ == "__main__":
     for ml_model in ml_models:
 
         preprocess = joblib.load(
-            f"/files/weather/models/preprocessor_{ml_model}.pkl"
+            f"files/weather/models/preprocessor_{ml_model}.pkl"
         )
         xgb_model = xgb.XGBClassifier()
         xgb_model.load_model(
-            f"/files/weather/models/xgboost_best_f1_{ml_model}.json"
+            f"files/weather/models/xgboost_best_f1_{ml_model}.json"
         )
         rf_model = joblib.load(
-            f"/files/weather/models/random_forest_best_f1_{ml_model}.pkl"
+            f"files/weather/models/random_forest_best_f1_{ml_model}.pkl"
         )
         gb_model = joblib.load(
-            f"/files/weather/models/gradient_boosting_best_f1_{ml_model}.pkl"
+            f"files/weather/models/gradient_boosting_best_f1_{ml_model}.pkl"
         )
 
         with open(
-            f"/files/weather/models/model_metadata_{ml_model}.json"
+            f"files/weather/models/model_metadata_{ml_model}.json"
         ) as f:
             metadata = json.load(f)
 
