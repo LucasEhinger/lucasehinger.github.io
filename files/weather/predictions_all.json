@@ -1,6 +1,6 @@
 {
-  "date_str": "2026-02-03 18:00",
-  "run_time": "2026-02-04 01:28",
+  "date_str": "2026-02-04 00:00",
+  "run_time": "2026-02-04 06:46",
   "XGBoost_gfs": {
     "x": [
       0,
@@ -513,7 +513,7 @@
       0
     ]
   },
-  "XGBoost_nam": {
+  "XGBoost_all": {
     "x": [
       0,
       2,
@@ -603,12 +603,12 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
@@ -641,7 +641,7 @@
       null
     ]
   },
-  "Random Forest_nam": {
+  "Random Forest_all": {
     "x": [
       0,
       2,
@@ -731,12 +731,12 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
@@ -769,7 +769,7 @@
       null
     ]
   },
-  "Gradient Boosting_nam": {
+  "Gradient Boosting_all": {
     "x": [
       0,
       2,
@@ -859,12 +859,12 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
@@ -897,7 +897,7 @@
       null
     ]
   },
-  "consensus_nam": {
+  "consensus_all": {
     "x": [
       0,
       2,
@@ -987,12 +987,12 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
@@ -1537,7 +1537,7 @@
       null
     ]
   },
-  "XGBoost_all": {
+  "XGBoost_nam": {
     "x": [
       0,
       2,
@@ -1627,12 +1627,12 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       null,
       null,
       null,
@@ -1665,7 +1665,7 @@
       null
     ]
   },
-  "Random Forest_all": {
+  "Random Forest_nam": {
     "x": [
       0,
       2,
@@ -1755,12 +1755,12 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       null,
       null,
       null,
@@ -1793,7 +1793,7 @@
       null
     ]
   },
-  "Gradient Boosting_all": {
+  "Gradient Boosting_nam": {
     "x": [
       0,
       2,
@@ -1883,12 +1883,12 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       null,
       null,
       null,
@@ -1921,7 +1921,7 @@
       null
     ]
   },
-  "consensus_all": {
+  "consensus_nam": {
     "x": [
       0,
       2,
@@ -2011,12 +2011,12 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       null,
       null,
       null,
