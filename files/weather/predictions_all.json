@@ -1,7 +1,7 @@
 {
-  "date_str": "2026-03-15 00:00",
-  "run_time": "2026-03-15 06:55",
-  "XGBoost_hrrr": {
+  "date_str": "2026-03-15 06:00",
+  "run_time": "2026-03-15 12:39",
+  "XGBoost_nam": {
     "x": [
       0,
       2,
@@ -91,12 +91,12 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       null,
       null,
       null,
@@ -129,7 +129,7 @@
       null
     ]
   },
-  "Random Forest_hrrr": {
+  "Random Forest_nam": {
     "x": [
       0,
       2,
@@ -196,9 +196,6 @@
     "y": [
       0,
       0,
-      0,
-      0,
-      0,
       1,
       0,
       0,
@@ -219,12 +216,15 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       null,
       null,
       null,
@@ -257,7 +257,7 @@
       null
     ]
   },
-  "Gradient Boosting_hrrr": {
+  "Gradient Boosting_nam": {
     "x": [
       0,
       2,
@@ -327,7 +327,6 @@
       0,
       0,
       0,
-      1,
       0,
       0,
       0,
@@ -347,12 +346,13 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       null,
       null,
       null,
@@ -385,7 +385,7 @@
       null
     ]
   },
-  "consensus_hrrr": {
+  "consensus_nam": {
     "x": [
       0,
       2,
@@ -455,7 +455,6 @@
       0,
       0,
       0,
-      1,
       0,
       0,
       0,
@@ -475,12 +474,13 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       null,
       null,
       null,
@@ -1226,9 +1226,9 @@
       0,
       0,
       0,
+      1,
       0,
-      0,
-      0,
+      1,
       0,
       0,
       0,
@@ -1537,7 +1537,7 @@
       null
     ]
   },
-  "XGBoost_nam": {
+  "XGBoost_hrrr": {
     "x": [
       0,
       2,
@@ -1612,6 +1612,7 @@
       0,
       0,
       0,
+      1,
       0,
       0,
       0,
@@ -1626,13 +1627,12 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
@@ -1665,7 +1665,7 @@
       null
     ]
   },
-  "Random Forest_nam": {
+  "Random Forest_hrrr": {
     "x": [
       0,
       2,
@@ -1732,8 +1732,14 @@
     "y": [
       0,
       0,
+      1,
       0,
       0,
+      0,
+      0,
+      0,
+      0,
+      1,
       1,
       0,
       0,
@@ -1749,18 +1755,12 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
@@ -1793,7 +1793,7 @@
       null
     ]
   },
-  "Gradient Boosting_nam": {
+  "Gradient Boosting_hrrr": {
     "x": [
       0,
       2,
@@ -1862,7 +1862,6 @@
       0,
       0,
       0,
-      1,
       0,
       0,
       0,
@@ -1884,11 +1883,12 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
@@ -1921,7 +1921,7 @@
       null
     ]
   },
-  "consensus_nam": {
+  "consensus_hrrr": {
     "x": [
       0,
       2,
@@ -1990,6 +1990,12 @@
       0,
       0,
       0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       1,
       0,
       0,
@@ -2005,18 +2011,12 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
