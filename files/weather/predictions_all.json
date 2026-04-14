@@ -1,6 +1,6 @@
 {
-  "date_str": "2026-04-14 00:00",
-  "run_time": "2026-04-14 07:24",
+  "date_str": "2026-04-14 06:00",
+  "run_time": "2026-04-14 13:17",
   "XGBoost_nam": {
     "x": [
       0,
@@ -513,7 +513,7 @@
       null
     ]
   },
-  "XGBoost_hrrr": {
+  "XGBoost_all": {
     "x": [
       0,
       2,
@@ -641,7 +641,7 @@
       null
     ]
   },
-  "Random Forest_hrrr": {
+  "Random Forest_all": {
     "x": [
       0,
       2,
@@ -769,7 +769,7 @@
       null
     ]
   },
-  "Gradient Boosting_hrrr": {
+  "Gradient Boosting_all": {
     "x": [
       0,
       2,
@@ -897,7 +897,7 @@
       null
     ]
   },
-  "consensus_hrrr": {
+  "consensus_all": {
     "x": [
       0,
       2,
@@ -1537,7 +1537,7 @@
       0
     ]
   },
-  "XGBoost_all": {
+  "XGBoost_hrrr": {
     "x": [
       0,
       2,
@@ -1665,7 +1665,7 @@
       null
     ]
   },
-  "Random Forest_all": {
+  "Random Forest_hrrr": {
     "x": [
       0,
       2,
@@ -1793,7 +1793,7 @@
       null
     ]
   },
-  "Gradient Boosting_all": {
+  "Gradient Boosting_hrrr": {
     "x": [
       0,
       2,
@@ -1921,7 +1921,7 @@
       null
     ]
   },
-  "consensus_all": {
+  "consensus_hrrr": {
     "x": [
       0,
       2,
