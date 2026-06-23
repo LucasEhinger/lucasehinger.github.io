@@ -1,7 +1,7 @@
 {
-  "date_str": "2026-06-23 12:00",
-  "run_time": "2026-06-23 14:35",
-  "XGBoost_all": {
+  "date_str": "2026-06-23 18:00",
+  "run_time": "2026-06-23 19:55",
+  "XGBoost_hrrr": {
     "x": [
       0,
       2,
@@ -69,7 +69,7 @@
       null
     ]
   },
-  "Random Forest_all": {
+  "Random Forest_hrrr": {
     "x": [
       0,
       2,
@@ -137,7 +137,7 @@
       null
     ]
   },
-  "Gradient Boosting_all": {
+  "Gradient Boosting_hrrr": {
     "x": [
       0,
       2,
@@ -172,7 +172,7 @@
       60
     ],
     "y": [
-      1,
+      0,
       0,
       0,
       0,
@@ -205,7 +205,7 @@
       null
     ]
   },
-  "consensus_all": {
+  "consensus_hrrr": {
     "x": [
       0,
       2,
@@ -817,7 +817,7 @@
       0
     ]
   },
-  "XGBoost_hrrr": {
+  "XGBoost_all": {
     "x": [
       0,
       2,
@@ -885,7 +885,7 @@
       null
     ]
   },
-  "Random Forest_hrrr": {
+  "Random Forest_all": {
     "x": [
       0,
       2,
@@ -928,7 +928,7 @@
       0,
       0,
       0,
-      0,
+      1,
       0,
       0,
       0,
@@ -953,7 +953,7 @@
       null
     ]
   },
-  "Gradient Boosting_hrrr": {
+  "Gradient Boosting_all": {
     "x": [
       0,
       2,
@@ -996,7 +996,7 @@
       0,
       0,
       0,
-      0,
+      1,
       0,
       0,
       0,
@@ -1021,7 +1021,7 @@
       null
     ]
   },
-  "consensus_hrrr": {
+  "consensus_all": {
     "x": [
       0,
       2,
@@ -1064,7 +1064,7 @@
       0,
       0,
       0,
-      0,
+      1,
       0,
       0,
       0,
