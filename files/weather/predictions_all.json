@@ -1,6 +1,6 @@
 {
-  "date_str": "2026-07-02 00:00",
-  "run_time": "2026-07-02 02:38",
+  "date_str": "2026-07-02 06:00",
+  "run_time": "2026-07-02 08:49",
   "XGBoost_hrrr": {
     "x": [
       0,
@@ -273,7 +273,7 @@
       null
     ]
   },
-  "XGBoost_nam": {
+  "XGBoost_all": {
     "x": [
       0,
       2,
@@ -333,15 +333,15 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
     ]
   },
-  "Random Forest_nam": {
+  "Random Forest_all": {
     "x": [
       0,
       2,
@@ -401,15 +401,15 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
     ]
   },
-  "Gradient Boosting_nam": {
+  "Gradient Boosting_all": {
     "x": [
       0,
       2,
@@ -469,15 +469,15 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
     ]
   },
-  "consensus_nam": {
+  "consensus_all": {
     "x": [
       0,
       2,
@@ -537,12 +537,12 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
     ]
   },
   "XGBoost_gfs": {
@@ -817,7 +817,7 @@
       0
     ]
   },
-  "XGBoost_all": {
+  "XGBoost_nam": {
     "x": [
       0,
       2,
@@ -877,15 +877,15 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ]
   },
-  "Random Forest_all": {
+  "Random Forest_nam": {
     "x": [
       0,
       2,
@@ -945,15 +945,15 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ]
   },
-  "Gradient Boosting_all": {
+  "Gradient Boosting_nam": {
     "x": [
       0,
       2,
@@ -989,7 +989,6 @@
     ],
     "y": [
       0,
-      1,
       0,
       0,
       0,
@@ -1013,15 +1012,16 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ]
   },
-  "consensus_all": {
+  "consensus_nam": {
     "x": [
       0,
       2,
@@ -1081,12 +1081,12 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ]
   }
 }
