@@ -1,7 +1,7 @@
 {
-  "date_str": "2026-07-03 06:00",
-  "run_time": "2026-07-03 08:54",
-  "XGBoost_gfs": {
+  "date_str": "2026-07-03 12:00",
+  "run_time": "2026-07-03 13:48",
+  "XGBoost_hrrr": {
     "x": [
       0,
       2,
@@ -61,15 +61,15 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
     ]
   },
-  "Random Forest_gfs": {
+  "Random Forest_hrrr": {
     "x": [
       0,
       2,
@@ -129,15 +129,15 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
     ]
   },
-  "Gradient Boosting_gfs": {
+  "Gradient Boosting_hrrr": {
     "x": [
       0,
       2,
@@ -197,15 +197,15 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
     ]
   },
-  "consensus_gfs": {
+  "consensus_hrrr": {
     "x": [
       0,
       2,
@@ -265,12 +265,12 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
     ]
   },
   "XGBoost_nam": {
@@ -545,7 +545,7 @@
       0
     ]
   },
-  "XGBoost_hrrr": {
+  "XGBoost_gfs": {
     "x": [
       0,
       2,
@@ -605,15 +605,15 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ]
   },
-  "Random Forest_hrrr": {
+  "Random Forest_gfs": {
     "x": [
       0,
       2,
@@ -673,15 +673,15 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ]
   },
-  "Gradient Boosting_hrrr": {
+  "Gradient Boosting_gfs": {
     "x": [
       0,
       2,
@@ -741,15 +741,15 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ]
   },
-  "consensus_hrrr": {
+  "consensus_gfs": {
     "x": [
       0,
       2,
@@ -809,12 +809,12 @@
       0,
       0,
       0,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
     ]
   },
   "XGBoost_all": {
@@ -1007,9 +1007,9 @@
       0,
       0,
       0,
+      0,
+      0,
       1,
-      0,
-      0,
       0,
       0,
       0,
