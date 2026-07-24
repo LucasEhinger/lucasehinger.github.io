@@ -1,0 +1,300 @@
+---
+layout: archive
+title: "Sailor — MIT Bluewater"
+permalink: /bluewater/sailor/
+author_profile: false
+sitemap: false
+noindex: true
+hidden: true
+---
+
+<style>
+    /* Use the full page width on this page (no author sidebar column). */
+    .archive {
+        width: 100% !important;
+        float: none !important;
+        margin: 0 !important;
+        padding-left: 0 !important;
+    }
+
+    .bw-back {
+        margin-bottom: 14px;
+    }
+
+    .bw-sailor-name {
+        margin: 0 0 6px 0;
+        color: var(color, #333);
+    }
+
+    .bw-panel {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 18px;
+        background-color: var(background-color, #fff);
+    }
+
+    .bw-daterange {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 16px;
+    }
+
+    .bw-dr-label {
+        font-weight: 700;
+        color: var(color, #333);
+    }
+
+    .bw-presets {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .bw-presets button {
+        border: 1px solid #bbb;
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.85em;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+    }
+
+    .bw-presets button:hover {
+        background-color: rgba(128, 128, 128, 0.15);
+    }
+
+    .bw-presets button.active {
+        background-color: #1f77b4;
+        border-color: #1f77b4;
+        color: #fff;
+    }
+
+    .bw-range-selects {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(color, #333);
+    }
+
+    .bw-filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 18px;
+    }
+
+    .bw-filters label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 600;
+        color: var(--global-text-color, #333);
+    }
+
+    select {
+        background-color: #fff;
+        color: #333;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 5px 9px;
+    }
+
+    .bw-stat-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 22px;
+    }
+
+    .bw-stat-tile {
+        flex: 1 1 120px;
+        min-width: 110px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 10px 12px;
+        background-color: var(background-color, #fff);
+    }
+
+    .bw-stat-value {
+        font-size: 1.45em;
+        font-weight: 700;
+        line-height: 1.1;
+        color: var(color, #333);
+    }
+
+    .bw-stat-label {
+        font-size: 0.78em;
+        color: var(color, #666);
+        opacity: 0.75;
+        margin-top: 4px;
+    }
+
+    .bw-table-wrap {
+        overflow-x: auto;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        max-height: 640px;
+    }
+
+    table.bw-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9em;
+        margin: 0;
+    }
+
+    table.bw-table th,
+    table.bw-table td {
+        padding: 7px 10px;
+        text-align: left;
+        white-space: nowrap;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+    }
+
+    table.bw-table td.bw-num,
+    table.bw-table th.bw-num {
+        text-align: right;
+    }
+
+    table.bw-table td.bw-trip {
+        white-space: normal;
+        min-width: 220px;
+    }
+
+    table.bw-table th {
+        position: sticky;
+        top: 0;
+        background-color: var(--global-thead-color, #e9e9e9);
+        color: #333;
+        z-index: 1;
+    }
+
+    table.bw-table th.bw-sortable {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    table.bw-table th.bw-sortable:hover {
+        background-color: rgba(128, 128, 128, 0.18);
+    }
+
+    .bw-sort-arrow {
+        font-size: 0.8em;
+        opacity: 0.7;
+    }
+
+    table.bw-table tbody tr:hover {
+        background-color: rgba(128, 128, 128, 0.08);
+    }
+
+    .bw-badge {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 999px;
+        font-size: 0.82em;
+        border: 1px solid rgba(128, 128, 128, 0.4);
+    }
+
+    .bw-badge.sail {
+        background-color: rgba(31, 119, 180, 0.15);
+        border-color: rgba(31, 119, 180, 0.4);
+    }
+
+    .bw-badge.pending {
+        opacity: 0.7;
+    }
+
+    .bw-badge.cancelled {
+        text-decoration: line-through;
+        opacity: 0.6;
+    }
+
+    #bw-status {
+        color: var(color, #666);
+        font-style: italic;
+    }
+
+    #bw-last-update {
+        font-size: 0.8em;
+        color: var(color, #666);
+        opacity: 0.6;
+        margin-top: 10px;
+    }
+</style>
+
+<div class="bw-back"><a href="/bluewater/">← Back to leaderboard</a></div>
+
+<h1 class="bw-sailor-name" id="bw-sailor-name">Sailor</h1>
+
+<div id="bw-status">Loading…</div>
+
+<div id="bw-content" style="display: none;">
+    <div class="bw-panel">
+        <div class="bw-daterange">
+            <span class="bw-dr-label">Date range:</span>
+            <div class="bw-presets" id="bw-presets">
+                <button type="button" data-preset="all">All-time</button>
+                <button type="button" data-preset="12">Last 12 mo</button>
+                <button type="button" data-preset="60">Last 5 yr</button>
+                <button type="button" data-preset="ytd">Year to date</button>
+            </div>
+            <span class="bw-range-selects">
+                From <select id="bw-from"></select>
+                to <select id="bw-to"></select>
+            </span>
+        </div>
+    </div>
+
+    <div class="bw-stat-row" id="bw-stat-row"></div>
+
+    <div class="bw-panel bw-filters">
+        <span class="bw-dr-label">Filter:</span>
+        <label>Role
+            <select id="bw-f-role">
+                <option value="all">All</option>
+                <option value="s">Skipper</option>
+                <option value="c">Crew</option>
+            </select>
+        </label>
+        <label>Type
+            <select id="bw-f-type">
+                <option value="all">All</option>
+                <option value="race">Race</option>
+                <option value="pleasure">Pleasure</option>
+            </select>
+        </label>
+        <label>Status
+            <select id="bw-f-status">
+                <option value="all">All</option>
+                <option value="sailed">Sailed</option>
+                <option value="notselected">Not selected</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+        </label>
+    </div>
+
+    <h3 style="margin-bottom: 10px;" id="bw-history-heading">Sail history</h3>
+    <div class="bw-table-wrap">
+        <table class="bw-table">
+            <thead>
+                <tr>
+                    <th class="bw-sortable" data-key="date">Date <span class="bw-sort-arrow"></span></th>
+                    <th class="bw-trip">Trip</th>
+                    <th>Role</th>
+                    <th class="bw-num bw-sortable" data-key="hours">Hours <span class="bw-sort-arrow"></span></th>
+                    <th>Type</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="bw-tbody"></tbody>
+        </table>
+    </div>
+
+    <div id="bw-last-update"></div>
+</div>
+
+<script src="/assets/js/bluewater-common.js?{{ site.time | date: '%s' }}"></script>
+<script src="/assets/js/bluewater-sailor.js?{{ site.time | date: '%s' }}"></script>

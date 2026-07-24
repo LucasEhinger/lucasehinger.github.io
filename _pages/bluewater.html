@@ -1,0 +1,516 @@
+---
+layout: archive
+title: "MIT Bluewater Sailing Stats"
+permalink: /bluewater/
+author_profile: false
+sitemap: false
+noindex: true
+hidden: true
+---
+
+<style>
+    /* Use the full page width on this page (no author sidebar column). */
+    .archive {
+        width: 100% !important;
+        float: none !important;
+        margin: 0 !important;
+        padding-left: 0 !important;
+    }
+
+    .bw-intro {
+        margin-bottom: 18px;
+    }
+
+    .bw-panel {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 18px;
+        background-color: var(background-color, #fff);
+    }
+
+    .bw-daterange {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 16px;
+    }
+
+    .bw-dr-label {
+        font-weight: 700;
+        color: var(color, #333);
+    }
+
+    .bw-presets {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .bw-presets button {
+        border: 1px solid #bbb;
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.85em;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+    }
+
+    .bw-presets button:hover {
+        background-color: rgba(128, 128, 128, 0.15);
+    }
+
+    .bw-presets button.active {
+        background-color: #1f77b4;
+        border-color: #1f77b4;
+        color: #fff;
+    }
+
+    .bw-range-selects {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(color, #333);
+    }
+
+    .bw-updated-group {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .bw-updated {
+        font-size: 0.8em;
+        opacity: 0.65;
+        color: var(--global-text-color, #666);
+        white-space: nowrap;
+    }
+
+    .bw-refresh {
+        border: 1px solid #bbb;
+        border-radius: 6px;
+        padding: 5px 12px;
+        font-size: 0.85em;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+    }
+
+    .bw-refresh:hover {
+        background-color: rgba(128, 128, 128, 0.15);
+    }
+
+    .bw-refresh[disabled] {
+        opacity: 0.6;
+        cursor: default;
+    }
+
+    select,
+    input#bw-search {
+        background-color: #fff;
+        color: #333;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 5px 9px;
+    }
+
+    .bw-stat-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+
+    .bw-stat-tile {
+        flex: 1 1 130px;
+        min-width: 120px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 12px 14px;
+        background-color: var(background-color, #fff);
+    }
+
+    .bw-stat-value {
+        font-size: 1.55em;
+        font-weight: 700;
+        line-height: 1.1;
+        color: var(color, #333);
+    }
+
+    .bw-stat-label {
+        font-size: 0.8em;
+        color: var(color, #666);
+        opacity: 0.75;
+        margin-top: 4px;
+    }
+
+    .bw-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 16px;
+    }
+
+    .bw-controls label {
+        font-weight: 600;
+        color: var(color, #333);
+    }
+
+    #bw-search {
+        min-width: 220px;
+    }
+
+    #bw-chart {
+        width: 100%;
+        height: 460px;
+        margin-bottom: 24px;
+    }
+
+    .bw-note {
+        font-size: 0.9em;
+        color: var(--global-text-color, #666);
+        opacity: 0.8;
+        margin-bottom: 18px;
+    }
+
+    .bw-disclosure {
+        margin: -4px 0 14px;
+        font-size: 0.9em;
+    }
+
+    .bw-disclosure>summary {
+        cursor: pointer;
+        display: inline-block;
+        color: #1f77b4;
+        user-select: none;
+        padding: 2px 0;
+        list-style: none;
+    }
+
+    .bw-disclosure>summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .bw-disclosure>summary::before {
+        content: "▸";
+        display: inline-block;
+        margin-right: 6px;
+        font-size: 0.85em;
+        transition: transform 0.15s ease;
+    }
+
+    .bw-disclosure[open]>summary::before {
+        transform: rotate(90deg);
+    }
+
+    .bw-disclosure>summary:hover {
+        text-decoration: underline;
+    }
+
+    .bw-disclosure-body {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+    }
+
+    .bw-disclosure-body label {
+        font-weight: 600;
+        color: var(--global-text-color, #333);
+    }
+
+    .bw-toggle-btn {
+        border: 1px solid #bbb;
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.85em;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+    }
+
+    .bw-toggle-btn:hover {
+        background-color: rgba(128, 128, 128, 0.15);
+    }
+
+    .bw-toggle-btn.active {
+        background-color: #1f77b4;
+        border-color: #1f77b4;
+        color: #fff;
+    }
+
+    .bw-info {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        cursor: help;
+        /* Dim only the icon via color — no container opacity, which would also
+           make the tooltip semi-transparent and let text bleed through. */
+        color: #999;
+    }
+
+    .bw-info-tip {
+        position: absolute;
+        bottom: 135%;
+        right: 0;
+        width: 240px;
+        background: #333;
+        color: #fff;
+        padding: 8px 10px;
+        border-radius: 5px;
+        font-size: 0.82em;
+        line-height: 1.35;
+        font-weight: normal;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s;
+        z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .bw-info:hover .bw-info-tip,
+    .bw-info:focus .bw-info-tip {
+        opacity: 1;
+    }
+
+    #bw-sail-note {
+        margin: -6px 0 16px;
+        padding: 8px 12px;
+        border-left: 3px solid #1f77b4;
+        background-color: rgba(31, 119, 180, 0.08);
+        border-radius: 4px;
+        font-size: 0.9em;
+        color: var(--global-text-color, #333);
+    }
+
+    #bw-sail-note .bw-clear-sail {
+        margin-left: 10px;
+        cursor: pointer;
+        color: #1f77b4;
+        text-decoration: underline;
+        white-space: nowrap;
+    }
+
+    .bw-plot-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-bottom: 18px;
+    }
+
+    .bw-plot {
+        width: 100%;
+        height: 360px;
+        min-width: 0;
+    }
+
+    .bw-month-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 8px 0 14px;
+        font-weight: 600;
+        color: var(--global-text-color, #333);
+    }
+
+    @media (max-width: 800px) {
+        .bw-plot-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .bw-table-wrap {
+        overflow-x: auto;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        max-height: 640px;
+    }
+
+    table.bw-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9em;
+        margin: 0;
+    }
+
+    table.bw-table th,
+    table.bw-table td {
+        padding: 7px 10px;
+        text-align: right;
+        white-space: nowrap;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+    }
+
+    table.bw-table th {
+        position: sticky;
+        top: 0;
+        background-color: var(--global-thead-color, #e9e9e9);
+        cursor: pointer;
+        user-select: none;
+        color: #333;
+        z-index: 1;
+    }
+
+    table.bw-table th.bw-sortable:hover {
+        background-color: rgba(128, 128, 128, 0.12);
+    }
+
+    table.bw-table th[data-key="rank"],
+    table.bw-table td.bw-rank,
+    table.bw-table th[data-key="name"],
+    table.bw-table td.bw-name {
+        text-align: left;
+    }
+
+    table.bw-table td.bw-name a {
+        font-weight: 600;
+    }
+
+    .bw-mark {
+        color: #2ca02c;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+
+    table.bw-table tbody tr:hover {
+        background-color: rgba(128, 128, 128, 0.08);
+    }
+
+    .bw-sort-arrow {
+        font-size: 0.8em;
+        opacity: 0.6;
+    }
+
+    #bw-last-update {
+        font-size: 0.8em;
+        color: var(color, #666);
+        opacity: 0.6;
+        margin-top: 10px;
+    }
+
+    #bw-status {
+        color: var(color, #666);
+        font-style: italic;
+    }
+
+    @media (max-width: 600px) {
+        #bw-search {
+            min-width: 0;
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="bw-intro">
+    <p>
+        Sailing stats for
+        <a href="http://sailing.mit.edu/bluewater/" target="_blank" rel="noopener">MIT's Bluewater program</a>, compiled
+        from the club's public event calendar by
+        <a href="https://github.com/LucasEhinger/BluewaterExperienceScraper" target="_blank" rel="noopener">a
+            scraper I wrote</a>. Sailors are shown by first name and last initial — click a name to see that
+        person's full sail history. Use the date range to scope every stat below; click a column header to sort.
+
+        All information on this site is publicly available on the Bluewater website.
+    </p>
+</div>
+
+<div class="bw-panel">
+    <div class="bw-daterange">
+        <span class="bw-dr-label">Date range:</span>
+        <div class="bw-presets" id="bw-presets">
+            <button type="button" data-preset="all">All-time</button>
+            <button type="button" data-preset="12">Last 12 mo</button>
+            <button type="button" data-preset="60">Last 5 yr</button>
+            <button type="button" data-preset="ytd">Year to date</button>
+        </div>
+        <span class="bw-range-selects">
+            From <select id="bw-from"></select>
+            to <select id="bw-to"></select>
+        </span>
+        <span class="bw-updated-group">
+            <span id="bw-updated" class="bw-updated"></span>
+            <button type="button" id="bw-refresh" class="bw-refresh">⟳ Refresh data</button>
+            <span class="bw-info" tabindex="0" aria-label="About the refresh button">&#9432;
+                <span class="bw-info-tip">This only checks for newly published data — it doesn't re-run the
+                    scraper. The stats are refreshed automatically once a day.</span>
+            </span>
+        </span>
+    </div>
+</div>
+
+<div class="bw-stat-row" id="bw-stat-row"><!-- headline stats populated by JS --></div>
+
+<div class="bw-controls">
+    <div style="display: inline-flex; align-items: center; gap: 8px;">
+        <label for="bw-metric">Chart metric:</label>
+        <select id="bw-metric"></select>
+    </div>
+    <div style="display: inline-flex; align-items: center; gap: 8px;">
+        <label for="bw-search">Search:</label>
+        <input type="text" id="bw-search" placeholder="Filter by name…" autocomplete="off">
+    </div>
+</div>
+
+<details id="bw-sail-details" class="bw-disclosure">
+    <summary>Filter by an upcoming sail</summary>
+    <div class="bw-disclosure-body">
+        <label for="bw-sail">Upcoming sail:</label>
+        <select id="bw-sail" title="Show only the sailors registered for an upcoming sail">
+            <option value="">— All sailors —</option>
+        </select>
+        <button type="button" id="bw-sail-exclude" class="bw-toggle-btn" style="display: none;"
+            title="Hide the skipper and confirmed crew — show only not-yet-confirmed registrants">Exclude
+            skipper + confirmed crew</button>
+    </div>
+</details>
+
+<div id="bw-sail-note" style="display: none;"></div>
+
+<div id="bw-chart"></div>
+
+<div id="bw-status">Loading sailing stats…</div>
+
+<div class="bw-table-wrap" style="display: none;">
+    <table class="bw-table">
+        <thead>
+            <tr id="bw-thead-row"></tr>
+        </thead>
+        <tbody id="bw-tbody"></tbody>
+    </table>
+</div>
+
+<div id="bw-last-update"></div>
+
+<div id="bw-trends" style="display: none;">
+    <hr style="margin-top: 34px; border: none; border-top: 1px solid var(--global-border-color, #ccc);">
+    <h2 style="margin-top: 20px;">Program-wide trends</h2>
+    <p class="bw-note">Sailing trips and unique participants stats These
+        cover all history and are independent of the date range above.</p>
+
+    <div class="bw-plot-grid">
+        <div id="bw-plot-sails-year" class="bw-plot"></div>
+        <div id="bw-plot-sailors-year" class="bw-plot"></div>
+    </div>
+
+    <div class="bw-month-controls">
+        <span>Monthly breakdown — years:</span>
+        <label for="bw-year-from">From</label>
+        <select id="bw-year-from"></select>
+        <label for="bw-year-to">to</label>
+        <select id="bw-year-to"></select>
+    </div>
+
+    <div class="bw-plot-grid">
+        <div id="bw-plot-sails-month" class="bw-plot"></div>
+        <div id="bw-plot-sailors-month" class="bw-plot"></div>
+    </div>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-3.3.1.min.js"></script>
+<script src="/assets/js/bluewater-common.js?{{ site.time | date: '%s' }}"></script>
+<script src="/assets/js/bluewater-stats.js?{{ site.time | date: '%s' }}"></script>
