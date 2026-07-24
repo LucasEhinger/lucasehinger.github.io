@@ -1,0 +1,57 @@
+name: Bluewater Sailing Stats Update
+
+on:
+  schedule:
+    # Run daily at 07:00 UTC
+    - cron: "0 7 * * *"
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  update-bluewater:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # this workflow commits refreshed data back to the repo
+
+    steps:
+      - name: Checkout website repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas
+
+      - name: Clone the Bluewater scraper
+        run: git clone --depth 1 https://github.com/LucasEhinger/BluewaterExperienceScraper.git scraper_repo
+
+      # Only re-scrape the last year (through the present month) rather than all
+      # of history — historical data is static, so this keeps the daily run light
+      # on MIT's calendar server. The window is merged into the committed dataset.
+      - name: Scrape the last year (writes sailing_events.csv)
+        working-directory: scraper_repo
+        run: |
+          export SCRAPE_START_YEAR=$(( $(date +%Y) - 1 ))
+          export SCRAPE_START_MONTH=1
+          echo "Scraping ${SCRAPE_START_YEAR}-01 through the present month"
+          python experienceScraper.py
+
+      - name: Merge the recent window into the existing dataset
+        run: |
+          SINCE="$(( $(date +%Y) - 1 ))-01"
+          python scripts/bluewater_merge.py \
+            files/bluewater/bluewater_data.json \
+            scraper_repo/sailing_events.csv \
+            files/bluewater/bluewater_data.json \
+            --since "$SINCE"
+
+      - name: Commit and push if changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add files/bluewater/bluewater_data.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update Bluewater sailing stats" && git push)
