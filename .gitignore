@@ -24,3 +24,9 @@ package-lock.json
 
 # Ignore CSV files
 *.csv
+
+# Ignore Python bytecode
+__pycache__/
+
+# Ignore Claude Code local settings
+.claude/
