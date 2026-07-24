@@ -528,7 +528,7 @@ function loadWeatherPlots(
         mode: "lines+markers",
         type: "scatter",
         name: levelLabel("700", 3000, "HRRR", selectedUnits),
-        visible: false,
+        visible: true,
         line: { color: c3[3] },
         marker: { symbol: modelMarkers.hrrr },
       };
@@ -586,7 +586,7 @@ function loadWeatherPlots(
         mode: "lines+markers",
         type: "scatter",
         name: levelLabel("700", 3000, "NAM", selectedUnits),
-        visible: false,
+        visible: true,
         line: { dash: "dash", color: c3[3] },
         marker: { symbol: modelMarkers.nam },
       };
@@ -644,7 +644,7 @@ function loadWeatherPlots(
         mode: "lines+markers",
         type: "scatter",
         name: levelLabel("700", 3000, "GFS", selectedUnits),
-        visible: false,
+        visible: true,
         line: { dash: "dot", color: c3[3] },
         marker: { symbol: modelMarkers.gfs },
       };
@@ -668,15 +668,67 @@ function loadWeatherPlots(
         line: { dash: "dot", color: c3[5] },
         marker: { symbol: modelMarkers.gfs },
       };
+      // Highlight x-regions where there is a temperature inversion, i.e. where
+      // 700/850/925/1000mb temperatures are not monotonically increasing as
+      // pressure increases (altitude decreases). Based on whichever model is
+      // shown, preferring HRRR, then NAM, then GFS.
+      const inversionSuffix = showHRRR ? "hrrr" : showNAM ? "nam" : showGFS ? "gfs" : null;
+      const inversionShapes = [];
+      if (inversionSuffix) {
+        const t1000 = data[`tmp_1000mb_${inversionSuffix}`].y;
+        const t925 = data[`tmp_925mb_${inversionSuffix}`].y;
+        const t850 = data[`tmp_850mb_${inversionSuffix}`].y;
+        const t700 = data[`tmp_700mb_${inversionSuffix}`].y;
+        const isInversion = (i) =>
+          !(t700[i] <= t850[i] && t850[i] <= t925[i] && t925[i] <= t1000[i]);
+
+        let regionStart = null;
+        for (let i = 0; i < convertedDates.length; i++) {
+          const inverted = isInversion(i);
+          if (inverted && regionStart === null) {
+            regionStart = i;
+          } else if (!inverted && regionStart !== null) {
+            inversionShapes.push({
+              type: "rect",
+              xref: "x",
+              yref: "paper",
+              x0: convertedDates[regionStart],
+              x1: convertedDates[i - 1],
+              y0: 0,
+              y1: 1,
+              fillcolor: "rgba(128,128,128,0.3)",
+              line: { width: 0 },
+              layer: "below",
+            });
+            regionStart = null;
+          }
+        }
+        if (regionStart !== null) {
+          inversionShapes.push({
+            type: "rect",
+            xref: "x",
+            yref: "paper",
+            x0: convertedDates[regionStart],
+            x1: convertedDates[convertedDates.length - 1],
+            y0: 0,
+            y1: 1,
+            fillcolor: "rgba(128,128,128,0.3)",
+            line: { width: 0 },
+            layer: "below",
+          });
+        }
+      }
+
       const layout3 = {
         title: {
-          text: "Temperature at Various Altitudes",
+          text: "Temperature at Various Isobars",
           font: { color: textColor },
         },
         xaxis: { ...axisStyle("", textColor) },
         yaxis: { ...axisStyle(`Temperature (${tempUnitLabel})`, textColor) },
         legend: { font: { color: textColor } },
         showlegend: true,
+        shapes: inversionShapes,
       };
       const plot3Traces = [];
       if (showHRRR) {
@@ -1118,7 +1170,7 @@ function loadWeatherPlots(
 
       const layout8 = {
         title: {
-          text: "Undercast Prediction",
+          text: "Undercast Prediction (Consensus)",
           font: { color: textColor },
         },
         xaxis: { ...axisStyle("", textColor) },
@@ -1158,7 +1210,7 @@ function loadWeatherPlots(
       // Plot 9: Undercast Probability (Other Models)
       const layout9 = {
         title: {
-          text: "Undercast Prediction (Other Models)",
+          text: "Undercast Prediction (Individual Models)",
           font: { color: textColor },
         },
         xaxis: { ...axisStyle("", textColor) },
@@ -1296,6 +1348,194 @@ function loadWeatherPlots(
       }
       
       Plotly.newPlot("plot10", plot10Traces, layout10);
+
+      const c11 = defaultColors;
+
+      const hgt_1000mb_hrrr = {
+        x: convertedDates,
+        y: data.hgt_1000mb_hrrr.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("1000", 100, "HRRR", selectedUnits),
+        visible: true,
+        line: { color: c11[0] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+      const hgt_925mb_hrrr = {
+        x: convertedDates,
+        y: data.hgt_925mb_hrrr.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("925", 750, "HRRR", selectedUnits),
+        line: { color: c11[1] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+      const hgt_850mb_hrrr = {
+        x: convertedDates,
+        y: data.hgt_850mb_hrrr.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("850", 1500, "HRRR", selectedUnits),
+        line: { color: c11[2] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+      const hgt_700mb_hrrr = {
+        x: convertedDates,
+        y: data.hgt_700mb_hrrr.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("700", 3000, "HRRR", selectedUnits),
+        visible: true,
+        line: { color: c11[3] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+      const hgt_500mb_hrrr = {
+        x: convertedDates,
+        y: data.hgt_500mb_hrrr.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("500", 5500, "HRRR", selectedUnits),
+        visible: false,
+        line: { color: c11[4] },
+        marker: { symbol: modelMarkers.hrrr },
+      };
+      const hgt_1000mb_nam = {
+        x: convertedDates,
+        y: data.hgt_1000mb_nam.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("1000", 100, "NAM", selectedUnits),
+        visible: true,
+        line: { dash: "dash", color: c11[0] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const hgt_925mb_nam = {
+        x: convertedDates,
+        y: data.hgt_925mb_nam.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("925", 750, "NAM", selectedUnits),
+        line: { dash: "dash", color: c11[1] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const hgt_850mb_nam = {
+        x: convertedDates,
+        y: data.hgt_850mb_nam.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("850", 1500, "NAM", selectedUnits),
+        line: { dash: "dash", color: c11[2] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const hgt_700mb_nam = {
+        x: convertedDates,
+        y: data.hgt_700mb_nam.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("700", 3000, "NAM", selectedUnits),
+        visible: true,
+        line: { dash: "dash", color: c11[3] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const hgt_500mb_nam = {
+        x: convertedDates,
+        y: data.hgt_500mb_nam.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("500", 5500, "NAM", selectedUnits),
+        visible: false,
+        line: { dash: "dash", color: c11[4] },
+        marker: { symbol: modelMarkers.nam },
+      };
+      const hgt_1000mb_gfs = {
+        x: convertedDates,
+        y: data.hgt_1000mb_gfs.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("1000", 100, "GFS", selectedUnits),
+        visible: true,
+        line: { dash: "dot", color: c11[0] },
+        marker: { symbol: modelMarkers.gfs },
+      };
+      const hgt_925mb_gfs = {
+        x: convertedDates,
+        y: data.hgt_925mb_gfs.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("925", 750, "GFS", selectedUnits),
+        line: { dash: "dot", color: c11[1] },
+        marker: { symbol: modelMarkers.gfs },
+      };
+      const hgt_850mb_gfs = {
+        x: convertedDates,
+        y: data.hgt_850mb_gfs.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("850", 1500, "GFS", selectedUnits),
+        line: { dash: "dot", color: c11[2] },
+        marker: { symbol: modelMarkers.gfs },
+      };
+      const hgt_700mb_gfs = {
+        x: convertedDates,
+        y: data.hgt_700mb_gfs.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("700", 3000, "GFS", selectedUnits),
+        visible: true,
+        line: { dash: "dot", color: c11[3] },
+        marker: { symbol: modelMarkers.gfs },
+      };
+      const hgt_500mb_gfs = {
+        x: convertedDates,
+        y: data.hgt_500mb_gfs.y.map(convertHeight),
+        mode: "lines+markers",
+        type: "scatter",
+        name: levelLabel("500", 5500, "GFS", selectedUnits),
+        visible: false,
+        line: { dash: "dot", color: c11[4] },
+        marker: { symbol: modelMarkers.gfs },
+      };
+      const layout11 = {
+        title: {
+          text: "Height at Various Isobars",
+          font: { color: textColor },
+        },
+        xaxis: { ...axisStyle("", textColor) },
+        yaxis: {
+          ...axisStyle(`Height (${heightLabel(selectedUnits)})`, textColor),
+        },
+        legend: { font: { color: textColor } },
+        showlegend: true,
+      };
+      const plot11Traces = [];
+      if (showHRRR) {
+        plot11Traces.push(
+          hgt_1000mb_hrrr,
+          hgt_925mb_hrrr,
+          hgt_850mb_hrrr,
+          hgt_700mb_hrrr,
+          hgt_500mb_hrrr
+        );
+      }
+      if (showNAM) {
+        plot11Traces.push(
+          hgt_1000mb_nam,
+          hgt_925mb_nam,
+          hgt_850mb_nam,
+          hgt_700mb_nam,
+          hgt_500mb_nam
+        );
+      }
+      if (showGFS) {
+        plot11Traces.push(
+          hgt_1000mb_gfs,
+          hgt_925mb_gfs,
+          hgt_850mb_gfs,
+          hgt_700mb_gfs,
+          hgt_500mb_gfs
+        );
+      }
+      Plotly.newPlot("plot11", plot11Traces, layout11);
 
       // Add tooltips to plot info icons after Plotly renders
       setTimeout(() => {

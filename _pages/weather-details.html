@@ -1,0 +1,283 @@
+---
+layout: archive
+title: "Model Details"
+permalink: /weather/details/
+author_profile: true
+---
+
+<style>
+    /* reuse small responsive tweaks from weather page */
+    @media (max-width: 768px) {
+        .weather-controls {
+            flex-direction: column !important;
+            gap: 12px !important;
+        }
+    }
+</style>
+
+<div style="margin-bottom: 16px;">
+    <a href="/weather/">&#8249; Back to NH Weather</a>
+</div>
+
+<div style="margin-bottom:18px;">
+    <p>As an avid hiker, undercast conditions (where the clouds are below you) are quite a treat. They’re also often
+        unexpected. While the surprise can be fun, I also enjoy knowing whether I can expect nice views, or should go
+        tree skiing instead. As such, I set out to predict undercast conditions in New Hampshire’s White Mountains.</p>
+
+    <p>I began this project assuming I could grab cloud base height information from existing weather reports (such as
+        <a href="https://www.windy.com/-Menu/menu?cbase,42.365,-71.099" target="_blank" rel="noopener">Windy</a>), and
+        use that to forecast undercast conditions. When that failed to have the desired predictive power, I
+        queried weather forecast data from a variety of sources, specifically looking for inversions. I quickly
+        discovered that undercast conditions are far more complex than a simple temperature inversion. As a result, I
+        arrived at the model described below. An ensemble of three machine learning algorithms, trained on GFS, HRR, and
+        NAM predictions along with undercast conditions used from the Mt. Washington webcam. While it works better than
+        the previous methods, more data is needed for training.
+    </p>
+
+    <h2>About Undercasts</h2>
+    <p>While academic literature about undercast skies is sparse (it’s almost like climate scientists have something
+        more important to study), there is a general consensus on what conditions are needed to produce undercast skies.
+    </p>
+
+    <p>First and foremost, a temperature inversion is required, where temperature increases with height (rather than
+        decreasing), trapping a cold layer of air at lower temperatures.</p>
+
+    <p>The following are good references on undercast conditions:</p>
+    <ul>
+        <li><a href="https://www.sciencedirect.com/science/article/abs/pii/S016980951930941X"
+                target="_blank">ScienceDirect: Atmospheric study (S016980951930941X)</a></li>
+        <li><a href="https://link.springer.com/article/10.1007/s10546-009-9407-1#preview" target="_blank">Boundary-layer
+                meteorology article (Springer)</a></li>
+        <li><a href="https://eatsleepwild.com/what-is-a-cloud-inversion/" target="_blank">What is a cloud inversion? —
+                EatSleepWild</a></li>
+        <li><a href="https://mountwashington.org/undercast/" target="_blank">Mount Washington Observatory —
+                Undercast</a></li>
+        <li><a href="https://www.greenmountainclub.org/temperature-inversion-undercast-obsession/" target="_blank">Green
+                Mountain Club — Temperature inversion & undercast</a></li>
+    </ul>
+
+    <h2>Determining if it’s undercast</h2>
+    <p>To validate any model (ML or otherwise), we need to know if it was undercast. While hiking every day in the White
+        Mountains is the optimal way to empirically determine undercast conditions; I also need to finish my PhD at some
+        point. As such, we use the Mt. Washington Observatory webcam timelapse to determine whether each day had
+        undercast conditions. Labeling timelapse photos was done manually, and not fun.</p>
+
+    <p>Note that the webcam timelapse has data from the past 2 years, with one image per day (more on this later).</p>
+    <h2>The Model</h2>
+    <p>You can play around with a couple different examples of undercast, clear, and cloudy days in the region below
+        (link), but no obvious relation jumps out. Notably, when conditions are undercast, forecast models do not
+        predict inversions. That’s not to say that inversions don’t exist; just that global weather models fail to
+        predict them, or that they are small enough (in vertical extent) to not be visible.</p>
+
+    <p>With no obvious correlation between undercast conditions and model predictions, I figured this would be a good
+        tool for machine learning.</p>
+    <details>
+        <summary style="cursor:pointer; font-weight:600;">Input parameters (click to expand)</summary>
+        <p style="margin-top:12px;">Global models such as GFS, NAM, and HRRR have hundreds of parameters. Not all of
+            these are relevant to undercast predictions. The following are used. They were selected based on what a dumb
+            physicist though seemed relevant. Parameter importance (predictive power) is shown under model results</p>
+        <div style="margin-top:12px; overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; min-width:740px;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Key</th>
+                        <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">cloud_top</td>
+                        <td style="padding:8px;">Cloud top height (AGL). The altitude of the highest extent of a cloud
+                            layer, useful for identifying deep convection or storm tops.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">boundary_layer_cloud_layer</td>
+                        <td style="padding:8px;">Boundary layer cloud cover (%). Total cloud fraction within the
+                            planetary boundary layer, the lowest ~1–2 km of the atmosphere.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">low_cloud_layer_percent</td>
+                        <td style="padding:8px;">Low cloud cover (%). Fractional cloud coverage below ~2 km (~6,500 ft),
+                            typically stratus or stratocumulus.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">middle_cloud_layer_percent</td>
+                        <td style="padding:8px;">Mid-level cloud cover (%). Fractional cloud coverage between ~2–6 km
+                            (~6,500–20,000 ft), typically altocumulus or altostratus.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">high_cloud_layer_percent</td>
+                        <td style="padding:8px;">High cloud cover (%). Fractional cloud coverage above ~6 km (~20,000
+                            ft), typically cirrus or cirrostratus.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">cloud_ceiling_m</td>
+                        <td style="padding:8px;">Cloud ceiling height (meters AGL). The height of the lowest broken or
+                            overcast cloud layer, critical for aviation and visibility assessment.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">cloud_base_m</td>
+                        <td style="padding:8px;">Cloud base height (meters AGL). The altitude of the bottom of the
+                            lowest cloud layer, closely related to the Lifted Condensation Level (LCL).</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">cloud_top_pres</td>
+                        <td style="padding:8px;">Cloud top pressure (Pa). The atmospheric pressure at the top of the
+                            cloud layer — lower pressure = higher altitude cloud tops.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">cloud_base_pres</td>
+                        <td style="padding:8px;">Cloud base pressure (Pa). The atmospheric pressure at the base of the
+                            cloud layer, an alternative vertical coordinate to height.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">cloud_top_hgt</td>
+                        <td style="padding:8px;">Cloud top geopotential height (meters). Similar to cloud_top but
+                            expressed as geopotential height rather than AGL, more consistent across terrain.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">wind_10m_day_max</td>
+                        <td style="padding:8px;">Daily maximum 10m wind speed (m/s). The peak wind speed at 10 meters
+                            above ground over the forecast day, useful for fire weather and wind advisories.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">tmp_500mb</td>
+                        <td style="padding:8px;">Temperature at 500 mb (~5,500 m). Mid-troposphere temperature, used to
+                            assess atmospheric instability and identify cold upper-level troughs.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">tmp_700mb</td>
+                        <td style="padding:8px;">Temperature at 700 mb (~3,000 m). Lower-mid troposphere temperature,
+                            important for identifying warm/cold advection and orographic effects.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">tmp_850mb</td>
+                        <td style="padding:8px;">Temperature at 850 mb (~1,500 m). Low-level temperature commonly used
+                            as a proxy for surface airmass character and snow level estimation.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">tmp_925mb</td>
+                        <td style="padding:8px;">Temperature at 925 mb (~750 m). Near-surface temperature just above the
+                            boundary layer, useful for detecting inversions and cold air damming.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">tmp_1000mb</td>
+                        <td style="padding:8px;">Temperature at 1000 mb (~100 m). Near sea-level temperature,
+                            representing conditions very close to the surface in low-elevation areas.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">tmp_2m</td>
+                        <td style="padding:8px;">2-meter air temperature (°C). Standard screen-level temperature used in
+                            most surface weather forecasts and human comfort assessments.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">rh_2m</td>
+                        <td style="padding:8px;">2-meter relative humidity (%). Moisture content of the air at screen
+                            level, directly relevant to fire weather, fog formation, and human comfort.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">hpbl_surface</td>
+                        <td style="padding:8px;">Planetary boundary layer height (meters). The depth of the turbulent
+                            mixing layer above the surface — higher in the afternoon, lower at night and during
+                            inversions.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">hgt_0C_iso</td>
+                        <td style="padding:8px;">Height of the 0°C isotherm (meters). The freezing level altitude,
+                            critical for determining rain/snow transitions and icing conditions.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">vis_surface</td>
+                        <td style="padding:8px;">Surface visibility (meters). Forecast horizontal visibility at the
+                            surface, reduced by fog, precipitation, smoke, or dust.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">prate_surface</td>
+                        <td style="padding:8px;">Instantaneous precipitation rate (kg/m²/s). The rate of precipitation
+                            at a given forecast hour, useful for identifying intensity of ongoing precip.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; vertical-align:top;">apcp_surface</td>
+                        <td style="padding:8px;">Accumulated total precipitation (kg/m²). Cumulative precipitation over
+                            the forecast period, equivalent to mm of liquid-equivalent rainfall.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </details>
+
+    <h3>Model selection & Training</h3>
+    <p>We don't have a lot of of data to train on, so I only consider relatively simple ML models. To begin, I train
+        four different classification models—LogisticRegression, Random Forest, XGB, and Gradient Boosting.
+        Data skews very heavily to non-undercast, so I resemble with SMOTE to achieve a 50/50 split. A 30/70 test train
+        split is used for all training models. After optimizing for F1, all models perform decently well, except for
+        Logistic Regression, which has significanly poorer performance. For further studdies, the other three models are
+        studdied and optimized.</p>
+
+    <figure style="margin:18px 0; text-align:center;">
+        <img src="/files/weather/examples/model_training_images/confusion_matrix_first_pass.png"
+            alt="Confusion matrices for first-pass models"
+            style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+        <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Confusion matrices for
+            first-pass models: Logistic Regression, Random Forest, XGBoost, and Gradient Boosting. See model training
+            images in <a href="/files/weather/examples/model_training_images/">model_training_images</a>.</figcaption>
+    </figure>
+
+    The top model features are shown below.
+    <h3>Top features</h3>
+    <figure style="margin:12px 0 24px 0; text-align:center;">
+        <img src="/files/weather/examples/model_training_images/top_features.png" alt="Top feature importances"
+            style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+        <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Top features (approximate
+            importance) computed from trained models. Feature importance varies by algorithm; see notebooks in <a
+                href="/scripts/">/scripts/</a> for generation details.</figcaption>
+    </figure>
+
+    <p> The models were then optimized for F1, precision, and recall thresholds, the results of which are shown below.
+    </p>
+    <div style="display:block;">
+        <figure style="width:100%; text-align:center; margin-bottom:18px;">
+            <img src="/files/weather/examples/model_training_images/model_optimization.png"
+                alt="Model optimization results"
+                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+            <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Model optimization
+                metrics across parameter searches. See <a
+                    href="/files/weather/examples/model_training_images/">model_training_images</a>.</figcaption>
+        </figure>
+
+        <figure style="width:100%; text-align:center; margin-bottom:18px;">
+            <img src="/files/weather/examples/model_training_images/confusion_matrices_optimized.png"
+                alt="Confusion matrices after optimization"
+                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+            <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Confusion matrices after
+                optimization (thresholds and hyperparameters tuned).</figcaption>
+        </figure>
+        <figure style="width:100%; text-align:center; margin-bottom:18px;">
+            <img src="/files/weather/examples/model_training_images/error_comparison_optimized.png"
+                alt="Error comparison after optimization"
+                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+            <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Error comparison across
+                models after optimization.</figcaption>
+        </figure>
+        <figure style="width:100%; text-align:center; margin-bottom:18px;">
+            <img src="/files/weather/examples/model_training_images/confusion_matrices_ensemble.png"
+                alt="Confusion matrices ensemble"
+                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+            <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Ensemble confusion
+                matrices and agreement between models. See <a
+                    href="/files/weather/examples/model_training_images/">model_training_images</a>.</figcaption>
+        </figure>
+    </div>
+
+
+
+    <h3>Results</h3>
+    While each model performs decently well, we can further improve the performance by ensembling the three models
+    together. By taking a majority vote across the three models, we can achieve better performance than any individual
+    model.
+
+
+
+    <h3>Next Steps</h3>
+    <p> The model performance is adequate at best. While there are a number of fancy ML techniques that can be used to squeeze a few percent of accuracy, the main limitation for the model is the quality and quantity of the available data. From the Mt. Washington webcam, there are only a handful of days</p>
+</div>

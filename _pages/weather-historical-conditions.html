@@ -1,0 +1,137 @@
+---
+layout: archive
+title: "Historical Conditions"
+permalink: /weather/historical-conditions/
+author_profile: true
+---
+
+
+<style>
+    /* reuse small responsive tweaks from weather page */
+    @media (max-width: 768px) {
+        .weather-controls {
+            flex-direction: column !important;
+            gap: 12px !important;
+        }
+    }
+</style>
+
+<div style="margin-bottom: 16px;">
+    <a href="/weather/">&#8249; Back to NH Weather</a>
+</div>
+
+Undercasts are caused by temperature inversions, right??!
+
+<div style="margin-bottom: 20px; width: 100%; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;"
+    class="weather-main-container">
+    <div style="display: flex; flex-direction: column; gap: 12px;" class="weather-controls">
+        <p style="margin-bottom:12px; font-size:1rem; color:var(--text-color,#222); max-width:420px;">
+            Here you can view model parameters for select dates with different weather conditions. Clearly, weather
+            models do not predict temperature inversions during undercasts. While this may be a limitation of the
+            models, we clearly can't use model inverstions to predict undercasts.
+
+        </p>
+        <div style="display: inline-flex; align-items: center; gap: 8px;" class="weather-location-control">
+            <label for="details-date-select">Select Date:</label>
+            <select id="details-date-select" style="width: 320px;">
+                <option>Loading dates…</option>
+            </select>
+        </div>
+
+        <div id="model-toggle"
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid  #ccc; border-radius: 6px; background-color: var(background-color, #fff); color: var(color, #333);">
+            <span style="font-weight: 600;">Model:</span>
+            <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
+                    name="model-toggle" value="hrrr" checked /> HRRR</label>
+            <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
+                    name="model-toggle" value="nam" /> NAM</label>
+            <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
+                    name="model-toggle" value="gfs" /> GFS</label>
+        </div>
+
+        <div id="units-toggle"
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid  #ccc; border-radius: 6px; background-color: var(background-color, #fff); color: var(color, #333);">
+            <span style="font-weight: 600;">Units:</span>
+            <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="radio" name="units-toggle"
+                    value="metric" checked /> Metric</label>
+            <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="radio" name="units-toggle"
+                    value="imperial" /> Imperial</label>
+            <!-- <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="radio" name="units-toggle"
+                    value="stupid" /> Stupid</label> -->
+        </div>
+
+
+    </div>
+
+    <div
+        style="margin-left: auto; min-width: 530px; display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
+        <div id="example-image-wrap" style="position:relative; width:530px;">
+            <img id="example-image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+                alt="Example image"
+                style="width:100%; height:auto; border:1px solid #ddd; padding:4px; background:#fff; display:block;" />
+            <button id="image-prev" type="button" aria-label="Previous photo"
+                style="position:absolute; left:8px; top:50%; transform:translateY(-50%); border:none; background:rgba(0,0,0,0.45); color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1.1rem; line-height:1;">&#8249;</button>
+            <button id="image-next" type="button" aria-label="Next photo"
+                style="position:absolute; right:8px; top:50%; transform:translateY(-50%); border:none; background:rgba(0,0,0,0.45); color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1.1rem; line-height:1;">&#8250;</button>
+            <div id="example-image-caption"
+                style="text-align:center; font-size:0.85rem; color:var(--text-color,#444); margin-top:6px;">MWOB webcam
+                snapshot from noon</div>
+            <div id="image-dots"
+                style="position:absolute; left:50%; transform:translateX(-50%); bottom:36px; display:flex; gap:6px;">
+                <div class="dot active" data-index="0"
+                    style="width:10px; height:10px; border-radius:50%; background:#fff; border:1px solid #666; opacity:0.9; cursor:pointer;">
+                </div>
+                <div class="dot" data-index="1"
+                    style="width:10px; height:10px; border-radius:50%; background:#fff; border:1px solid #666; opacity:0.5; cursor:pointer;">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="plot1" style="width:48%;display:inline-block;"></div>
+<div id="plot2" style="width:48%;display:inline-block;"></div>
+<div id="plot3" style="width:48%;display:inline-block;"></div>
+<div id="plot4" style="width:48%;display:none;"></div>
+<div id="plot5" style="width:48%;display:inline-block;"></div>
+<div id="plot6" style="width:48%;display:inline-block;"></div>
+<div id="plot7" style="width:48%;display:inline-block;"></div>
+<div id="plot10" style="width:96%;display:inline-block;"></div>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-3.3.1.min.js"></script>
+
+<style>
+    @media (max-width: 768px) {
+
+        #plot1,
+        #plot2,
+        #plot3,
+        #plot4,
+        #plot5,
+        #plot6,
+        #plot7,
+        #plot10 {
+            width: 100% !important;
+            display: block !important;
+            margin-bottom: 20px;
+        }
+    }
+
+    @media (min-width:769px) {
+
+        #plot1,
+        #plot2,
+        #plot3,
+        #plot5,
+        #plot6,
+        #plot7,
+        #plot10 {
+            margin-right: 10px;
+        }
+    }
+</style>
+
+
+
+<script src="/assets/js/weather-plots-details.js"></script>

@@ -59,6 +59,11 @@ author_profile: true
     }
 </style>
 
+<div style="margin-bottom: 16px; display: flex; gap: 16px;">
+    <a href="/weather/details/">Model Details</a>
+    <a href="/weather/historical-conditions/">Historical Weather</a>
+</div>
+
 <div style="margin-bottom: 20px; width: 100%; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;"
     class="weather-main-container">
     <div style="display: flex; flex-direction: column; gap: 12px;" class="weather-controls">
@@ -118,9 +123,9 @@ author_profile: true
             <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
                 <input type="radio" name="units-toggle" value="imperial" aria-label="Imperial" /> Imperial
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <!-- <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
                 <input type="radio" name="units-toggle" value="stupid" aria-label="Stupid" /> Stupid
-            </label>
+            </label> -->
         </div>
         <div id="last-update" style="font-size: 0.80em; color: var(color, #666); margin-top: 8px; opacity: 0.5;">
             <!-- Last model update time will be populated here -->
@@ -349,6 +354,8 @@ accuracy of ML models later. TLDR; it's undercast only a handful of times per ye
         I built this to visualize data not readily available from the NWS website. While exact wind speeds from an
         individual, non-local, coarse-grain model may be inaccurate, larger trends such as sky coverage and cloud
         elevation can be informative.
+
+        <a href="/weather/details/">Full model details can be viewed here.</a>
     </div>
 </details>
 <br><br>
@@ -367,7 +374,8 @@ accuracy of ML models later. TLDR; it's undercast only a handful of times per ye
         #plot7,
         #plot8,
         #plot9,
-        #plot10 {
+        #plot10,
+        #plot11 {
             width: 100% !important;
             display: block !important;
             margin-bottom: 20px;
@@ -391,14 +399,31 @@ accuracy of ML models later. TLDR; it's undercast only a handful of times per ye
 
 <div id="plot8" style="width:96%;display:inline-block;"></div>
 <div id="plot9" style="width:96%;display:inline-block;"></div>
-<div id="plot1" style="width:48%;display:inline-block;"></div>
-<div id="plot2" style="width:48%;display:inline-block;"></div>
-<div id="plot3" style="width:48%;display:inline-block;"></div>
-<div id="plot4" style="width:48%;display:none;"></div>
-<div id="plot5" style="width:48%;display:inline-block;"></div>
-<div id="plot6" style="width:48%;display:inline-block;"></div>
-<div id="plot7" style="width:48%;display:inline-block;"></div>
-<div id="plot10" style="width:96%;display:inline-block;"></div>
+
+<details id="individual-params-details" open style="margin-bottom: 20px;">
+    <summary style="cursor: pointer; font-weight: 600; color: var(color, #333); user-select: none;">Individual
+        Parameters</summary>
+    <div id="plot1" style="width:48%;display:inline-block;"></div>
+    <div id="plot2" style="width:48%;display:inline-block;"></div>
+    <div id="plot3" style="width:48%;display:inline-block;"></div>
+    <div id="plot11" style="width:48%;display:inline-block;"></div>
+    <div id="plot4" style="width:48%;display:none;"></div>
+    <div id="plot5" style="width:48%;display:inline-block;"></div>
+    <div id="plot6" style="width:48%;display:inline-block;"></div>
+    <div id="plot7" style="width:48%;display:inline-block;"></div>
+    <div id="plot10" style="width:96%;display:inline-block;"></div>
+</details>
+
+<script>
+    document.getElementById('individual-params-details').addEventListener('toggle', function (e) {
+        if (e.target.open && window.Plotly) {
+            ['plot1', 'plot2', 'plot3', 'plot5', 'plot6', 'plot7', 'plot10', 'plot11'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) Plotly.Plots.resize(el);
+            });
+        }
+    });
+</script>
 
 
 <script src="/assets/js/weather-plots.js"></script>
