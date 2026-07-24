@@ -88,6 +88,12 @@ variables = {
     "tmp_925mb_hrrr": {"aliases": [":TMP:925 mb"], "model": "hrrr"},
     "tmp_1000mb_hrrr": {"aliases": [":TMP:1000 mb"], "model": "hrrr"},
     "tmp_2m_hrrr": {"aliases": [":TMP:2 m above ground"], "model": "hrrr"},
+    "hgt_500mb_hrrr": {"aliases": [":HGT:500 mb"], "model": "hrrr"},
+    "hgt_700mb_hrrr": {"aliases": [":HGT:700 mb"], "model": "hrrr"},
+    "hgt_850mb_hrrr": {"aliases": [":HGT:850 mb"], "model": "hrrr"},
+    "hgt_925mb_hrrr": {"aliases": [":HGT:925 mb"], "model": "hrrr"},
+    "hgt_1000mb_hrrr": {"aliases": [":HGT:1000 mb"], "model": "hrrr"},
+    "hgt_surface_hrrr": {"aliases": [":HGT:surface"], "model": "hrrr"},
     "rh_2m_hrrr": {"aliases": [":RH:2 m above ground"], "model": "hrrr"},
     "hpbl_surface_hrrr": {"aliases": [":HPBL:surface"], "model": "hrrr"},
     "hgt_0C_iso_hrrr": {"aliases": [":HGT:0C isotherm:"], "model": "hrrr"},
@@ -129,6 +135,12 @@ variables = {
     "tmp_925mb_gfs": {"aliases": [":TMP:925 mb"], "model": "gfs"},
     "tmp_1000mb_gfs": {"aliases": [":TMP:1000 mb"], "model": "gfs"},
     "tmp_2m_gfs": {"aliases": [":TMP:2 m above ground"], "model": "gfs"},
+    "hgt_500mb_gfs": {"aliases": [":HGT:500 mb"], "model": "gfs"},
+    "hgt_700mb_gfs": {"aliases": [":HGT:700 mb"], "model": "gfs"},
+    "hgt_850mb_gfs": {"aliases": [":HGT:850 mb"], "model": "gfs"},
+    "hgt_925mb_gfs": {"aliases": [":HGT:925 mb"], "model": "gfs"},
+    "hgt_1000mb_gfs": {"aliases": [":HGT:1000 mb"], "model": "gfs"},
+    "hgt_surface_gfs": {"aliases": [":HGT:surface"], "model": "gfs"},
     "rh_2m_gfs": {"aliases": [":RH:2 m above ground"], "model": "gfs"},
     "rh_925mb_gfs": {"aliases": [":RH:925 mb"], "model": "gfs"},
     "hpbl_surface_gfs": {"aliases": [":HPBL:surface"], "model": "gfs"},
@@ -160,6 +172,12 @@ variables = {
     "tmp_925mb_nam": {"aliases": [":TMP:925 mb"], "model": "nam"},
     "tmp_1000mb_nam": {"aliases": [":TMP:1000 mb"], "model": "nam"},
     "tmp_2m_nam": {"aliases": [":TMP:2 m above ground"], "model": "nam"},
+    "hgt_500mb_nam": {"aliases": [":HGT:500 mb"], "model": "nam"},
+    "hgt_700mb_nam": {"aliases": [":HGT:700 mb"], "model": "nam"},
+    "hgt_850mb_nam": {"aliases": [":HGT:850 mb"], "model": "nam"},
+    "hgt_925mb_nam": {"aliases": [":HGT:925 mb"], "model": "nam"},
+    "hgt_1000mb_nam": {"aliases": [":HGT:1000 mb"], "model": "nam"},
+    "hgt_surface_nam": {"aliases": [":HGT:surface"], "model": "nam"},
     "rh_2m_nam": {"aliases": [":RH:2 m above ground"], "model": "nam"},
     "rh_925mb_nam": {"aliases": [":RH:925 mb"], "model": "nam"},
     "hpbl_surface_nam": {"aliases": [":HPBL:surface"], "model": "nam"},
@@ -487,6 +505,8 @@ if __name__ == "__main__":
         now = now + timedelta(days=1)
     date_str = now.replace(hour=hours, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M")
 
+    date_str = "2025-11-14 12:00"  # for testing with a fixed date
+
     try:
         with tempfile.TemporaryDirectory() as tmp:
             h = Herbie(date_str, model="hrrr", product="sfc", fxx=48, save_dir=tmp)
@@ -616,7 +636,7 @@ if __name__ == "__main__":
 
     ml_models = {"gfs", "hrrr", "nam", "all"}
     # ml_models = {"nam", "all"}
-    
+
     # ml_models = {"all"}  # For testing purposes, only use "All" model
     # Accumulate all predictions in a single output
     predictions_output = {
@@ -626,23 +646,13 @@ if __name__ == "__main__":
 
     for ml_model in ml_models:
 
-        preprocess = joblib.load(
-            f"files/weather/models/preprocessor_{ml_model}.pkl"
-        )
+        preprocess = joblib.load(f"files/weather/models/preprocessor_{ml_model}.pkl")
         xgb_model = xgb.XGBClassifier()
-        xgb_model.load_model(
-            f"files/weather/models/xgboost_best_f1_{ml_model}.json"
-        )
-        rf_model = joblib.load(
-            f"files/weather/models/random_forest_best_f1_{ml_model}.pkl"
-        )
-        gb_model = joblib.load(
-            f"files/weather/models/gradient_boosting_best_f1_{ml_model}.pkl"
-        )
+        xgb_model.load_model(f"files/weather/models/xgboost_best_f1_{ml_model}.json")
+        rf_model = joblib.load(f"files/weather/models/random_forest_best_f1_{ml_model}.pkl")
+        gb_model = joblib.load(f"files/weather/models/gradient_boosting_best_f1_{ml_model}.pkl")
 
-        with open(
-            f"files/weather/models/model_metadata_{ml_model}.json"
-        ) as f:
+        with open(f"files/weather/models/model_metadata_{ml_model}.json") as f:
             metadata = json.load(f)
 
         weather_df = results_to_dataframe(results, [LOCATIONS[0]], date_str)
@@ -690,7 +700,9 @@ if __name__ == "__main__":
 
         # Create results DataFrame
         results_df = pd.DataFrame(predictions)
-        results_df["consensus"] = (results_df.sum(axis=1) >= 2).astype(int)  # Majority vote (2+ models agree)
+        results_df["consensus"] = (results_df.sum(axis=1) >= 2).astype(
+            int
+        )  # Majority vote (2+ models agree)
 
         print(results_df.head())
 
@@ -712,11 +724,11 @@ if __name__ == "__main__":
             max_fxx = max(FXX_LIST_NAM)
         else:  # "all"
             max_fxx = min(max(FXX_LIST), max(FXX_LIST_GFS), max(FXX_LIST_NAM))
-        
+
         for idx, row in results_df.iterrows():
             fxx = weather_df.iloc[idx]["fxx"] if idx < len(weather_df) else idx
             fxx_int = int(fxx)
-            
+
             # Check if fxx exceeds the model's max forecast hour
             if fxx_int > max_fxx:
                 xgboost_val = None
@@ -728,16 +740,16 @@ if __name__ == "__main__":
                 rf_val = int(row["Random Forest"])
                 gb_val = int(row["Gradient Boosting"])
                 consensus_val = int(row["consensus"])
-            
+
             xgboost_x.append(fxx_int)
             xgboost_y.append(xgboost_val)
-            
+
             rf_x.append(fxx_int)
             rf_y.append(rf_val)
-            
+
             gb_x.append(fxx_int)
             gb_y.append(gb_val)
-            
+
             consensus_x.append(fxx_int)
             consensus_y.append(consensus_val)
 
