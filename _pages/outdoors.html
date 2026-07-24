@@ -29,8 +29,8 @@ An incomplete, non-representative collection of photos from various adventures.
         <div class="gallery-description">Kayak camping on the harbor islands (Boston)</div>
     </div>
     <div class="gallery-item">
-        <img src="/images/outdoor/Washington.jpg" alt="Washington Summit">
-        <div class="gallery-description">Winter summit of Mt. Washington (NH)</div>
+        <img src="/images/outdoor/Rainier Summit.jpg" alt="Rainier Summit">
+        <div class="gallery-description">Summit attempt of Mt. Rainier (WA)</div>
     </div>
     <div class="gallery-item">
         <img src="/images/outdoor/Mashnee.jpg" alt="Mashnee">
@@ -41,12 +41,12 @@ An incomplete, non-representative collection of photos from various adventures.
         <div class="gallery-description">Local 50mi'er (MA)</div>
     </div>
     <div class="gallery-item">
-        <img src="/images/outdoor/East_Coast_Powder.jpeg" alt="East Coast Powder">
-        <div class="gallery-description">"East Coast Powder"</div>
+        <img src="/images/outdoor/Squak Crevasse.jpg" alt="Squak Crevasse">
+        <div class="gallery-description">Crevasse on Squak Glacier (Mt. Baker, WA)</div>
     </div>
     <div class="gallery-item">
-        <img src="/images/outdoor/AT_Washington.jpg" alt="Alpine Touring">
-        <div class="gallery-description">Back-country skiing on Mt. Washington (NH)</div>
+        <img src="/images/outdoor/East_Coast_Powder.jpeg" alt="East Coast Powder">
+        <div class="gallery-description">"East Coast Powder (Mt. Washington, NH)"</div>
     </div>
     <div class="gallery-item">
         <img src="/images/outdoor/AT_Bootpack.jpeg" alt="Alpine Touring Bootpack">
@@ -56,14 +56,19 @@ An incomplete, non-representative collection of photos from various adventures.
         <img src="/images/outdoor/Windsurfing.png" alt="Windsurfing">
         <div class="gallery-description">Windsurfing in the Outer Banks (NC)</div>
     </div>
-    
+
     <!-- <div class="gallery-item">
         <img src="/images/outdoor/Wild_Berries.jpg" alt="Huckleberries">
         <div class="gallery-description">Huckleberries! (Mt. St. Helens, WA)</div>
     </div> -->
-    
 
 
+
+</div>
+
+<div id="gallery-lightbox" class="gallery-lightbox">
+    <span class="gallery-lightbox-close">&times;</span>
+    <img class="gallery-lightbox-img" src="" alt="">
 </div>
 
 <style>
@@ -73,19 +78,56 @@ An incomplete, non-representative collection of photos from various adventures.
         gap: 20px;
         margin-top: 20px;
     }
-    
+
     .gallery-item {
         position: relative;
         overflow: hidden;
         border-radius: 8px;
     }
-    
+
     .gallery-item img {
         width: 100%;
         height: auto;
         display: block;
+        cursor: pointer;
     }
-    
+
+    .gallery-lightbox {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        text-align: center;
+        cursor: zoom-out;
+    }
+
+    .gallery-lightbox.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .gallery-lightbox-img {
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+    }
+
+    .gallery-lightbox-close {
+        position: absolute;
+        top: 20px;
+        right: 30px;
+        color: white;
+        font-size: 40px;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+    }
+
     .gallery-description {
         position: absolute;
         bottom: 0;
@@ -98,8 +140,42 @@ An incomplete, non-representative collection of photos from various adventures.
         transition: transform 0.3s ease;
         font-size: 14px;
     }
-    
+
     .gallery-item:hover .gallery-description {
         transform: translateY(0);
     }
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var lightbox = document.getElementById('gallery-lightbox');
+        document.body.appendChild(lightbox);
+        var lightboxImg = lightbox.querySelector('.gallery-lightbox-img');
+        var closeBtn = lightbox.querySelector('.gallery-lightbox-close');
+
+        document.querySelectorAll('.gallery-item img').forEach(function (img) {
+            img.addEventListener('click', function () {
+                lightboxImg.src = img.src;
+                lightboxImg.alt = img.alt;
+                lightbox.classList.add('active');
+            });
+        });
+
+        function closeLightbox() {
+            lightbox.classList.remove('active');
+            lightboxImg.src = '';
+        }
+
+        closeBtn.addEventListener('click', closeLightbox);
+        lightbox.addEventListener('click', function (e) {
+            if (e.target === lightbox) {
+                closeLightbox();
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+    });
+</script>
