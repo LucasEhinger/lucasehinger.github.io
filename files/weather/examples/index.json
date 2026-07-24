@@ -1,0 +1,52 @@
+[
+  {
+    "filename": "weather_data_MtWashington_2025-11-15.json",
+    "label": "Undercast \u2014 2025-11-15",
+    "path": "/files/weather/examples/2025-11-15/weather_data_MtWashington_2025-11-15.json"
+  },
+  {
+    "filename": "weather_data_MtWashington_2025-11-2.json",
+    "label": "Undercast \u2014 2025-11-02",
+    "path": "/files/weather/examples/2025-11-02/weather_data_MtWashington_2025-11-2.json"
+  },
+  {
+    "filename": "weather_data_MtWashington_2025-02-24.json",
+    "label": "Undercast \u2014 2025-02-24",
+    "path": "/files/weather/examples/2025-02-24/weather_data_MtWashington_2025-02-24.json"
+  },
+  {
+    "filename": "weather_data_MtWashington_2024-09-28.json",
+    "label": "Undercast \u2014 2024-09-28",
+    "path": "/files/weather/examples/2024-09-28/weather_data_MtWashington_2024-09-28.json"
+  },
+  {
+    "filename": "weather_data_MtWashington_2025-12-23.json",
+    "label": "Foggy \u2014 2025-12-23",
+    "path": "/files/weather/examples/2025-12-23/weather_data_MtWashington_2025-12-23.json"
+  },
+  {
+    "filename": "weather_data_MtWashington_2025-09-05.json",
+    "label": "Foggy \u2014 2025-09-05",
+    "path": "/files/weather/examples/2025-09-05/weather_data_MtWashington_2025-09-05.json"
+  },
+  {
+    "filename": "weather_data_MtWashington_2025-06-30.json",
+    "label": "Clear \u2014 2025-06-30",
+    "path": "/files/weather/examples/2025-06-30/weather_data_MtWashington_2025-06-30.json"
+  },
+  {
+    "filename": "weather_data_MtWashington_2024-10-17.json",
+    "label": "Clear \u2014 2024-10-17",
+    "path": "/files/weather/examples/2024-10-17/weather_data_MtWashington_2024-10-17.json"
+  },
+  {
+    "filename": "weather_data_MtWashington_2025-05-29.json",
+    "label": "Overcast \u2014 2025-05-29",
+    "path": "/files/weather/examples/2025-05-29/weather_data_MtWashington_2025-05-29.json"
+  },
+  {
+    "filename": "weather_data_MtWashington_2024-11-04.json",
+    "label": "Overcast \u2014 2024-11-04",
+    "path": "/files/weather/examples/2024-11-04/weather_data_MtWashington_2024-11-04.json"
+  }
+]
