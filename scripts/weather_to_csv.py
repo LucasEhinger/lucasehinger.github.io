@@ -64,6 +64,11 @@ variables = {
     "tmp_850mb_hrrr": {"aliases": [":TMP:850 mb"], "model": "hrrr"},
     "tmp_925mb_hrrr": {"aliases": [":TMP:925 mb"], "model": "hrrr"},
     "tmp_1000mb_hrrr": {"aliases": [":TMP:1000 mb"], "model": "hrrr"},
+    "hgt_500mb_hrrr": {"aliases": [":HGT:500 mb"], "model": "hrrr"},
+    "hgt_700mb_hrrr": {"aliases": [":HGT:700 mb"], "model": "hrrr"},
+    "hgt_850mb_hrrr": {"aliases": [":HGT:850 mb"], "model": "hrrr"},
+    "hgt_925mb_hrrr": {"aliases": [":HGT:925 mb"], "model": "hrrr"},
+    "hgt_1000mb_hrrr": {"aliases": [":HGT:1000 mb"], "model": "hrrr"},
     "tmp_2m_hrrr": {"aliases": [":TMP:2 m above ground"], "model": "hrrr"},
     "rh_2m_hrrr": {"aliases": [":RH:2 m above ground"], "model": "hrrr"},
     "hpbl_surface_hrrr": {"aliases": [":HPBL:surface"], "model": "hrrr"},
@@ -105,6 +110,11 @@ variables = {
     "tmp_850mb_gfs": {"aliases": [":TMP:850 mb"], "model": "gfs"},
     "tmp_925mb_gfs": {"aliases": [":TMP:925 mb"], "model": "gfs"},
     "tmp_1000mb_gfs": {"aliases": [":TMP:1000 mb"], "model": "gfs"},
+    "hgt_500mb_gfs": {"aliases": [":HGT:500 mb"], "model": "gfs"},
+    "hgt_700mb_gfs": {"aliases": [":HGT:700 mb"], "model": "gfs"},
+    "hgt_850mb_gfs": {"aliases": [":HGT:850 mb"], "model": "gfs"},
+    "hgt_925mb_gfs": {"aliases": [":HGT:925 mb"], "model": "gfs"},
+    "hgt_1000mb_gfs": {"aliases": [":HGT:1000 mb"], "model": "gfs"},
     "tmp_2m_gfs": {"aliases": [":TMP:2 m above ground"], "model": "gfs"},
     "rh_2m_gfs": {"aliases": [":RH:2 m above ground"], "model": "gfs"},
     "rh_925mb_gfs": {"aliases": [":RH:925 mb"], "model": "gfs"},
@@ -136,6 +146,11 @@ variables = {
     "tmp_850mb_nam": {"aliases": [":TMP:850 mb"], "model": "nam"},
     "tmp_925mb_nam": {"aliases": [":TMP:925 mb"], "model": "nam"},
     "tmp_1000mb_nam": {"aliases": [":TMP:1000 mb"], "model": "nam"},
+    "hgt_500mb_nam": {"aliases": [":HGT:500 mb"], "model": "nam"},
+    "hgt_700mb_nam": {"aliases": [":HGT:700 mb"], "model": "nam"},
+    "hgt_850mb_nam": {"aliases": [":HGT:850 mb"], "model": "nam"},
+    "hgt_925mb_nam": {"aliases": [":HGT:925 mb"], "model": "nam"},
+    "hgt_1000mb_nam": {"aliases": [":HGT:1000 mb"], "model": "nam"},
     "tmp_2m_nam": {"aliases": [":TMP:2 m above ground"], "model": "nam"},
     "rh_2m_nam": {"aliases": [":RH:2 m above ground"], "model": "nam"},
     "rh_925mb_nam": {"aliases": [":RH:925 mb"], "model": "nam"},
@@ -404,7 +419,24 @@ def process_undercast_row(args):
 
 
 if __name__ == "__main__":
-    csv_path = Path("files/weather/csv/MtWashington_undercast.csv")
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Build per-date undercast training CSVs from a labeled-dates file."
+    )
+    parser.add_argument(
+        "--labels",
+        default="files/weather/csv/MtWashington_undercast.csv",
+        help="CSV of labeled dates (columns: Date, Short Date, Tower, Observatory, Avg).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="files/weather/csv",
+        help="Directory for the per-date {date}_{location}.csv output files.",
+    )
+    args = parser.parse_args()
+
+    csv_path = Path(args.labels)
     with open(csv_path, "r") as f:
         reader = csv.reader(f)
         undercast_data = list(reader)
@@ -415,7 +447,7 @@ if __name__ == "__main__":
         tasks.append((index, row, next_row, LOCATIONS, variables))
 
     max_workers = min(os.cpu_count() or 4, len(tasks))
-    output_dir = Path("files/weather/csv")
+    output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
