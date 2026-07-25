@@ -29,7 +29,7 @@ author_profile: true
         use that to forecast undercast conditions. When that failed to have the desired predictive power, I
         queried weather forecast data from a variety of sources, specifically looking for inversions. I quickly
         discovered that undercast conditions are far more complex than a simple temperature inversion. As a result, I
-        arrived at the model described below. An ensemble of three machine learning algorithms, trained on GFS, HRR, and
+        arrived at the model described below. An ensemble of three machine learning algorithms, trained on GFS, HRRR, and
         NAM predictions along with undercast conditions used from the Mt. Washington webcam. While it works better than
         the previous methods, more data is needed for training.
     </p>
@@ -75,7 +75,7 @@ author_profile: true
         <summary style="cursor:pointer; font-weight:600;">Input parameters (click to expand)</summary>
         <p style="margin-top:12px;">Global models such as GFS, NAM, and HRRR have hundreds of parameters. Not all of
             these are relevant to undercast predictions. The following are used. They were selected based on what a dumb
-            physicist though seemed relevant. Parameter importance (predictive power) is shown under model results</p>
+            physicist thought seemed relevant. Parameter importance (predictive power) is shown under model results</p>
         <div style="margin-top:12px; overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; min-width:740px;">
                 <thead>
@@ -207,12 +207,12 @@ author_profile: true
     </details>
 
     <h3>Model selection & Training</h3>
-    <p>We don't have a lot of of data to train on, so I only consider relatively simple ML models. To begin, I train
+    <p>We don't have a lot of data to train on, so I only consider relatively simple ML models. To begin, I train
         four different classification models—LogisticRegression, Random Forest, XGB, and Gradient Boosting.
-        Data skews very heavily to non-undercast, so I resemble with SMOTE to achieve a 50/50 split. A 30/70 test train
+        Data skews very heavily to non-undercast, so I resample with SMOTE to achieve a 50/50 split. A 30/70 test train
         split is used for all training models. After optimizing for F1, all models perform decently well, except for
-        Logistic Regression, which has significanly poorer performance. For further studdies, the other three models are
-        studdied and optimized.</p>
+        Logistic Regression, which has significantly poorer performance. For further studies, the other three models are
+        studied and optimized.</p>
 
     <figure style="margin:18px 0; text-align:center;">
         <img src="/files/weather/examples/model_training_images/confusion_matrix_first_pass.png"
