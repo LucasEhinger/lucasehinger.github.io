@@ -382,17 +382,24 @@ accuracy of ML models later. TLDR; it's undercast only a handful of times per ye
         }
     }
 
-    @media (min-width: 769px) {
+    /* Lay the Individual Parameters plots out on a real grid so rows size
+       independently — inline-block staggered them, leaving white gaps whenever
+       two plots in a row had different heights. */
+    .wx-plot-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        align-items: start;
+    }
 
-        #plot1,
-        #plot2,
-        #plot3,
-        #plot5,
-        #plot6,
-        #plot7,
-        #plot9,
-        #plot10 {
-            margin-right: 10px;
+    /* Full-width plots span both columns. */
+    .wx-plot-grid > #plot10 {
+        grid-column: 1 / -1;
+    }
+
+    @media (max-width: 768px) {
+        .wx-plot-grid {
+            grid-template-columns: 1fr;
         }
     }
 </style>
@@ -403,15 +410,17 @@ accuracy of ML models later. TLDR; it's undercast only a handful of times per ye
 <details id="individual-params-details" open style="margin-bottom: 20px;">
     <summary style="cursor: pointer; font-weight: 600; color: var(color, #333); user-select: none;">Individual
         Parameters</summary>
-    <div id="plot1" style="width:48%;display:inline-block;"></div>
-    <div id="plot2" style="width:48%;display:inline-block;"></div>
-    <div id="plot3" style="width:48%;display:inline-block;"></div>
-    <div id="plot11" style="width:48%;display:inline-block;"></div>
-    <div id="plot4" style="width:48%;display:none;"></div>
-    <div id="plot5" style="width:48%;display:inline-block;"></div>
-    <div id="plot6" style="width:48%;display:inline-block;"></div>
-    <div id="plot7" style="width:48%;display:inline-block;"></div>
-    <div id="plot10" style="width:96%;display:inline-block;"></div>
+    <div class="wx-plot-grid">
+        <div id="plot1"></div>
+        <div id="plot2"></div>
+        <div id="plot3"></div>
+        <div id="plot11"></div>
+        <div id="plot4" style="display:none;"></div>
+        <div id="plot5"></div>
+        <div id="plot6"></div>
+        <div id="plot7"></div>
+        <div id="plot10" style="grid-column: 1 / -1;"></div>
+    </div>
 </details>
 
 <script>

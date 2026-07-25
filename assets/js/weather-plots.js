@@ -1351,6 +1351,14 @@ function loadWeatherPlots(
 
       const c11 = defaultColors;
 
+      // "Height at Various Isobars" (plot11) needs geopotential-height fields that
+      // aren't currently in the feed. Guard the whole block: render only when the
+      // data is present, otherwise hide the plot so its grid cell collapses
+      // instead of leaving an empty gap — and so the missing-field access below
+      // can't throw and abort the rest of this render (e.g. the tooltip setup).
+      if (data.hgt_1000mb_hrrr && data.hgt_1000mb_nam && data.hgt_1000mb_gfs) {
+        document.getElementById("plot11").style.display = "";
+
       const hgt_1000mb_hrrr = {
         x: convertedDates,
         y: data.hgt_1000mb_hrrr.y.map(convertHeight),
@@ -1536,6 +1544,10 @@ function loadWeatherPlots(
         );
       }
       Plotly.newPlot("plot11", plot11Traces, layout11);
+      } else {
+        var plot11El = document.getElementById("plot11");
+        if (plot11El) plot11El.style.display = "none";
+      }
 
       // Add tooltips to plot info icons after Plotly renders
       setTimeout(() => {
