@@ -434,21 +434,62 @@ if __name__ == "__main__":
         default="files/weather/csv",
         help="Directory for the per-date {date}_{location}.csv output files.",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Concurrent worker processes. Downloads are network-bound, so it can "
+        "help to oversubscribe past the core count (default: os.cpu_count()).",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Skip dates whose output CSV already exists AND contains the hgt_*mb "
+        "columns, so an interrupted run can be re-run cheaply.",
+    )
     args = parser.parse_args()
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     csv_path = Path(args.labels)
     with open(csv_path, "r") as f:
         reader = csv.reader(f)
         undercast_data = list(reader)
 
+    def _already_complete(row):
+        """True if every location's CSV for this date exists and has hgt columns."""
+        try:
+            date_str = datetime.strptime(row[1], "%m/%d/%y").strftime("%Y-%m-%d %H:%M")
+        except (ValueError, IndexError):
+            return False
+        stem = date_str.replace(" ", "_").replace(":", "-")
+        for loc in LOCATIONS:
+            p = output_dir / f"{stem}_{loc['name']}.csv"
+            if not p.exists():
+                return False
+            with open(p) as fh:
+                if "hgt_500mb_hrrr" not in fh.readline():
+                    return False
+        return True
+
     tasks = []
+    skipped = 0
     for index, row in enumerate(undercast_data[1:]):
         next_row = undercast_data[index + 2] if index + 1 < len(undercast_data[1:]) else None
+        if args.resume and _already_complete(row):
+            skipped += 1
+            continue
         tasks.append((index, row, next_row, LOCATIONS, variables))
 
-    max_workers = min(os.cpu_count() or 4, len(tasks))
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if args.resume:
+        print(f"Resume: {skipped} dates already complete, {len(tasks)} to (re)process.")
+    if not tasks:
+        print("Nothing to do.")
+        raise SystemExit(0)
+
+    max_workers = min(args.workers or (os.cpu_count() or 4), len(tasks))
+    print(f"Processing {len(tasks)} dates with {max_workers} workers -> {output_dir}")
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(process_undercast_row, task): i for i, task in enumerate(tasks)}
