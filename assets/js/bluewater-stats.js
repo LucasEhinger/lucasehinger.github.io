@@ -287,7 +287,7 @@
     };
     var layout = {
       title: {
-        text: (showingAll ? "Registered sailors — " : "Top " + TOP_N + " — ") + label,
+        text: (showingAll ? "Registered sailors" : "Top sailors") + " (" + label + ")",
         font: { color: textColor },
       },
       margin: { l: 110, r: 20, t: 44, b: 40 },
@@ -353,8 +353,8 @@
     var layout = {
       title: {
         text:
-          (showingAll ? "Registered sailors — " : "Top " + TOP_N + " — ") +
-          "Sails vs Registrations",
+          (showingAll ? "Registered sailors" : "Top sailors") +
+          " (Sails vs Registrations)",
         font: { color: textColor },
       },
       barmode: "group",

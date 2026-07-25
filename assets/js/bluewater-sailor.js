@@ -16,7 +16,7 @@
   var allRows = [];
   var fRole = "all"; // "all" | "s" | "c"
   var fType = "all"; // "all" | "race" | "pleasure"
-  var fStatus = "all"; // "all" | "sailed" | "notselected" | "cancelled"
+  var fStatus = "sailed"; // "all" | "sailed" | "notselected" | "cancelled"
   var sortKey = "date"; // sort the history by "date" or "hours"
   var sortDir = -1; // -1 desc (newest / longest first), 1 asc
 
