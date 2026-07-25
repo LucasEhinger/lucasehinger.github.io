@@ -237,9 +237,14 @@
 
   // When filtering to a specific sail's crew, show everyone (grow the chart to
   // fit); otherwise fall back to the fixed-height Top-15 view.
+  // Returns the pixel height so callers can pin layout.height to match. Plotly's
+  // responsive autosize does NOT re-read a programmatic container-height change on
+  // Plotly.react, so without an explicit layout.height the plot keeps its old
+  // height — the bars then cram together, out of line with the y-axis labels.
   function setChartHeight(count, perBar, showingAll) {
-    var el = document.getElementById("bw-chart");
-    el.style.height = showingAll ? Math.max(460, count * perBar + 90) + "px" : "";
+    var h = showingAll ? Math.max(460, count * perBar + 90) : 460;
+    document.getElementById("bw-chart").style.height = h + "px";
+    return h;
   }
 
   // Chart y-axis label with a check-mark when the sailor is confirmed/skipper
@@ -264,7 +269,7 @@
         return b[metric] - a[metric];
       });
     if (!showingAll) rows = rows.slice(0, TOP_N);
-    setChartHeight(rows.length, 26, showingAll);
+    var chartH = setChartHeight(rows.length, 26, showingAll);
     var names = rows.map(chartLabel).reverse();
     var values = rows
       .map(function (s) {
@@ -301,6 +306,7 @@
       },
       yaxis: { tickfont: { color: textColor }, automargin: true },
     };
+    layout.height = chartH;
     Plotly.react("bw-chart", [trace], layout, {
       displayModeBar: false,
       responsive: true,
@@ -316,7 +322,7 @@
         return b.sails - a.sails;
       });
     if (!showingAll) rows = rows.slice(0, TOP_N);
-    setChartHeight(rows.length, 42, showingAll);
+    var chartH = setChartHeight(rows.length, 42, showingAll);
     var names = rows.map(chartLabel).reverse();
     var sails = rows
       .map(function (s) {
@@ -371,6 +377,7 @@
       yaxis: { tickfont: { color: textColor }, automargin: true },
       legend: { font: { color: textColor }, orientation: "h" },
     };
+    layout.height = chartH;
     Plotly.react("bw-chart", traces, layout, {
       displayModeBar: false,
       responsive: true,
