@@ -13,6 +13,12 @@ import pandas as pd
 import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
+import warnings
+
+# xarray emits a FutureWarning on .argmin()/.argmax() without an explicit dim
+# (used by the nearest-gridpoint lookup). The current flat-index behaviour is
+# exactly what we want, so silence the deprecation noise.
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 # Helper to convert NaN/numpy types to JSON-serializable values (NaN -> None)

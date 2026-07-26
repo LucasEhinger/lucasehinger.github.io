@@ -14,6 +14,12 @@ import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 import socket
+import warnings
+
+# xarray emits a FutureWarning on .argmin()/.argmax() without an explicit dim
+# (used by the nearest-gridpoint lookup). The current flat-index behaviour is
+# exactly what we want, so silence the deprecation noise in these batch runs.
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 # Herbie's GRIB/IDX downloads have no socket timeout, so a dropped connection
 # leaves a worker blocked forever in the read() syscall -- unkillable even with
