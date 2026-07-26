@@ -337,6 +337,171 @@ author_profile: true
             real events — an honest reflection of a hard, data-limited problem.</figcaption>
     </figure>
 
+    <h4>Per-source numbers</h4>
+    <p>The figures above summarize the all-parameters model. To see the exact grouped, out-of-fold metrics for any
+        individual data source — or to line several up side by side — tick the sources below. Precision, recall, F1 and
+        the false-positive / false-negative counts are at each algorithm's deployed threshold; ROC-AUC and PR-AUC are
+        threshold-free.</p>
+
+    <div id="results-model-toggle"
+        style="display: inline-flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 12px; margin: 4px 0 16px 0; border: 1px solid var(--global-border-color, #ccc); border-radius: 6px;">
+        <span style="font-weight: 600;">Show results for:</span>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
+                name="results-model" value="all" checked /> All parameters</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
+                name="results-model" value="hrrr" /> HRRR</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
+                name="results-model" value="nam" /> NAM</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
+                name="results-model" value="gfs" /> GFS</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
+                name="results-model" value="rap" /> RAP</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
+                name="results-model" value="ecmwf" /> ECMWF</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
+                name="results-model" value="nbm" /> NBM</label>
+    </div>
+
+    <div id="results-tables"></div>
+
+    <script>
+        (function () {
+            const RESULT_MODELS = {
+                all: "Combined (all parameters)",
+                hrrr: "HRRR",
+                nam: "NAM",
+                gfs: "GFS",
+                rap: "RAP",
+                ecmwf: "ECMWF",
+                nbm: "NBM",
+            };
+            const ALGORITHMS = ["XGBoost", "Random Forest", "Gradient Boosting"];
+            const metadataCache = {};
+
+            function metadataUrl(key) {
+                return `/files/weather/models/model_metadata_${key}.json`;
+            }
+
+            function fmt(v) {
+                return typeof v === "number" ? v.toFixed(3) : "—";
+            }
+
+            function fmtInt(v) {
+                return typeof v === "number" ? String(v) : "—";
+            }
+
+            function buildTable(key, meta) {
+                const wrap = document.createElement("div");
+                wrap.style.overflowX = "auto";
+                wrap.style.margin = "12px 0 20px 0";
+
+                const caption = document.createElement("div");
+                caption.style.fontWeight = "600";
+                caption.style.marginBottom = "6px";
+                caption.textContent = RESULT_MODELS[key] || key;
+                wrap.appendChild(caption);
+
+                const table = document.createElement("table");
+                table.style.width = "100%";
+                table.style.borderCollapse = "collapse";
+                table.style.minWidth = "620px";
+
+                const border = "1px solid var(--global-border-color, #ccc)";
+                const headers = ["Algorithm", "Precision", "Recall", "F1", "Threshold", "FP", "FN", "ROC-AUC", "PR-AUC"];
+                const thead = document.createElement("thead");
+                const htr = document.createElement("tr");
+                headers.forEach((h, i) => {
+                    const th = document.createElement("th");
+                    th.textContent = h;
+                    th.style.textAlign = i === 0 ? "left" : "right";
+                    th.style.padding = "8px";
+                    th.style.borderBottom = border;
+                    htr.appendChild(th);
+                });
+                thead.appendChild(htr);
+                table.appendChild(thead);
+
+                const tbody = document.createElement("tbody");
+                ALGORITHMS.forEach((algo) => {
+                    const m = meta[algo] || {};
+                    const cells = [
+                        algo,
+                        fmt(m.oof_precision),
+                        fmt(m.oof_recall),
+                        fmt(m.oof_f1_score),
+                        fmt(m.threshold_best_f1),
+                        fmtInt(m.oof_fp),
+                        fmtInt(m.oof_fn),
+                        fmt(m.cv_roc_auc),
+                        fmt(m.cv_pr_auc),
+                    ];
+                    const tr = document.createElement("tr");
+                    cells.forEach((c, i) => {
+                        const td = document.createElement("td");
+                        td.textContent = c;
+                        td.style.textAlign = i === 0 ? "left" : "right";
+                        td.style.padding = "8px";
+                        td.style.borderBottom = "1px solid var(--global-dark-border-color, #eee)";
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+                wrap.appendChild(table);
+                return wrap;
+            }
+
+            function selectedKeys() {
+                return Array.from(
+                    document.querySelectorAll('input[name="results-model"]:checked')
+                ).map((el) => el.value);
+            }
+
+            function render() {
+                const container = document.getElementById("results-tables");
+                const keys = selectedKeys();
+                if (keys.length === 0) {
+                    container.innerHTML =
+                        '<p style="color: var(--global-fig-caption-color, #666);">Select at least one source above to see its results.</p>';
+                    return;
+                }
+
+                Promise.all(
+                    keys.map((key) => {
+                        if (metadataCache[key]) return Promise.resolve({ key, meta: metadataCache[key] });
+                        return fetch(metadataUrl(key))
+                            .then((r) => {
+                                if (!r.ok) throw new Error("not found");
+                                return r.json();
+                            })
+                            .then((meta) => {
+                                metadataCache[key] = meta;
+                                return { key, meta };
+                            })
+                            .catch(() => ({ key, meta: null }));
+                    })
+                ).then((results) => {
+                    container.innerHTML = "";
+                    results.forEach(({ key, meta }) => {
+                        if (!meta) {
+                            const p = document.createElement("p");
+                            p.style.color = "var(--global-fig-caption-color, #666)";
+                            p.textContent = `Results for ${RESULT_MODELS[key] || key} are not available yet.`;
+                            container.appendChild(p);
+                            return;
+                        }
+                        container.appendChild(buildTable(key, meta));
+                    });
+                });
+            }
+
+            document
+                .querySelectorAll('input[name="results-model"]')
+                .forEach((el) => el.addEventListener("change", render));
+            render();
+        })();
+    </script>
+
 
 
     <h3>Next Steps</h3>
