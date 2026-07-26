@@ -13,6 +13,36 @@ import csv
 import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
+import socket
+
+# Herbie's GRIB/IDX downloads have no socket timeout, so a dropped connection
+# leaves a worker blocked forever in the read() syscall -- unkillable even with
+# SIGKILL until the OS times the socket out (can be hours). A module-level
+# default timeout makes any stalled read raise instead, so the date is skipped
+# and retried on the next --resume pass. Applies to spawned workers too, since
+# they re-import this module.
+socket.setdefaulttimeout(120)
+
+# The real hang source: Herbie downloads each GRIB subset by shelling out to
+# `curl -s --range ... > file` via os.system(), with NO --max-time. On a dead
+# socket that curl blocks forever, freezing the worker (no Python timeout can
+# reach a subprocess). Wrap os.system so every curl gets connect/transfer caps
+# and a couple retries -- a stalled download then self-aborts in ~2 min and the
+# fxx is skipped, instead of hanging the worker until the per-date alarm.
+_orig_os_system = os.system
+
+
+def _os_system_with_curl_timeout(cmd):
+    if isinstance(cmd, str) and cmd.lstrip().startswith("curl "):
+        cmd = cmd.replace(
+            "curl -s ",
+            "curl -s --connect-timeout 20 --max-time 150 --retry 2 --retry-delay 3 ",
+            1,
+        )
+    return _orig_os_system(cmd)
+
+
+os.system = _os_system_with_curl_timeout
 
 LOCATIONS = [
     {"name": "MtWashington", "lat": 44.27040, "lon": -71.30327},
@@ -161,6 +191,89 @@ variables = {
         "aliases": [":APCP:surface"],
         "model": "nam",
     },
+    # --- RAP (Rapid Refresh, 13 km; Herbie model="rap"). HRRR's parent model,
+    # GRIB-standard cloud/visibility/temperature/height/boundary-layer fields with
+    # a full historical archive. Mirrors the HRRR/NAM field set.
+    "cloud_ceiling_m_rap": {"aliases": ["cloudCeiling", "HGT:cloud ceiling", "HGT_ceiling"], "model": "rap"},
+    "low_cloud_layer_percent_rap": {"aliases": [":LCDC:low cloud layer:%n hour"], "model": "rap"},
+    "middle_cloud_layer_percent_rap": {"aliases": [":MCDC:middle cloud layer:%n hour"], "model": "rap"},
+    "high_cloud_layer_percent_rap": {"aliases": [":HCDC:high cloud layer:%n hour"], "model": "rap"},
+    "boundary_layer_cloud_layer_rap": {"aliases": [":TCDC:boundary layer cloud layer:%n hour"], "model": "rap"},
+    "vis_surface_rap": {"aliases": [":VIS:surface"], "model": "rap"},
+    "tmp_500mb_rap": {"aliases": [":TMP:500 mb"], "model": "rap"},
+    "tmp_700mb_rap": {"aliases": [":TMP:700 mb"], "model": "rap"},
+    "tmp_850mb_rap": {"aliases": [":TMP:850 mb"], "model": "rap"},
+    "tmp_925mb_rap": {"aliases": [":TMP:925 mb"], "model": "rap"},
+    "tmp_1000mb_rap": {"aliases": [":TMP:1000 mb"], "model": "rap"},
+    "hgt_500mb_rap": {"aliases": [":HGT:500 mb"], "model": "rap"},
+    "hgt_700mb_rap": {"aliases": [":HGT:700 mb"], "model": "rap"},
+    "hgt_850mb_rap": {"aliases": [":HGT:850 mb"], "model": "rap"},
+    "hgt_925mb_rap": {"aliases": [":HGT:925 mb"], "model": "rap"},
+    "hgt_1000mb_rap": {"aliases": [":HGT:1000 mb"], "model": "rap"},
+    "tmp_2m_rap": {"aliases": [":TMP:2 m above ground"], "model": "rap"},
+    "rh_2m_rap": {"aliases": [":RH:2 m above ground"], "model": "rap"},
+    "rh_925mb_rap": {"aliases": [":RH:925 mb"], "model": "rap"},
+    "hpbl_surface_rap": {"aliases": [":HPBL:surface"], "model": "rap"},
+    "hgt_0C_iso_rap": {"aliases": [":HGT:0C isotherm:"], "model": "rap"},
+    "prate_surface_rap": {"aliases": [":PRATE:surface:%n hour"], "model": "rap"},
+    "apcp_surface_rap": {"aliases": [":APCP:surface"], "model": "rap"},
+    # --- ECMWF IFS open data (Herbie model="ifs"). Provides geopotential height,
+    # temperature, humidity, vertical velocity and surface/integrated fields, but
+    # NO cloud-cover/ceiling fields -- those columns stay empty (that's expected).
+    # IFS open data has only 3-hourly steps, so non-multiple-of-3 fxx come back
+    # empty as well. All fine: empties are imputed downstream.
+    "hgt_500mb_ecmwf": {"aliases": [":gh:500:"], "model": "ifs"},
+    "hgt_700mb_ecmwf": {"aliases": [":gh:700:"], "model": "ifs"},
+    "hgt_850mb_ecmwf": {"aliases": [":gh:850:"], "model": "ifs"},
+    "hgt_925mb_ecmwf": {"aliases": [":gh:925:"], "model": "ifs"},
+    "hgt_1000mb_ecmwf": {"aliases": [":gh:1000:"], "model": "ifs"},
+    "tmp_500mb_ecmwf": {"aliases": [":t:500:"], "model": "ifs"},
+    "tmp_700mb_ecmwf": {"aliases": [":t:700:"], "model": "ifs"},
+    "tmp_850mb_ecmwf": {"aliases": [":t:850:"], "model": "ifs"},
+    "tmp_925mb_ecmwf": {"aliases": [":t:925:"], "model": "ifs"},
+    "tmp_1000mb_ecmwf": {"aliases": [":t:1000:"], "model": "ifs"},
+    "rh_700mb_ecmwf": {"aliases": [":r:700:"], "model": "ifs"},
+    "rh_850mb_ecmwf": {"aliases": [":r:850:"], "model": "ifs"},
+    "rh_925mb_ecmwf": {"aliases": [":r:925:"], "model": "ifs"},
+    "rh_1000mb_ecmwf": {"aliases": [":r:1000:"], "model": "ifs"},
+    "vvel_700mb_ecmwf": {"aliases": [":w:700:"], "model": "ifs"},
+    "vvel_850mb_ecmwf": {"aliases": [":w:850:"], "model": "ifs"},
+    "vvel_925mb_ecmwf": {"aliases": [":w:925:"], "model": "ifs"},
+    "tmp_2m_ecmwf": {"aliases": [":2t:"], "model": "ifs"},
+    "dpt_2m_ecmwf": {"aliases": [":2d:"], "model": "ifs"},
+    "mslp_ecmwf": {"aliases": [":msl:"], "model": "ifs"},
+    "sp_surface_ecmwf": {"aliases": [":sp:"], "model": "ifs"},
+    "cape_ecmwf": {"aliases": [":cape:"], "model": "ifs"},
+    "tcwv_ecmwf": {"aliases": [":tcwv:"], "model": "ifs"},
+    # --- NBM (National Blend of Models), CONUS "co" product. Statistical blend
+    # rich in sensible-weather elements: total cloud cover, ceiling, visibility
+    # (deterministic), plus 2 m temp/dewpoint/RH, wind and precip. Hourly, so all
+    # fxx populate. No upper-air fields, so pressure-level columns stay empty.
+    "tcdc_surface_nbm": {"aliases": [":TCDC:surface:%n hour fcst:nan:nan", ":TCDC:surface"], "model": "nbm"},
+    "tcdc_high_cloud_nbm": {"aliases": [":TCDC:high cloud layer"], "model": "nbm"},
+    "cdcb_high_cloud_nbm": {"aliases": [":CDCB:high cloud layer"], "model": "nbm"},
+    "cloud_ceiling_m_nbm": {"aliases": [":CEIL:cloud ceiling:%n hour fcst:nan:nan", ":CEIL:cloud ceiling"], "model": "nbm"},
+    "cloud_base_m_nbm": {"aliases": [":CEIL:cloud base"], "model": "nbm"},
+    "vis_surface_nbm": {"aliases": [":VIS:surface:%n hour fcst:nan:nan", ":VIS:surface"], "model": "nbm"},
+    # Probabilistic ceiling/visibility-below-threshold (%) -- directly relevant to
+    # undercast (low ceiling / restricted visibility). Regex-anchored to a threshold.
+    "ceil_prob_below_152m_nbm": {"aliases": [":CEIL:cloud ceiling:.*prob <152.4:"], "model": "nbm"},
+    "ceil_prob_below_305m_nbm": {"aliases": [":CEIL:cloud ceiling:.*prob <304.8:"], "model": "nbm"},
+    "ceil_prob_below_610m_nbm": {"aliases": [":CEIL:cloud ceiling:.*prob <609.6:"], "model": "nbm"},
+    "ceil_prob_below_914m_nbm": {"aliases": [":CEIL:cloud ceiling:.*prob <914.5:"], "model": "nbm"},
+    "ceil_prob_below_2012m_nbm": {"aliases": [":CEIL:cloud ceiling:.*prob <2011.68:"], "model": "nbm"},
+    "vis_prob_below_1609m_nbm": {"aliases": [":VIS:surface:.*prob <1609.34:"], "model": "nbm"},
+    "vis_prob_below_3219m_nbm": {"aliases": [":VIS:surface:.*prob <3218.69:"], "model": "nbm"},
+    "vis_prob_below_4828m_nbm": {"aliases": [":VIS:surface:.*prob <4828.03:"], "model": "nbm"},
+    "vis_prob_below_8047m_nbm": {"aliases": [":VIS:surface:.*prob <8046.73:"], "model": "nbm"},
+    "cape_surface_nbm": {"aliases": [":CAPE:surface:%n hour fcst:nan:nan", ":CAPE:surface"], "model": "nbm"},
+    "mixing_height_nbm": {"aliases": [":MIXHT:entire atmosphere"], "model": "nbm"},
+    "tmp_2m_nbm": {"aliases": [":TMP:2 m above ground"], "model": "nbm"},
+    "dpt_2m_nbm": {"aliases": [":DPT:2 m above ground"], "model": "nbm"},
+    "rh_2m_nbm": {"aliases": [":RH:2 m above ground"], "model": "nbm"},
+    "apcp_surface_nbm": {"aliases": [":APCP:surface"], "model": "nbm"},
+    "wind_10m_nbm": {"aliases": [":WIND:10 m above ground"], "model": "nbm"},
+    "gust_surface_nbm": {"aliases": [":GUST:10 m above ground", ":GUST:surface"], "model": "nbm"},
 }
 
 
@@ -271,6 +384,35 @@ def find_nearest_by_geodetic(da, lat0, lon0, lat_name_hint="lat", lon_name_hint=
 
 
 def process_undercast_row(args):
+    """Process one date with a hard wall-clock cap.
+
+    Herbie downloads via requests/urllib3, which ignore socket.setdefaulttimeout,
+    so a dropped connection can block a worker in recv() forever (unkillable).
+    A per-date SIGALRM interrupts the blocked syscall, aborts the date (returns
+    None so --resume retries it next pass) and frees the worker. Runs in the
+    worker's main thread, where signal handlers are allowed.
+    """
+    import signal
+
+    def _on_timeout(signum, frame):
+        raise TimeoutError("per-date wall-clock timeout")
+
+    have_alarm = hasattr(signal, "SIGALRM")
+    if have_alarm:
+        old = signal.signal(signal.SIGALRM, _on_timeout)
+        signal.alarm(1800)  # 30 min backstop; curl --max-time catches real hangs
+    try:
+        return _process_undercast_row_impl(args)
+    except TimeoutError:
+        print(f"\nTimeout: aborting {args[1][1] if len(args[1]) > 1 else '?'} after 1800s")
+        return None
+    finally:
+        if have_alarm:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old)
+
+
+def _process_undercast_row_impl(args):
     """Process a single row of undercast data"""
     index, row, next_row, LOCATIONS, variables = args
 
@@ -341,7 +483,27 @@ def process_undercast_row(args):
                 except (ConnectionResetError, ConnectionError, Exception) as e:
                     print(f"\nSkipping {date_str} fxx={fxx} due to error: {type(e).__name__}")
                     continue
-            
+                # RAP, ECMWF IFS and NBM are added independently (don't let one's
+                # absence skip the others, and empties are acceptable).
+                try:
+                    h = Herbie(date_str, model="rap", fxx=fxx, save_dir=tmp)
+                    Hs.add(fxx, h)
+                    successful_fxxs.append(fxx)
+                except (ConnectionResetError, ConnectionError, Exception) as e:
+                    print(f"\nSkipping {date_str} rap fxx={fxx} due to error: {type(e).__name__}")
+                try:
+                    h = Herbie(date_str, model="ifs", product="oper", fxx=fxx, save_dir=tmp)
+                    Hs.add(fxx, h)
+                    successful_fxxs.append(fxx)
+                except (ConnectionResetError, ConnectionError, Exception) as e:
+                    print(f"\nSkipping {date_str} ecmwf fxx={fxx} due to error: {type(e).__name__}")
+                try:
+                    h = Herbie(date_str, model="nbm", product="co", fxx=fxx, save_dir=tmp)
+                    Hs.add(fxx, h)
+                    successful_fxxs.append(fxx)
+                except (ConnectionResetError, ConnectionError, Exception) as e:
+                    print(f"\nSkipping {date_str} nbm fxx={fxx} due to error: {type(e).__name__}")
+
 
             if len(successful_fxxs) == 0:
                 print(f"\nSkipping {date_str} - no successful data downloads")
@@ -444,10 +606,26 @@ if __name__ == "__main__":
     parser.add_argument(
         "--resume",
         action="store_true",
-        help="Skip dates whose output CSV already exists AND contains the hgt_*mb "
-        "columns, so an interrupted run can be re-run cheaply.",
+        help="Skip dates whose output CSV already exists AND contains the newest "
+        "schema columns, so an interrupted run can be re-run cheaply.",
+    )
+    parser.add_argument(
+        "--num-shards",
+        type=int,
+        default=1,
+        help="Split the date list into this many shards (for parallel CI jobs). "
+        "Each shard processes dates where index %% num_shards == shard.",
+    )
+    parser.add_argument(
+        "--shard",
+        type=int,
+        default=0,
+        help="Which shard (0-based, < --num-shards) this run should process.",
     )
     args = parser.parse_args()
+
+    if not (0 <= args.shard < args.num_shards):
+        parser.error("--shard must satisfy 0 <= shard < num-shards")
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -469,7 +647,7 @@ if __name__ == "__main__":
             if not p.exists():
                 return False
             with open(p) as fh:
-                if "hgt_500mb_hrrr" not in fh.readline():
+                if "gust_surface_nbm" not in fh.readline():
                     return False
         return True
 
@@ -477,6 +655,9 @@ if __name__ == "__main__":
     skipped = 0
     for index, row in enumerate(undercast_data[1:]):
         next_row = undercast_data[index + 2] if index + 1 < len(undercast_data[1:]) else None
+        # Sharding: split dates across parallel CI jobs by round-robin on index.
+        if args.num_shards > 1 and index % args.num_shards != args.shard:
+            continue
         if args.resume and _already_complete(row):
             skipped += 1
             continue

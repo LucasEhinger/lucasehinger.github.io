@@ -1,0 +1,91 @@
+name: Regenerate Weather Training CSVs
+
+# Full rebuild of the per-date ML training CSVs (all weather models) for the
+# 589-date labeled set. Split into 20 parallel shards so each job stays well
+# under the 6-hour job limit, then a final job collects every shard's CSVs and
+# commits them. No model training here -- just download + build the data.
+#
+# Requires files/weather/csv/MtWashington_undercast_orig.csv to be committed
+# (it is normally gitignored): `git add -f` it before running.
+
+on:
+  workflow_dispatch:
+    inputs:
+      workers:
+        description: "Worker processes per shard (downloads are bandwidth-bound)"
+        default: "6"
+
+concurrency:
+  group: regen-weather-csv
+  cancel-in-progress: false
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350 # safety margin under the 360-minute job cap
+    strategy:
+      fail-fast: false # one bad shard shouldn't kill the others
+      matrix:
+        shard:
+          [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install herbie-data numpy xarray
+
+      - name: Build CSVs for this shard
+        run: |
+          mkdir -p files/weather/csv/ML/all
+          python scripts/weather_to_csv.py \
+            --labels files/weather/csv/MtWashington_undercast_orig.csv \
+            --output-dir files/weather/csv/ML/all \
+            --num-shards 20 \
+            --shard ${{ matrix.shard }} \
+            --workers ${{ github.event.inputs.workers }} \
+            --resume
+
+      - name: Upload this shard's CSVs
+        uses: actions/upload-artifact@v4
+        with:
+          name: csv-shard-${{ matrix.shard }}
+          path: files/weather/csv/ML/all/*.csv
+          if-no-files-found: warn
+          retention-days: 7
+
+  collect:
+    needs: regen
+    if: always() # commit whatever shards succeeded
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all shard CSVs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: csv-shard-*
+          merge-multiple: true
+          path: files/weather/csv/ML/all
+
+      - name: Report how many CSVs were collected
+        run: |
+          echo "Collected $(ls files/weather/csv/ML/all/*.csv 2>/dev/null | wc -l) CSVs (of 589 dates)."
+
+      - name: Commit and push CSVs
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          # ML CSVs are gitignored, so force-add them.
+          git add -f files/weather/csv/ML/all/*.csv
+          git diff --staged --quiet || (git commit -m "Regenerate weather training CSVs (all models)" && git push)

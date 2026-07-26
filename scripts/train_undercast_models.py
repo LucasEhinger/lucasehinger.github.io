@@ -2,7 +2,7 @@
 """Train undercast-prediction models for every forecast source in one run.
 
 Reads the per-date labeled CSVs produced by ``weather_to_csv.py`` and, for each
-source in {hrrr, nam, gfs, all}, trains Random Forest, XGBoost, and Gradient
+source in {hrrr, nam, gfs, rap, ecmwf, nbm, all}, trains Random Forest, XGBoost, and Gradient
 Boosting (on SMOTE-balanced data), tunes each model to its best-F1 decision
 threshold, and writes the artifacts the site loads at prediction time:
 
@@ -42,7 +42,7 @@ import joblib
 
 RANDOM_STATE = 23
 TARGET = "is_undercast"
-SOURCES = ["hrrr", "nam", "gfs", "all"]
+SOURCES = ["hrrr", "nam", "gfs", "rap", "ecmwf", "nbm", "all"]
 
 
 def load_data(csv_dir):

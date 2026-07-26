@@ -187,6 +187,87 @@ variables = {
         "aliases": [":APCP:surface"],
         "model": "nam",
     },
+    # --- RAP (Rapid Refresh, 13 km; Herbie model="rap"). HRRR's parent model,
+    # GRIB-standard cloud/visibility/temperature/height/boundary-layer fields with
+    # a full historical archive. Mirrors the HRRR/NAM field set.
+    "cloud_ceiling_m_rap": {"aliases": ["cloudCeiling", "HGT:cloud ceiling", "HGT_ceiling"], "model": "rap"},
+    "low_cloud_layer_percent_rap": {"aliases": [":LCDC:low cloud layer:%n hour"], "model": "rap"},
+    "middle_cloud_layer_percent_rap": {"aliases": [":MCDC:middle cloud layer:%n hour"], "model": "rap"},
+    "high_cloud_layer_percent_rap": {"aliases": [":HCDC:high cloud layer:%n hour"], "model": "rap"},
+    "boundary_layer_cloud_layer_rap": {"aliases": [":TCDC:boundary layer cloud layer:%n hour"], "model": "rap"},
+    "vis_surface_rap": {"aliases": [":VIS:surface"], "model": "rap"},
+    "tmp_500mb_rap": {"aliases": [":TMP:500 mb"], "model": "rap"},
+    "tmp_700mb_rap": {"aliases": [":TMP:700 mb"], "model": "rap"},
+    "tmp_850mb_rap": {"aliases": [":TMP:850 mb"], "model": "rap"},
+    "tmp_925mb_rap": {"aliases": [":TMP:925 mb"], "model": "rap"},
+    "tmp_1000mb_rap": {"aliases": [":TMP:1000 mb"], "model": "rap"},
+    "hgt_500mb_rap": {"aliases": [":HGT:500 mb"], "model": "rap"},
+    "hgt_700mb_rap": {"aliases": [":HGT:700 mb"], "model": "rap"},
+    "hgt_850mb_rap": {"aliases": [":HGT:850 mb"], "model": "rap"},
+    "hgt_925mb_rap": {"aliases": [":HGT:925 mb"], "model": "rap"},
+    "hgt_1000mb_rap": {"aliases": [":HGT:1000 mb"], "model": "rap"},
+    "tmp_2m_rap": {"aliases": [":TMP:2 m above ground"], "model": "rap"},
+    "rh_2m_rap": {"aliases": [":RH:2 m above ground"], "model": "rap"},
+    "rh_925mb_rap": {"aliases": [":RH:925 mb"], "model": "rap"},
+    "hpbl_surface_rap": {"aliases": [":HPBL:surface"], "model": "rap"},
+    "hgt_0C_iso_rap": {"aliases": [":HGT:0C isotherm:"], "model": "rap"},
+    "prate_surface_rap": {"aliases": [":PRATE:surface:%n hour"], "model": "rap"},
+    "apcp_surface_rap": {"aliases": [":APCP:surface"], "model": "rap"},
+    # --- ECMWF IFS open data (Herbie model="ifs"). Geopotential height,
+    # temperature, humidity, vertical velocity and surface/integrated fields; NO
+    # cloud fields (those columns stay empty). Only 3-hourly steps, so fxx that
+    # aren't multiples of 3 come back empty too. Empties are expected/fine.
+    "hgt_500mb_ecmwf": {"aliases": [":gh:500:"], "model": "ifs"},
+    "hgt_700mb_ecmwf": {"aliases": [":gh:700:"], "model": "ifs"},
+    "hgt_850mb_ecmwf": {"aliases": [":gh:850:"], "model": "ifs"},
+    "hgt_925mb_ecmwf": {"aliases": [":gh:925:"], "model": "ifs"},
+    "hgt_1000mb_ecmwf": {"aliases": [":gh:1000:"], "model": "ifs"},
+    "tmp_500mb_ecmwf": {"aliases": [":t:500:"], "model": "ifs"},
+    "tmp_700mb_ecmwf": {"aliases": [":t:700:"], "model": "ifs"},
+    "tmp_850mb_ecmwf": {"aliases": [":t:850:"], "model": "ifs"},
+    "tmp_925mb_ecmwf": {"aliases": [":t:925:"], "model": "ifs"},
+    "tmp_1000mb_ecmwf": {"aliases": [":t:1000:"], "model": "ifs"},
+    "rh_700mb_ecmwf": {"aliases": [":r:700:"], "model": "ifs"},
+    "rh_850mb_ecmwf": {"aliases": [":r:850:"], "model": "ifs"},
+    "rh_925mb_ecmwf": {"aliases": [":r:925:"], "model": "ifs"},
+    "rh_1000mb_ecmwf": {"aliases": [":r:1000:"], "model": "ifs"},
+    "vvel_700mb_ecmwf": {"aliases": [":w:700:"], "model": "ifs"},
+    "vvel_850mb_ecmwf": {"aliases": [":w:850:"], "model": "ifs"},
+    "vvel_925mb_ecmwf": {"aliases": [":w:925:"], "model": "ifs"},
+    "tmp_2m_ecmwf": {"aliases": [":2t:"], "model": "ifs"},
+    "dpt_2m_ecmwf": {"aliases": [":2d:"], "model": "ifs"},
+    "mslp_ecmwf": {"aliases": [":msl:"], "model": "ifs"},
+    "sp_surface_ecmwf": {"aliases": [":sp:"], "model": "ifs"},
+    "cape_ecmwf": {"aliases": [":cape:"], "model": "ifs"},
+    "tcwv_ecmwf": {"aliases": [":tcwv:"], "model": "ifs"},
+    # --- NBM (National Blend of Models), CONUS "co" product. Total cloud cover,
+    # ceiling, visibility (deterministic), 2 m temp/dewpoint/RH, wind and precip.
+    # No upper-air fields (pressure-level columns stay empty).
+    "tcdc_surface_nbm": {"aliases": [":TCDC:surface:%n hour fcst:nan:nan", ":TCDC:surface"], "model": "nbm"},
+    "tcdc_high_cloud_nbm": {"aliases": [":TCDC:high cloud layer"], "model": "nbm"},
+    "cdcb_high_cloud_nbm": {"aliases": [":CDCB:high cloud layer"], "model": "nbm"},
+    "cloud_ceiling_m_nbm": {"aliases": [":CEIL:cloud ceiling:%n hour fcst:nan:nan", ":CEIL:cloud ceiling"], "model": "nbm"},
+    "cloud_base_m_nbm": {"aliases": [":CEIL:cloud base"], "model": "nbm"},
+    "vis_surface_nbm": {"aliases": [":VIS:surface:%n hour fcst:nan:nan", ":VIS:surface"], "model": "nbm"},
+    # Probabilistic ceiling/visibility-below-threshold (%) -- directly relevant to
+    # undercast (low ceiling / restricted visibility). Regex-anchored to a threshold.
+    "ceil_prob_below_152m_nbm": {"aliases": [":CEIL:cloud ceiling:.*prob <152.4:"], "model": "nbm"},
+    "ceil_prob_below_305m_nbm": {"aliases": [":CEIL:cloud ceiling:.*prob <304.8:"], "model": "nbm"},
+    "ceil_prob_below_610m_nbm": {"aliases": [":CEIL:cloud ceiling:.*prob <609.6:"], "model": "nbm"},
+    "ceil_prob_below_914m_nbm": {"aliases": [":CEIL:cloud ceiling:.*prob <914.5:"], "model": "nbm"},
+    "ceil_prob_below_2012m_nbm": {"aliases": [":CEIL:cloud ceiling:.*prob <2011.68:"], "model": "nbm"},
+    "vis_prob_below_1609m_nbm": {"aliases": [":VIS:surface:.*prob <1609.34:"], "model": "nbm"},
+    "vis_prob_below_3219m_nbm": {"aliases": [":VIS:surface:.*prob <3218.69:"], "model": "nbm"},
+    "vis_prob_below_4828m_nbm": {"aliases": [":VIS:surface:.*prob <4828.03:"], "model": "nbm"},
+    "vis_prob_below_8047m_nbm": {"aliases": [":VIS:surface:.*prob <8046.73:"], "model": "nbm"},
+    "cape_surface_nbm": {"aliases": [":CAPE:surface:%n hour fcst:nan:nan", ":CAPE:surface"], "model": "nbm"},
+    "mixing_height_nbm": {"aliases": [":MIXHT:entire atmosphere"], "model": "nbm"},
+    "tmp_2m_nbm": {"aliases": [":TMP:2 m above ground"], "model": "nbm"},
+    "dpt_2m_nbm": {"aliases": [":DPT:2 m above ground"], "model": "nbm"},
+    "rh_2m_nbm": {"aliases": [":RH:2 m above ground"], "model": "nbm"},
+    "apcp_surface_nbm": {"aliases": [":APCP:surface"], "model": "nbm"},
+    "wind_10m_nbm": {"aliases": [":WIND:10 m above ground"], "model": "nbm"},
+    "gust_surface_nbm": {"aliases": [":GUST:10 m above ground", ":GUST:surface"], "model": "nbm"},
 }
 
 
@@ -302,11 +383,12 @@ def process_forecast_data(args):
 
     try:
         with tempfile.TemporaryDirectory() as tmp:
+            _products = {"hrrr": "sfc", "ifs": "oper", "nbm": "co"}
             try:
                 h = Herbie(
                     date_str,
                     model=model,
-                    product="sfc" if model == "hrrr" else None,
+                    product=_products.get(model),
                     fxx=fxx,
                     save_dir=tmp,
                 )
@@ -501,6 +583,75 @@ def results_to_dataframe(results, locations, date_str):
         "hgt_0C_iso_nam",
         "prate_surface_nam",
         "apcp_surface_nam",
+        "cloud_ceiling_m_rap",
+        "low_cloud_layer_percent_rap",
+        "middle_cloud_layer_percent_rap",
+        "high_cloud_layer_percent_rap",
+        "boundary_layer_cloud_layer_rap",
+        "vis_surface_rap",
+        "tmp_500mb_rap",
+        "tmp_700mb_rap",
+        "tmp_850mb_rap",
+        "tmp_925mb_rap",
+        "tmp_1000mb_rap",
+        "hgt_500mb_rap",
+        "hgt_700mb_rap",
+        "hgt_850mb_rap",
+        "hgt_925mb_rap",
+        "hgt_1000mb_rap",
+        "tmp_2m_rap",
+        "rh_2m_rap",
+        "rh_925mb_rap",
+        "hpbl_surface_rap",
+        "hgt_0C_iso_rap",
+        "prate_surface_rap",
+        "apcp_surface_rap",
+        "hgt_500mb_ecmwf",
+        "hgt_700mb_ecmwf",
+        "hgt_850mb_ecmwf",
+        "hgt_925mb_ecmwf",
+        "hgt_1000mb_ecmwf",
+        "tmp_500mb_ecmwf",
+        "tmp_700mb_ecmwf",
+        "tmp_850mb_ecmwf",
+        "tmp_925mb_ecmwf",
+        "tmp_1000mb_ecmwf",
+        "rh_700mb_ecmwf",
+        "rh_850mb_ecmwf",
+        "rh_925mb_ecmwf",
+        "rh_1000mb_ecmwf",
+        "vvel_700mb_ecmwf",
+        "vvel_850mb_ecmwf",
+        "vvel_925mb_ecmwf",
+        "tmp_2m_ecmwf",
+        "dpt_2m_ecmwf",
+        "mslp_ecmwf",
+        "sp_surface_ecmwf",
+        "cape_ecmwf",
+        "tcwv_ecmwf",
+        "tcdc_surface_nbm",
+        "tcdc_high_cloud_nbm",
+        "cdcb_high_cloud_nbm",
+        "cloud_ceiling_m_nbm",
+        "cloud_base_m_nbm",
+        "vis_surface_nbm",
+        "ceil_prob_below_152m_nbm",
+        "ceil_prob_below_305m_nbm",
+        "ceil_prob_below_610m_nbm",
+        "ceil_prob_below_914m_nbm",
+        "ceil_prob_below_2012m_nbm",
+        "vis_prob_below_1609m_nbm",
+        "vis_prob_below_3219m_nbm",
+        "vis_prob_below_4828m_nbm",
+        "vis_prob_below_8047m_nbm",
+        "cape_surface_nbm",
+        "mixing_height_nbm",
+        "tmp_2m_nbm",
+        "dpt_2m_nbm",
+        "rh_2m_nbm",
+        "apcp_surface_nbm",
+        "wind_10m_nbm",
+        "gust_surface_nbm",
         "month",
         "day",
     ]
@@ -548,6 +699,9 @@ if __name__ == "__main__":
     FXX_LIST = list(range(0, 48 + 1, 2))  # every 2 hour
     FXX_LIST_GFS = list(range(0, 120 + 1, 2))  # every 2 hours
     FXX_LIST_NAM = list(range(0, 60 + 1, 2))  # every 2 hour
+    FXX_LIST_ECMWF = list(range(0, 48 + 1, 3))  # IFS open data is 3-hourly
+    FXX_LIST_NBM = list(range(0, 48 + 1, 2))  # NBM is hourly; sample every 2 h
+    FXX_LIST_RAP = list(range(0, 48 + 1, 2))  # RAP hourly; standard runs to 21 h
 
     tasks = []
     for fxx in FXX_LIST:
@@ -556,6 +710,12 @@ if __name__ == "__main__":
         tasks.append((fxx, date_str, "gfs", LOCATIONS, variables))
     for fxx in FXX_LIST_NAM:
         tasks.append((fxx, date_str, "nam", LOCATIONS, variables))
+    for fxx in FXX_LIST_RAP:
+        tasks.append((fxx, date_str, "rap", LOCATIONS, variables))
+    for fxx in FXX_LIST_ECMWF:
+        tasks.append((fxx, date_str, "ifs", LOCATIONS, variables))
+    for fxx in FXX_LIST_NBM:
+        tasks.append((fxx, date_str, "nbm", LOCATIONS, variables))
 
     results = {}
     for loc in LOCATIONS:
@@ -606,7 +766,11 @@ if __name__ == "__main__":
             req_model = variables.get(label, {}).get("model")
             out_label = label
             if req_model and not (
-                label.endswith("_gfs") or label.endswith("_hrrr") or label.endswith("_nam")
+                label.endswith("_gfs")
+                or label.endswith("_hrrr")
+                or label.endswith("_nam")
+                or label.endswith("_ecmwf")
+                or label.endswith("_nbm")
             ):
                 out_label = f"{label}_{req_model}"
 
@@ -649,7 +813,7 @@ if __name__ == "__main__":
     import joblib
     import xgboost as xgb
 
-    ml_models = {"gfs", "hrrr", "nam", "all"}
+    ml_models = {"gfs", "hrrr", "nam", "rap", "ecmwf", "nbm", "all"}
     # ml_models = {"nam", "all"}
 
     # ml_models = {"all"}  # For testing purposes, only use "All" model
@@ -681,6 +845,12 @@ if __name__ == "__main__":
                     if col.endswith(f"_{model_suffix}") or col in ["month", "day"]
                 ]
             ]
+        # Align to exactly the features the preprocessor was fit on. This makes the
+        # prediction robust whether the loaded model predates or postdates the
+        # ECMWF/NBM columns: unknown extras are dropped, features the model expects
+        # but that are absent become NaN (and are imputed downstream).
+        if hasattr(preprocess, "feature_names_in_"):
+            X_new = X_new.reindex(columns=list(preprocess.feature_names_in_))
         X_new_preprocessed = preprocess.transform(X_new)
 
         # Make predictions with all three models using their optimal thresholds
