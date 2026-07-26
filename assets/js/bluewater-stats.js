@@ -15,6 +15,7 @@
   var sortDir = -1; // -1 desc, 1 asc
   var searchTerm = "";
   var crewFilter = null; // {sailorId: true} when an upcoming sail is selected
+  var selectedSail = null; // the upcoming event being filtered by, or null
   var upcomingEvents = []; // future-dated events, soonest first
   var excludeConfirmed = false; // hide skipper + confirmed crew from the filter
   var sailMarks = null; // {sailorId: "confirmed" | "skipper"} for the selected sail
@@ -416,8 +417,15 @@
   }
 
   function renderLastUpdate() {
-    document.getElementById("bw-last-update").textContent =
-      "Showing " + BW.monthLabel(fromYM) + " – " + BW.monthLabel(toYM);
+    var el = document.getElementById("bw-last-update");
+    // When filtering by an upcoming sail, the date range is irrelevant — name
+    // the sail instead.
+    if (selectedSail) {
+      el.textContent = "Filtered to sail '" + cleanTitle(selectedSail.t) + "'";
+    } else {
+      el.textContent =
+        "Showing " + BW.monthLabel(fromYM) + " – " + BW.monthLabel(toYM);
+    }
   }
 
   // "Last updated" text shown next to the Refresh button.
@@ -497,6 +505,7 @@
     if (!hasSail) {
       // No sail selected: clear the filter and hide/reset the exclude toggle.
       crewFilter = null;
+      selectedSail = null;
       sailMarks = null;
       excludeConfirmed = false;
       if (excludeBtn) {
@@ -506,6 +515,7 @@
     } else {
       if (excludeBtn) excludeBtn.style.display = "";
       var ev = upcomingEvents[parseInt(value, 10)];
+      selectedSail = ev;
       crewFilter = {};
       sailMarks = {};
       for (var i = 0; i < ev.p.length; i++) {
@@ -522,6 +532,7 @@
     renderTable();
     renderChart();
     renderSailNote(value);
+    renderLastUpdate();
   }
 
   function renderSailNote(value) {
@@ -641,7 +652,18 @@
     };
   }
 
-  function trendLayout(title, textColor, stacked) {
+  // Pick a year-label spacing so the (rotated) labels don't overcrowd. On a
+  // wide screen every year fits (dtick 1); on a narrow phone we thin them to
+  // every other year (or more) based on how many pixels each bar gets.
+  function yearDtick(nYears, widthPx) {
+    if (!nYears || !widthPx) return 1;
+    var pxPerYear = widthPx / nYears;
+    var minPxPerLabel = 26; // room a rotated "2024" needs without colliding
+    var step = Math.ceil(minPxPerLabel / pxPerYear);
+    return step < 1 ? 1 : step;
+  }
+
+  function trendLayout(title, textColor, stacked, dtick) {
     return {
       title: { text: title, font: { color: textColor } },
       barmode: stacked ? "stack" : "group",
@@ -653,12 +675,13 @@
         tickfont: { color: textColor },
         gridcolor: "rgba(128,128,128,0.15)",
         zeroline: false,
-        // Label every year (Plotly otherwise thins them to ~every 2-3 years,
-        // making it hard to tell which bar is which). Rotate so they all fit,
-        // and draw outward tick marks that connect each label to its bar.
+        // Label years on a fixed linear spacing (Plotly's auto-thinning is
+        // erratic, making it hard to tell which bar is which). Rotate so they
+        // fit, and draw outward tick marks that connect each label to its bar.
+        // dtick adapts to width so labels don't collide on narrow screens.
         tickmode: "linear",
         tick0: 0,
-        dtick: 1,
+        dtick: dtick || 1,
         tickangle: -45,
         ticks: "outside",
         ticklen: 5,
@@ -690,21 +713,24 @@
     if (!yearly) return;
     var tc = BW.chartTextColor();
     var cfg = { displayModeBar: false, responsive: true };
+    var nYears = yearly.years.length;
 
+    var sailsEl = document.getElementById("bw-plot-sails-year");
     Plotly.react(
       "bw-plot-sails-year",
       [
         { type: "bar", name: "Pleasure", x: yearly.years, y: yearly.pleasure, marker: { color: COLOR_PLEASURE } },
         { type: "bar", name: "Races", x: yearly.years, y: yearly.races, marker: { color: COLOR_RACES } },
       ],
-      trendLayout("Sails per year", tc, true),
+      trendLayout("Sails per year", tc, true, yearDtick(nYears, sailsEl.clientWidth)),
       cfg
     );
 
+    var sailorsEl = document.getElementById("bw-plot-sailors-year");
     Plotly.react(
       "bw-plot-sailors-year",
       [{ type: "bar", name: "Sailors", x: yearly.years, y: yearly.sailors, marker: { color: COLOR_SAILORS } }],
-      trendLayout("Unique sailors per year", tc, false),
+      trendLayout("Unique sailors per year", tc, false, yearDtick(nYears, sailorsEl.clientWidth)),
       cfg
     );
 
@@ -879,6 +905,15 @@
     new MutationObserver(reTheme).observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-theme"],
+    });
+
+    // Re-render the per-year charts on resize/rotate so the year-label spacing
+    // recomputes for the new width (Plotly's responsive resize keeps the old
+    // dtick baked into the layout).
+    var resizeTimer = null;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(renderProgramCharts, 150);
     });
 
     // Refresh button: re-fetch the latest published data (bypassing cache).
