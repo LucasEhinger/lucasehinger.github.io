@@ -432,10 +432,10 @@ def _process_undercast_row_impl(args):
     if next_row and len(next_row) >= 5:
         avg_next = next_row[4]
 
-    FXX_LIST_NAM = list(range(2, 8 + 1, 2))
+    FXX_LIST = list(range(2, 8 + 1, 2))
     if avg is not None and avg_next is not None:
         if float(avg_next) == float(avg):
-            FXX_LIST_NAM = list(range(2, 8+1, 2)) + list(range(12, 27, 4))
+            FXX_LIST = list(range(2, 8+1, 2)) + list(range(12, 27, 4))
 
     date_str = datetime.strptime(short_date, "%m/%d/%y").strftime("%Y-%m-%d %H:%M")
 
@@ -467,7 +467,7 @@ def _process_undercast_row_impl(args):
             Hs = HsCollection()
 
             successful_fxxs = []
-            for fxx in FXX_LIST_NAM:
+            for fxx in FXX_LIST:
                 try:
                     h = Herbie(date_str, model="nam", fxx=fxx, save_dir=tmp)
                     Hs.add(fxx, h)
