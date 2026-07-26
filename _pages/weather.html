@@ -6,6 +6,17 @@ author_profile: true
 ---
 
 <style>
+    /* Info "?" mouseover tooltips: keep them a readable width and let the text
+       wrap onto multiple lines instead of stretching into one very wide,
+       break-less strip (the inline styles set white-space: nowrap). */
+    .info-circle>div {
+        white-space: normal !important;
+        width: 240px;
+        max-width: 240px;
+        text-align: left;
+        line-height: 1.4;
+    }
+
     @media (max-width: 768px) {
         .weather-controls {
             flex-direction: column !important;
@@ -421,11 +432,6 @@ accuracy of ML models later. TLDR; it's undercast only a handful of times per ye
         align-items: start;
     }
 
-    /* Full-width plots span both columns. */
-    .wx-plot-grid > #plot10 {
-        grid-column: 1 / -1;
-    }
-
     @media (max-width: 768px) {
         .wx-plot-grid {
             grid-template-columns: 1fr;
@@ -448,7 +454,7 @@ accuracy of ML models later. TLDR; it's undercast only a handful of times per ye
         <div id="plot5"></div>
         <div id="plot6"></div>
         <div id="plot7"></div>
-        <div id="plot10" style="grid-column: 1 / -1;"></div>
+        <div id="plot10"></div>
     </div>
 </details>
 

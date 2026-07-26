@@ -25,7 +25,7 @@ Undercasts are caused by temperature inversions, right??!
 <div style="margin-bottom: 20px; width: 100%; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;"
     class="weather-main-container">
     <div style="display: flex; flex-direction: column; gap: 12px;" class="weather-controls">
-        <p style="margin-bottom:12px; font-size:1rem; color:var(--text-color,#222); max-width:420px;">
+        <p style="margin-bottom:12px; font-size:1rem; color:var(--global-text-color,#222); max-width:420px;">
             Here you can view model parameters for select dates with different weather conditions. Clearly, weather
             models do not predict temperature inversions during undercasts. While this may be a limitation of the
             models, we clearly can't use model inversions to predict undercasts.
@@ -33,7 +33,8 @@ Undercasts are caused by temperature inversions, right??!
         </p>
         <div style="display: inline-flex; align-items: center; gap: 8px;" class="weather-location-control">
             <label for="details-date-select">Select Date:</label>
-            <select id="details-date-select" style="width: 320px;">
+            <select id="details-date-select"
+                style="width: 320px; color: #333; background-color: #fff; border: 1px solid #ccc;">
                 <option>Loading dates…</option>
             </select>
         </div>
@@ -74,7 +75,7 @@ Undercasts are caused by temperature inversions, right??!
             <button id="image-next" type="button" aria-label="Next photo"
                 style="position:absolute; right:8px; top:50%; transform:translateY(-50%); border:none; background:rgba(0,0,0,0.45); color:#fff; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1.1rem; line-height:1;">&#8250;</button>
             <div id="example-image-caption"
-                style="text-align:center; font-size:0.85rem; color:var(--text-color,#444); margin-top:6px;">MWOB webcam
+                style="text-align:center; font-size:0.85rem; color:var(--global-fig-caption-color,#444); margin-top:6px;">MWOB webcam
                 snapshot from noon</div>
             <div id="image-dots"
                 style="position:absolute; left:50%; transform:translateX(-50%); bottom:36px; display:flex; gap:6px;">

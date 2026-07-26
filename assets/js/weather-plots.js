@@ -118,6 +118,25 @@ function axisStyle(titleText, color) {
   };
 }
 
+// Tight x-axis bounds so a plot only spans the range where it actually has
+// plotted data (no empty padding on either end). x values are ISO-like date
+// strings ("YYYY-MM-DD HH:mm"), which sort lexicographically. Returns
+// undefined when no non-null points exist, letting Plotly autorange instead.
+function computeXRange(traces) {
+  let lo = null;
+  let hi = null;
+  traces.forEach((t) => {
+    if (!t || !t.x || !t.y) return;
+    for (let i = 0; i < t.x.length; i++) {
+      if (t.y[i] == null || t.x[i] == null) continue;
+      const xv = t.x[i];
+      if (lo === null || xv < lo) lo = xv;
+      if (hi === null || xv > hi) hi = xv;
+    }
+  });
+  return lo !== null && hi !== null ? [lo, hi] : undefined;
+}
+
 const convertTemp = (kelvin, units) => {
   if (kelvin==null) return null;
   if (units === "imperial") {
@@ -420,6 +439,7 @@ function loadWeatherPlots(
           trace_pct_boundary_gfs
         );
       }
+      layout1.xaxis.range = computeXRange(plot1Traces);
       Plotly.newPlot("plot1", plot1Traces, layout1);
 
       // Cloud ceiling + base height
@@ -487,6 +507,7 @@ function loadWeatherPlots(
       if (showGFS) {
         plot2Traces.push(trace2_c);
       }
+      layout2.xaxis.range = computeXRange(plot2Traces);
       Plotly.newPlot("plot2", plot2Traces, layout2);
 
       // Temperature
@@ -761,6 +782,7 @@ function loadWeatherPlots(
           tmp_2m_gfs
         );
       }
+      layout3.xaxis.range = computeXRange(plot3Traces);
       Plotly.newPlot("plot3", plot3Traces, layout3);
 
       const c4 = defaultColors;
@@ -814,6 +836,7 @@ function loadWeatherPlots(
       if (showGFS) {
         plot4Traces.push(trace_bpbl_gfs);
       }
+      layout4.xaxis.range = computeXRange(plot4Traces);
       Plotly.newPlot("plot4", plot4Traces, layout4);
 
       const c5 = defaultColors;
@@ -883,6 +906,7 @@ function loadWeatherPlots(
       if (showGFS) {
         plot5Traces.push(trace5_b, trace5_c);
       }
+      layout5.xaxis.range = computeXRange(plot5Traces);
       Plotly.newPlot("plot5", plot5Traces, layout5);
 
       const c6 = defaultColors;
@@ -936,6 +960,7 @@ function loadWeatherPlots(
       if (showGFS) {
         plot6Traces.push(trace6_b);
       }
+      layout6.xaxis.range = computeXRange(plot6Traces);
       Plotly.newPlot("plot6", plot6Traces, layout6);
 
       const c7 = defaultColors;
@@ -997,6 +1022,7 @@ function loadWeatherPlots(
       if (showGFS) {
         plot7Traces.push(trace7_b);
       }
+      layout7.xaxis.range = computeXRange(plot7Traces);
       Plotly.newPlot("plot7", plot7Traces, layout7);
 
       // Plot 8: Undercast Probability
@@ -1205,6 +1231,7 @@ function loadWeatherPlots(
       plot8Traces.push(
         trace8_consensus_all
       );
+      layout8.xaxis.range = computeXRange(plot8Traces);
       Plotly.newPlot("plot8", plot8Traces, layout8);
 
       // Plot 9: Undercast Probability (Other Models)
@@ -1237,6 +1264,7 @@ function loadWeatherPlots(
         plot9Traces.push(trace8_xgb_gfs, trace8_rf_gfs, trace8_gbdt_gfs);
       }
       plot9Traces.push(trace8_xgb_all, trace8_rf_all, trace8_gbdt_all);
+      layout9.xaxis.range = computeXRange(plot9Traces);
       Plotly.newPlot("plot9", plot9Traces, layout9);
 
       // Plot 10: Precipitation
@@ -1347,6 +1375,7 @@ function loadWeatherPlots(
         plot10Traces.push(trace10_apcp_gfs, trace10_prate_gfs);
       }
       
+      layout10.xaxis.range = computeXRange(plot10Traces);
       Plotly.newPlot("plot10", plot10Traces, layout10);
 
       const c11 = defaultColors;
@@ -1543,6 +1572,7 @@ function loadWeatherPlots(
           hgt_500mb_gfs
         );
       }
+      layout11.xaxis.range = computeXRange(plot11Traces);
       Plotly.newPlot("plot11", plot11Traces, layout11);
       } else {
         var plot11El = document.getElementById("plot11");
