@@ -432,10 +432,14 @@ def _process_undercast_row_impl(args):
     if next_row and len(next_row) >= 5:
         avg_next = next_row[4]
 
-    FXX_LIST = list(range(2, 8 + 1, 2))
+    # Hourly forecast-hour sampling. Base covers the first 8 hours; when the
+    # next day carries the same undercast label the condition is stable across
+    # the day boundary, so it's safe to extend the (identically-labeled) samples
+    # out to a full 24 hours.
+    FXX_LIST = list(range(1, 8 + 1))
     if avg is not None and avg_next is not None:
         if float(avg_next) == float(avg):
-            FXX_LIST = list(range(2, 8+1, 2)) + list(range(12, 27, 4))
+            FXX_LIST = list(range(1, 24 + 1))
 
     date_str = datetime.strptime(short_date, "%m/%d/%y").strftime("%Y-%m-%d %H:%M")
 
