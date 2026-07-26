@@ -88,4 +88,17 @@ jobs:
           git config --local user.name "github-actions[bot]"
           # ML CSVs are gitignored, so force-add them.
           git add -f files/weather/csv/ML/all/*.csv
-          git diff --staged --quiet || (git commit -m "Regenerate weather training CSVs (all models)" && git push)
+          git diff --staged --quiet && { echo "No changes to commit."; exit 0; }
+          git commit -m "Regenerate weather training CSVs (all models)"
+          # A scheduled weather workflow may push to master while this long job
+          # runs, so rebase onto the latest remote and retry the push on races.
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "Pushed on attempt $attempt."
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt); rebasing onto latest master..."
+            git pull --rebase origin master
+          done
+          echo "Failed to push after multiple attempts." >&2
+          exit 1
