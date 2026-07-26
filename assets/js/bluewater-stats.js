@@ -18,6 +18,8 @@
   var upcomingEvents = []; // future-dated events, soonest first
   var excludeConfirmed = false; // hide skipper + confirmed crew from the filter
   var sailMarks = null; // {sailorId: "confirmed" | "skipper"} for the selected sail
+  var chartSailors = []; // sailors in chart-bar order, for click-to-navigate
+  var chartClickBound = false; // whether the plotly_click handler is attached
 
   var yearly = null; // program-wide per-year aggregation (all history)
   var yearFrom = null; // year range shown as lines in the monthly plots
@@ -198,15 +200,19 @@
     renderTable();
   }
 
-  function sailorLink(s) {
-    var url =
+  function sailorUrl(s) {
+    return (
       "/bluewater/sailor/?id=" +
       encodeURIComponent(s.id) +
       "&from=" +
       fromYM +
       "&to=" +
-      toYM;
-    return '<a href="' + url + '">' + BW.escapeHtml(s.name) + "</a>";
+      toYM
+    );
+  }
+
+  function sailorLink(s) {
+    return '<a href="' + sailorUrl(s) + '">' + BW.escapeHtml(s.name) + "</a>";
   }
 
   function renderTable() {
@@ -256,6 +262,27 @@
     return (sailMarks[s.id] === "skipper" ? "⛵" : check) + " " + s.name;
   }
 
+  // Make chart bars navigate to the sailor's page, like the table links.
+  // Bound once; Plotly.react re-renders reuse the same graph div, and
+  // chartSailors is refreshed on every render to stay in sync with the bars.
+  function bindChartClick() {
+    if (chartClickBound) return;
+    var gd = document.getElementById("bw-chart");
+    if (!gd || typeof gd.on !== "function") return;
+    gd.on("plotly_click", function (ev) {
+      if (!ev || !ev.points || !ev.points.length) return;
+      var s = chartSailors[ev.points[0].pointNumber];
+      if (s) window.location.href = sailorUrl(s);
+    });
+    gd.on("plotly_hover", function () {
+      gd.style.cursor = "pointer";
+    });
+    gd.on("plotly_unhover", function () {
+      gd.style.cursor = "";
+    });
+    chartClickBound = true;
+  }
+
   function renderChart() {
     var metric = document.getElementById("bw-metric").value;
     if (metric === "sails_registrations") {
@@ -270,6 +297,7 @@
       });
     if (!showingAll) rows = rows.slice(0, TOP_N);
     var chartH = setChartHeight(rows.length, 26, showingAll);
+    chartSailors = rows.slice().reverse();
     var names = rows.map(chartLabel).reverse();
     var values = rows
       .map(function (s) {
@@ -311,6 +339,7 @@
       displayModeBar: false,
       responsive: true,
     });
+    bindChartClick();
   }
 
   // Grouped bars showing each top sailor's sails and registrations side by side.
@@ -323,6 +352,7 @@
       });
     if (!showingAll) rows = rows.slice(0, TOP_N);
     var chartH = setChartHeight(rows.length, 42, showingAll);
+    chartSailors = rows.slice().reverse();
     var names = rows.map(chartLabel).reverse();
     var sails = rows
       .map(function (s) {
@@ -382,6 +412,7 @@
       displayModeBar: false,
       responsive: true,
     });
+    bindChartClick();
   }
 
   function renderLastUpdate() {
@@ -606,6 +637,7 @@
       legend: { font: { color: textColor } },
       showlegend: true,
       hovermode: "x unified",
+      hoverlabel: BW.chartHoverLabel(textColor),
     };
   }
 
@@ -621,6 +653,17 @@
         tickfont: { color: textColor },
         gridcolor: "rgba(128,128,128,0.15)",
         zeroline: false,
+        // Label every year (Plotly otherwise thins them to ~every 2-3 years,
+        // making it hard to tell which bar is which). Rotate so they all fit,
+        // and draw outward tick marks that connect each label to its bar.
+        tickmode: "linear",
+        tick0: 0,
+        dtick: 1,
+        tickangle: -45,
+        ticks: "outside",
+        ticklen: 5,
+        tickcolor: "rgba(128,128,128,0.5)",
+        automargin: true,
       },
       yaxis: {
         tickfont: { color: textColor },
@@ -628,8 +671,18 @@
         zeroline: false,
         rangemode: "tozero",
       },
-      legend: { font: { color: textColor }, orientation: "h" },
+      // Anchor the legend below the (now taller, rotated) year labels so the
+      // Races/Pleasure markers don't overlap them.
+      legend: {
+        font: { color: textColor },
+        orientation: "h",
+        x: 0.5,
+        xanchor: "center",
+        y: -0.25,
+        yanchor: "top",
+      },
       showlegend: stacked,
+      hoverlabel: BW.chartHoverLabel(textColor),
     };
   }
 

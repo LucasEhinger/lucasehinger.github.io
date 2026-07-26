@@ -78,6 +78,17 @@
           if (!r.ok) throw new Error("HTTP " + r.status);
           return r.json();
         })
+        .then(function (data) {
+          // Drop off-season Jan-Mar calendar entries (winter meetings, seminars,
+          // and boat-work) from every view, since they aren't on-the-water sails.
+          if (data && data.events) {
+            data.events = data.events.filter(function (e) {
+              var mo = e.d.slice(5, 7);
+              return mo !== "01" && mo !== "02" && mo !== "03";
+            });
+          }
+          return data;
+        })
         .then(onOk)
         .catch(onErr);
     },
@@ -196,6 +207,40 @@
         window.matchMedia &&
         window.matchMedia("(prefers-color-scheme: dark)").matches;
       return dark ? "#f2f5fa" : "#333";
+    },
+
+    // Hover-label styling that stays legible in both themes: pick a box color
+    // that contrasts the (theme) text color, so the unified hover box isn't
+    // e.g. white text on a white background in dark mode.
+    chartHoverLabel: function (textColor) {
+      var tc = textColor || this.chartTextColor();
+      var s = String(tc).trim();
+      var hex = s.replace("#", "");
+      var r, g, b;
+      if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+        r = parseInt(hex[0] + hex[0], 16);
+        g = parseInt(hex[1] + hex[1], 16);
+        b = parseInt(hex[2] + hex[2], 16);
+      } else if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+        r = parseInt(hex.slice(0, 2), 16);
+        g = parseInt(hex.slice(2, 4), 16);
+        b = parseInt(hex.slice(4, 6), 16);
+      } else {
+        var m = s.match(/(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+        if (m) {
+          r = +m[1];
+          g = +m[2];
+          b = +m[3];
+        }
+      }
+      // light text (dark mode) -> dark box; dark text (light mode) -> light box.
+      // Default to a dark box if the color can't be parsed (dark mode is the risky case).
+      var lightText = r === undefined ? true : 0.299 * r + 0.587 * g + 0.114 * b > 140;
+      return {
+        bgcolor: lightText ? "rgba(28,30,34,0.95)" : "rgba(255,255,255,0.97)",
+        bordercolor: "rgba(128,128,128,0.5)",
+        font: { color: tc },
+      };
     },
 
     escapeHtml: function (str) {
