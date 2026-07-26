@@ -29,9 +29,9 @@ author_profile: true
         use that to forecast undercast conditions. When that failed to have the desired predictive power, I
         queried weather forecast data from a variety of sources, specifically looking for inversions. I quickly
         discovered that undercast conditions are far more complex than a simple temperature inversion. As a result, I
-        arrived at the model described below. An ensemble of three machine learning algorithms, trained on GFS, HRRR, and
-        NAM predictions along with undercast conditions used from the Mt. Washington webcam. While it works better than
-        the previous methods, more data is needed for training.
+        arrived at the models described below: an ensemble of three machine-learning algorithms, trained on forecasts
+        from six weather models (HRRR, RAP, NAM, GFS, ECMWF, and NBM) along with undercast conditions labeled from the
+        Mt. Washington webcam. While it works better than the previous methods, more data is needed for training.
     </p>
 
     <h2>About Undercasts</h2>
@@ -73,9 +73,10 @@ author_profile: true
         tool for machine learning.</p>
     <details>
         <summary style="cursor:pointer; font-weight:600;">Input parameters (click to expand)</summary>
-        <p style="margin-top:12px;">Global models such as GFS, NAM, and HRRR have hundreds of parameters. Not all of
-            these are relevant to undercast predictions. The following are used. They were selected based on what a dumb
-            physicist thought seemed relevant. Parameter importance (predictive power) is shown under model results</p>
+        <p style="margin-top:12px;">Weather models such as HRRR, RAP, NAM, GFS, ECMWF, and NBM expose hundreds of
+            parameters. Not all of these are relevant to undercast predictions. The following are used (each is pulled
+            from every model that provides it). They were selected based on what a dumb physicist thought seemed
+            relevant. Parameter importance (predictive power) is shown under model results</p>
         <div style="margin-top:12px; overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; min-width:740px;">
                 <thead>
@@ -206,13 +207,81 @@ author_profile: true
         </div>
     </details>
 
-    <h3>Model selection & Training</h3>
-    <p>We don't have a lot of data to train on, so I only consider relatively simple ML models. To begin, I train
-        four different classification models—LogisticRegression, Random Forest, XGB, and Gradient Boosting.
-        Data skews very heavily to non-undercast, so I resample with SMOTE to achieve a 50/50 split. A 30/70 test train
-        split is used for all training models. After optimizing for F1, all models perform decently well, except for
-        Logistic Regression, which has significantly poorer performance. For further studies, the other three models are
-        studied and optimized.</p>
+    <h3>The forecast models</h3>
+    <p>Undercast is predicted from six independent weather models. Each one gets its own dedicated ensemble, and a
+        seventh <em>combined</em> model draws on the parameters of all six at once — so the sources can be compared
+        head-to-head, and the combined model can lean on whichever happens to be most informative.</p>
+    <div style="margin-top:12px; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:680px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Model</th>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">What it is</th>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Scale / resolution</th>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Cloud fields</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding:8px; vertical-align:top;"><strong>HRRR</strong></td>
+                    <td style="padding:8px;">High-Resolution Rapid Refresh</td>
+                    <td style="padding:8px;">3&nbsp;km · CONUS · short-range</td>
+                    <td style="padding:8px;">Yes</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; vertical-align:top;"><strong>RAP</strong></td>
+                    <td style="padding:8px;">Rapid Refresh (HRRR's parent model)</td>
+                    <td style="padding:8px;">13&nbsp;km · regional</td>
+                    <td style="padding:8px;">Yes</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; vertical-align:top;"><strong>NAM</strong></td>
+                    <td style="padding:8px;">North American Mesoscale</td>
+                    <td style="padding:8px;">12&nbsp;km · regional</td>
+                    <td style="padding:8px;">Yes</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; vertical-align:top;"><strong>GFS</strong></td>
+                    <td style="padding:8px;">Global Forecast System</td>
+                    <td style="padding:8px;">~0.25° · global medium-range</td>
+                    <td style="padding:8px;">Yes</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; vertical-align:top;"><strong>ECMWF</strong></td>
+                    <td style="padding:8px;">Integrated Forecasting System (open data)</td>
+                    <td style="padding:8px;">~0.25° · global</td>
+                    <td style="padding:8px;">Dynamics / thermodynamics only</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; vertical-align:top;"><strong>NBM</strong></td>
+                    <td style="padding:8px;">National Blend of Models (statistical blend)</td>
+                    <td style="padding:8px;">CONUS blend</td>
+                    <td style="padding:8px;">Yes — incl. probabilistic ceiling &amp; visibility</td>
+                </tr>
+                <tr style="border-top:2px solid #ddd;">
+                    <td style="padding:8px; vertical-align:top;"><strong>Combined</strong></td>
+                    <td style="padding:8px;">Every model's parameters together</td>
+                    <td style="padding:8px;">—</td>
+                    <td style="padding:8px;">—</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>Model selection &amp; training</h3>
+    <p>We don't have a lot of data to train on, so I only consider relatively simple ML models. To begin, I trained
+        four different classification models—Logistic Regression, Random Forest, XGBoost, and Gradient Boosting.
+        Logistic Regression performed significantly worse, so the other three are kept and studied further. This trio is
+        trained independently for each of the seven models above.</p>
+    <p>Undercast days are rare, so the classes are heavily imbalanced. Rather than synthesizing samples, each model
+        handles this with class weights (Random Forest's balanced class weights, XGBoost's <code>scale_pos_weight</code>,
+        and balanced sample weights for Gradient Boosting), which suits tree ensembles and keeps the pipeline clean.</p>
+    <p>Because each date contributes many forecast-hour rows, every split and cross-validation fold is grouped by date,
+        so no single day's rows land in both training and evaluation (which would leak the answer). The decision
+        threshold is tuned on a validation split and reported on a separate held-out test split, and five-fold grouped
+        cross-validation provides threshold-free ROC-AUC / PR-AUC as a robustness check.</p>
+    <p style="font-size:0.95em; color:var(--text-color,#666);">Per-model performance (held-out F1 and cross-validated
+        PR-AUC for each algorithm) will be added here once the models are retrained on the expanded six-model dataset.</p>
 
     <figure style="margin:18px 0; text-align:center;">
         <img src="/files/weather/examples/model_training_images/confusion_matrix_first_pass.png"

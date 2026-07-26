@@ -284,11 +284,13 @@ accuracy of ML models later. TLDR; it's undercast only a handful of times per ye
     <div
         style="margin-top: 12px; padding: 12px; background-color: var(background-color, #f9f9f9); border-left: 3px solid var(border-color, #ccc); color: var(color, #666);">
         This site uses atmospheric model data from NOAA's <a href="https://rapidrefresh.noaa.gov/hrrr/"
-            target="_blank">HRRR</a>, <a
+            target="_blank">HRRR</a>, <a href="https://rapidrefresh.noaa.gov/" target="_blank">RAP</a>, <a
             href="https://www.ncei.noaa.gov/products/weather-climate-models/north-american-mesoscale"
             target="_blank">NAM</a>, and <a
             href="https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast" target="_blank">GFS</a>
-        models to generate forecasts for undercast probability at several summits in New
+        models, the <a href="https://www.ecmwf.int/en/forecasts/datasets/open-data" target="_blank">ECMWF</a> open data,
+        and the <a href="https://vlab.noaa.gov/web/mdl/nbm" target="_blank">National Blend of Models (NBM)</a>
+        to generate forecasts for undercast probability at several summits in New
         Hampshire. Forecast resolution, accuracy, and update frequency vary between the models.
 
         <div style="overflow-x: auto; margin-top: 12px;">
@@ -342,6 +344,33 @@ accuracy of ML models later. TLDR; it's undercast only a handful of times per ye
                         <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Coarser resolution, may
                             miss
                             localized weather phenomena</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">RAP</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-48</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">13 km</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Hourly regional refresh
+                            (HRRR's parent model)</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Coarser than HRRR,
+                            short range only</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">ECMWF</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-48</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">~0.25° (~28 km)</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Highly skilled global
+                            dynamics and thermodynamics</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">No cloud fields in open
+                            data; 3-hourly steps</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">NBM</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-48</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">~2.5 km</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Calibrated blend; direct
+                            ceiling &amp; visibility, incl. probabilistic</td>
+                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Surface fields only
+                            (no upper-air); blends can smooth extremes</td>
                     </tr>
                 </tbody>
             </table>
