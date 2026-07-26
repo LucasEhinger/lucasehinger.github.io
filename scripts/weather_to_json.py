@@ -776,6 +776,7 @@ if __name__ == "__main__":
                 label.endswith("_gfs")
                 or label.endswith("_hrrr")
                 or label.endswith("_nam")
+                or label.endswith("_rap")
                 or label.endswith("_ecmwf")
                 or label.endswith("_nbm")
             ):
