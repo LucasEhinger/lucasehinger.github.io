@@ -490,10 +490,13 @@ def results_to_dataframe(results, locations, date_str):
 
             row = {"fxx": fxx_int if fxx_int is not None else fxx}
 
-            if base_date is not None and fxx_int is not None:
-                forecast_date = base_date + timedelta(hours=fxx_int)
-                row["month"] = forecast_date.month
-                row["day"] = forecast_date.day
+            # month/day come from the model-run (init) date, constant across fxx,
+            # to match training (train_undercast_models.load_data derives them from
+            # the per-date filename). Using the per-fxx valid date here instead
+            # would skew the feature by up to a day vs. what the models saw.
+            if base_date is not None:
+                row["month"] = base_date.month
+                row["day"] = base_date.day
             else:
                 row["month"] = None
                 row["day"] = None
@@ -676,8 +679,6 @@ if __name__ == "__main__":
         hours = 0
         now = now + timedelta(days=1)
     date_str = now.replace(hour=hours, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M")
-
-    date_str = "2025-11-14 12:00"  # for testing with a fixed date
 
     try:
         with tempfile.TemporaryDirectory() as tmp:
