@@ -3,7 +3,8 @@
    plots as the main weather page, excluding ML prediction plots. */
 
 const d_defaultColors = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];
-const d_modelMarkers = { hrrr: "circle", nam: "square", gfs: "diamond" };
+const d_modelMarkers = { hrrr: "circle", nam: "square", gfs: "diamond", rap: "triangle-up", ecmwf: "cross", nbm: "x" };
+const d_modelDash = { rap: "dashdot", ecmwf: "longdash", nbm: "longdashdot" };
 const D_METERS_TO_FEET = 3.28084;
 const D_METERS_TO_MILES = 0.000621371;
 const D_METERS_TO_FEMTO_PARSECS = 3.24078e-2;
@@ -28,12 +29,12 @@ function d_heightToUnits(valueMeters,units){ if(valueMeters==null) return null; 
 function d_heightLabel(units){ if(units==='imperial') return 'ft'; if(units==='stupid') return 'fempto-pc'; return 'm'; }
 function d_tempLabel(units){ if(units==='imperial') return 'F'; if(units==='stupid') return '°R'; return 'C'; }
 
-function d_getSelectedModel(){ const selected = Array.from(document.querySelectorAll('input[name="model-toggle"]:checked')).map(el=>el.value); return { hrrr: selected.includes('hrrr'), nam: selected.includes('nam'), gfs: selected.includes('gfs') }; }
+function d_getSelectedModel(){ const selected = Array.from(document.querySelectorAll('input[name="model-toggle"]:checked')).map(el=>el.value); return { hrrr: selected.includes('hrrr'), nam: selected.includes('nam'), gfs: selected.includes('gfs'), rap: selected.includes('rap'), ecmwf: selected.includes('ecmwf'), nbm: selected.includes('nbm') }; }
+function d_getSelectedUnits(){ return document.querySelector('input[name="units-toggle"]:checked')?.value || 'metric'; }
 
 // Tight x-axis bounds so a plot only spans the range where it actually has
 // plotted data. x values are ISO-like date strings that sort lexicographically.
-function d_computeXRange(traces){ let lo=null, hi=null; traces.forEach(t=>{ if(!t||!t.x||!t.y) return; for(let i=0;i<t.x.length;i++){ if(t.y[i]==null||t.x[i]==null) continue; const xv=t.x[i]; if(lo===null||xv<lo) lo=xv; if(hi===null||xv>hi) hi=xv; } }); return (lo!==null&&hi!==null)?[lo,hi]:undefined; }
-function d_getSelectedUnits(){ return document.querySelector('input[name="units-toggle"]:checked')?.value || 'metric'; }
+function d_computeXRange(traces){ let lo=null, hi=null; (traces||[]).forEach(t=>{ if(!t||!t.x||!t.y) return; for(let i=0;i<t.x.length;i++){ if(t.y[i]==null||t.x[i]==null) continue; const xv=t.x[i]; if(lo===null||xv<lo) lo=xv; if(hi===null||xv>hi) hi=xv; } }); return (lo!==null&&hi!==null)?[lo,hi]:undefined; }
 
 function d_convertTemp(kelvin, units){ if(kelvin==null) return null; if(units==='imperial') return (((kelvin-273.15)*9)/5+32).toFixed(2); if(units==='stupid') return ((kelvin*9)/5).toFixed(2); return (kelvin-273.15).toFixed(2); }
 
@@ -72,11 +73,20 @@ function attachSimpleTooltips() {
 function loadDetailsPlotsFromData(data){
   const selectedModel = d_getSelectedModel();
   const selectedUnits = d_getSelectedUnits();
-  const showHRRR = !!selectedModel.hrrr; const showNAM = !!selectedModel.nam; const showGFS = !!selectedModel.gfs;
+  const showHRRR = !!selectedModel.hrrr; const showNAM = !!selectedModel.nam; const showGFS = !!selectedModel.gfs; const showRAP = !!selectedModel.rap; const showECMWF = !!selectedModel.ecmwf; const showNBM = !!selectedModel.nbm;
   const textColor = (getComputedStyle(document.documentElement).getPropertyValue('--text-color')||'#000').trim();
   const dateStr = data.date_str || '2025-01-01 00:00';
   let convertedDates;
   try{ convertedDates = d_convertTimeToDateTime(data.low_cloud_layer_percent_hrrr.x, dateStr); }catch(e){ console.error(e); convertedDates = data.low_cloud_layer_percent_hrrr.x; }
+  // Guarded extra-model trace builder: returns null when the snapshot lacks the
+  // field (e.g. older example days without RAP, or ECMWF/NBM which the example
+  // archive doesn't reach), so a toggle never breaks a plot.
+  const d_extraTrace = (key, name, color, model, mapFn, extra) => { const d = data[key]; if(!d||!d.y) return null; return Object.assign({ x:convertedDates, y: mapFn ? d.y.map(mapFn) : d.y, mode:'lines+markers', type:'scatter', name, line:{dash:d_modelDash[model],color}, marker:{symbol:d_modelMarkers[model]} }, extra||{}); };
+  const d_rapTrace = (key, name, color, mapFn, extra) => d_extraTrace(key, name, color, 'rap', mapFn, extra);
+  const d_pushTruthy = (arr, items) => items.forEach(t=>t&&arr.push(t));
+  // Render a plot, or hide its container when it has no traces for the current
+  // selection, so irrelevant/empty plots collapse instead of showing blank axes.
+  const d_renderOrHide = (id, traces, layout) => { const el = document.getElementById(id); if(!traces||traces.length===0){ if(el) el.style.display='none'; return; } if(el && el.style.display==='none') el.style.display=''; if(layout && layout.xaxis) layout.xaxis.range = d_computeXRange(traces); Plotly.newPlot(id, traces, layout).then(()=>{ const e=document.getElementById(id); if(e) Plotly.Plots.resize(e); }); };
 
   // Plot 1: Cloud Coverage
   const c1 = d_defaultColors;
@@ -84,7 +94,9 @@ function loadDetailsPlotsFromData(data){
   if(showHRRR){ traces1.push({ x:convertedDates, y:data.low_cloud_layer_percent_hrrr.y, mode:'lines+markers', type:'scatter', name:'Low (HRRR)', line:{color:c1[0]}, marker:{symbol:d_modelMarkers.hrrr} }, { x:convertedDates, y:data.middle_cloud_layer_percent_hrrr.y, mode:'lines+markers', type:'scatter', name:'Middle (HRRR)', line:{color:c1[1]}, marker:{symbol:d_modelMarkers.hrrr} }, { x:convertedDates, y:data.high_cloud_layer_percent_hrrr.y, mode:'lines+markers', type:'scatter', name:'High (HRRR)', line:{color:c1[2]}, marker:{symbol:d_modelMarkers.hrrr} }, { x:convertedDates, y:data.boundary_layer_cloud_layer_hrrr.y, mode:'lines+markers', type:'scatter', name:'Boundary (HRRR)', line:{color:c1[3]}, marker:{symbol:d_modelMarkers.hrrr} }); }
   if(showNAM){ traces1.push({ x:convertedDates, y:data.low_cloud_layer_percent_nam.y, mode:'lines+markers', type:'scatter', name:'Low (NAM)', line:{dash:'dash',color:c1[0]}, marker:{symbol:d_modelMarkers.nam} }, { x:convertedDates, y:data.middle_cloud_layer_percent_nam.y, mode:'lines+markers', type:'scatter', name:'Middle (NAM)', line:{dash:'dash',color:c1[1]}, marker:{symbol:d_modelMarkers.nam} }, { x:convertedDates, y:data.high_cloud_layer_percent_nam.y, mode:'lines+markers', type:'scatter', name:'High (NAM)', line:{dash:'dash',color:c1[2]}, marker:{symbol:d_modelMarkers.nam} }, { x:convertedDates, y:data.boundary_layer_cloud_layer_nam.y, mode:'lines+markers', type:'scatter', name:'Boundary (NAM)', line:{dash:'dash',color:c1[3]}, marker:{symbol:d_modelMarkers.nam} }); }
   if(showGFS){ traces1.push({ x:convertedDates, y:data.low_cloud_layer_percent_gfs.y, mode:'lines+markers', type:'scatter', name:'Low (GFS)', line:{dash:'dot',color:c1[0]}, marker:{symbol:d_modelMarkers.gfs} }, { x:convertedDates, y:data.middle_cloud_layer_percent_gfs.y, mode:'lines+markers', type:'scatter', name:'Middle (GFS)', line:{dash:'dot',color:c1[1]}, marker:{symbol:d_modelMarkers.gfs} }, { x:convertedDates, y:data.high_cloud_layer_percent_gfs.y, mode:'lines+markers', type:'scatter', name:'High (GFS)', line:{dash:'dot',color:c1[2]}, marker:{symbol:d_modelMarkers.gfs} }, { x:convertedDates, y:data.boundary_layer_cloud_layer_gfs.y, mode:'lines+markers', type:'scatter', name:'Boundary (GFS)', line:{dash:'dot',color:c1[3]}, marker:{symbol:d_modelMarkers.gfs} }); }
-  Plotly.newPlot('plot1', traces1, { title:{text:'Cloud Coverage Percentage', font:{color:textColor}}, xaxis:{title:'', range:d_computeXRange(traces1)}, yaxis:{title:'Cloud Coverage (%)', tickfont:{color:textColor}}, legend:{font:{color:textColor}}, showlegend:true });
+  if(showRAP){ d_pushTruthy(traces1, [ d_rapTrace('low_cloud_layer_percent_rap','Low (RAP)',c1[0]), d_rapTrace('middle_cloud_layer_percent_rap','Middle (RAP)',c1[1]), d_rapTrace('high_cloud_layer_percent_rap','High (RAP)',c1[2]), d_rapTrace('boundary_layer_cloud_layer_rap','Boundary (RAP)',c1[3]) ]); }
+  if(showNBM){ d_pushTruthy(traces1, [ d_extraTrace('tcdc_surface_nbm','Total Cloud (NBM)',c1[0],'nbm') ]); }
+  d_renderOrHide('plot1', traces1, { title:{text:'Cloud Coverage Percentage', font:{color:textColor}}, xaxis:{title:''}, yaxis:{title:'Cloud Coverage (%)', tickfont:{color:textColor}}, legend:{font:{color:textColor}}, showlegend:true });
 
   // Plot 2: Cloud ceiling/base
   const convertHeight = (m)=>d_heightToUnits(m, selectedUnits);
@@ -93,7 +105,9 @@ function loadDetailsPlotsFromData(data){
   if(showHRRR){ traces2.push({ x:convertedDates, y:data.cloud_ceiling_m_hrrr.y.map(convertHeight), mode:'lines+markers', type:'scatter', name:'Cloud<br>Ceiling (HRRR)', line:{color:c2[0]}, marker:{symbol:d_modelMarkers.hrrr} }, { x:convertedDates, y:data.cloud_base_m_hrrr.y.map(convertHeight), mode:'lines+markers', type:'scatter', name:'Cloud<br>Base (HRRR)', line:{color:c2[1]}, marker:{symbol:d_modelMarkers.hrrr} }); }
   if(showNAM){ traces2.push({ x:convertedDates, y:data.cloud_ceiling_nam.y.map(convertHeight), mode:'lines+markers', type:'scatter', name:'Cloud<br>Ceiling (NAM)', line:{dash:'dash',color:c2[0]}, marker:{symbol:d_modelMarkers.nam} }); }
   if(showGFS){ traces2.push({ x:convertedDates, y:data.cloud_ceiling_gfs.y.map(convertHeight), mode:'lines+markers', type:'scatter', name:'Cloud<br>Ceiling (GFS)', line:{dash:'dot',color:c2[0]}, marker:{symbol:d_modelMarkers.gfs} }); }
-  Plotly.newPlot('plot2', traces2, { title:{text:'Cloud Ceiling and Base Height', font:{color:textColor}}, xaxis:{range:d_computeXRange(traces2)}, yaxis:{title:`Height (${d_heightLabel(selectedUnits)})`}, legend:{font:{color:textColor}}, showlegend:true });
+  if(showRAP){ d_pushTruthy(traces2, [ d_rapTrace('cloud_ceiling_m_rap','Cloud<br>Ceiling (RAP)',c2[0],convertHeight) ]); }
+  if(showNBM){ d_pushTruthy(traces2, [ d_extraTrace('cloud_ceiling_m_nbm','Cloud<br>Ceiling (NBM)',c2[0],'nbm',convertHeight), d_extraTrace('cloud_base_m_nbm','Cloud<br>Base (NBM)',c2[1],'nbm',convertHeight) ]); }
+  d_renderOrHide('plot2', traces2, { title:{text:'Cloud Ceiling and Base Height', font:{color:textColor}}, xaxis:{}, yaxis:{title:`Height (${d_heightLabel(selectedUnits)})`}, legend:{font:{color:textColor}}, showlegend:true });
 
   // Plot 3: Temperatures
   const tempUnitLabel = d_tempLabel(selectedUnits);
@@ -101,21 +115,28 @@ function loadDetailsPlotsFromData(data){
   if(showHRRR){ traces3.push({ x:convertedDates, y:data.tmp_1000mb_hrrr.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('1000',100,'HRRR',selectedUnits), line:{color:c3[0]}, marker:{symbol:d_modelMarkers.hrrr} }, { x:convertedDates, y:data.tmp_925mb_hrrr.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('925',750,'HRRR',selectedUnits), line:{color:c3[1]}, marker:{symbol:d_modelMarkers.hrrr} }, { x:convertedDates, y:data.tmp_850mb_hrrr.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('850',1500,'HRRR',selectedUnits), line:{color:c3[2]}, marker:{symbol:d_modelMarkers.hrrr} }, { x:convertedDates, y:data.tmp_700mb_hrrr.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('700',3000,'HRRR',selectedUnits), line:{color:c3[3]}, marker:{symbol:d_modelMarkers.hrrr} }, { x:convertedDates, y:data.tmp_500mb_hrrr.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('500',5500,'HRRR',selectedUnits), line:{color:c3[4]}, marker:{symbol:d_modelMarkers.hrrr} }, { x:convertedDates, y:data.tmp_2m_hrrr.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:'2m (HRRR)', line:{color:c3[5]}, marker:{symbol:d_modelMarkers.hrrr} }); }
   if(showNAM){ traces3.push({ x:convertedDates, y:data.tmp_1000mb_nam.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('1000',100,'NAM',selectedUnits), line:{dash:'dash',color:c3[0]}, marker:{symbol:d_modelMarkers.nam} }, { x:convertedDates, y:data.tmp_925mb_nam.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('925',750,'NAM',selectedUnits), line:{dash:'dash',color:c3[1]}, marker:{symbol:d_modelMarkers.nam} }, { x:convertedDates, y:data.tmp_850mb_nam.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('850',1500,'NAM',selectedUnits), line:{dash:'dash',color:c3[2]}, marker:{symbol:d_modelMarkers.nam} }, { x:convertedDates, y:data.tmp_2m_nam.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:'2m (NAM)', line:{dash:'dash',color:c3[5]}, marker:{symbol:d_modelMarkers.nam} }); }
   if(showGFS){ traces3.push({ x:convertedDates, y:data.tmp_1000mb_gfs.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('1000',100,'GFS',selectedUnits), line:{dash:'dot',color:c3[0]}, marker:{symbol:d_modelMarkers.gfs} }, { x:convertedDates, y:data.tmp_925mb_gfs.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('925',750,'GFS',selectedUnits), line:{dash:'dot',color:c3[1]}, marker:{symbol:d_modelMarkers.gfs} }, { x:convertedDates, y:data.tmp_850mb_gfs.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:d_levelLabel('850',1500,'GFS',selectedUnits), line:{dash:'dot',color:c3[2]}, marker:{symbol:d_modelMarkers.gfs} }, { x:convertedDates, y:data.tmp_2m_gfs.y.map(v=>d_convertTemp(v,selectedUnits)), mode:'lines+markers', type:'scatter', name:'2m (GFS)', line:{dash:'dot',color:c3[5]}, marker:{symbol:d_modelMarkers.gfs} }); }
-  Plotly.newPlot('plot3', traces3, { title:{text:'Temperature at Various Isobars', font:{color:textColor}}, xaxis:{range:d_computeXRange(traces3)}, yaxis:{title:`Temperature (${tempUnitLabel})`}, legend:{font:{color:textColor}}, showlegend:true });
+  if(showRAP){ const tC=(v)=>d_convertTemp(v,selectedUnits); d_pushTruthy(traces3, [ d_rapTrace('tmp_1000mb_rap',d_levelLabel('1000',100,'RAP',selectedUnits),c3[0],tC), d_rapTrace('tmp_925mb_rap',d_levelLabel('925',750,'RAP',selectedUnits),c3[1],tC), d_rapTrace('tmp_850mb_rap',d_levelLabel('850',1500,'RAP',selectedUnits),c3[2],tC), d_rapTrace('tmp_700mb_rap',d_levelLabel('700',3000,'RAP',selectedUnits),c3[3],tC), d_rapTrace('tmp_500mb_rap',d_levelLabel('500',5500,'RAP',selectedUnits),c3[4],tC), d_rapTrace('tmp_2m_rap','2m (RAP)',c3[5],tC) ]); }
+  if(showECMWF){ const tC=(v)=>d_convertTemp(v,selectedUnits); d_pushTruthy(traces3, [ d_extraTrace('tmp_1000mb_ecmwf',d_levelLabel('1000',100,'ECMWF',selectedUnits),c3[0],'ecmwf',tC), d_extraTrace('tmp_925mb_ecmwf',d_levelLabel('925',750,'ECMWF',selectedUnits),c3[1],'ecmwf',tC), d_extraTrace('tmp_850mb_ecmwf',d_levelLabel('850',1500,'ECMWF',selectedUnits),c3[2],'ecmwf',tC), d_extraTrace('tmp_700mb_ecmwf',d_levelLabel('700',3000,'ECMWF',selectedUnits),c3[3],'ecmwf',tC), d_extraTrace('tmp_500mb_ecmwf',d_levelLabel('500',5500,'ECMWF',selectedUnits),c3[4],'ecmwf',tC), d_extraTrace('tmp_2m_ecmwf','2m (ECMWF)',c3[5],'ecmwf',tC) ]); }
+  if(showNBM){ d_pushTruthy(traces3, [ d_extraTrace('tmp_2m_nbm','2m (NBM)',c3[5],'nbm',(v)=>d_convertTemp(v,selectedUnits)) ]); }
+  d_renderOrHide('plot3', traces3, { title:{text:'Temperature at Various Isobars', font:{color:textColor}}, xaxis:{}, yaxis:{title:`Temperature (${tempUnitLabel})`}, legend:{font:{color:textColor}}, showlegend:true });
 
   // Plot 5: Relative Humidity
   const c5 = d_defaultColors; const traces5 = [];
   if(showHRRR) traces5.push({ x:convertedDates, y:data.rh_2m_hrrr.y, mode:'lines+markers', type:'scatter', name:'2m RH (HRRR)', line:{color:c5[0]}, marker:{symbol:d_modelMarkers.hrrr} });
   if(showNAM) traces5.push({ x:convertedDates, y:data.rh_2m_nam.y, mode:'lines+markers', type:'scatter', name:'2m RH (NAM)', line:{dash:'dash',color:c5[0]}, marker:{symbol:d_modelMarkers.nam} }, { x:convertedDates, y:data.rh_925mb_nam.y, mode:'lines+markers', type:'scatter', name:'925mb RH (NAM)', line:{dash:'dash',color:c5[1]}, marker:{symbol:d_modelMarkers.nam} });
   if(showGFS) traces5.push({ x:convertedDates, y:data.rh_2m_gfs.y, mode:'lines+markers', type:'scatter', name:'2m RH (GFS)', line:{dash:'dot',color:c5[0]}, marker:{symbol:d_modelMarkers.gfs} }, { x:convertedDates, y:data.rh_925mb_gfs.y, mode:'lines+markers', type:'scatter', name:'925mb RH (GFS)', line:{dash:'dot',color:c5[1]}, marker:{symbol:d_modelMarkers.gfs} });
-  Plotly.newPlot('plot5', traces5, { title:{text:'Relative Humidity', font:{color:textColor}}, xaxis:{range:d_computeXRange(traces5)}, yaxis:{title:'Relative Humidity (%)'}, legend:{font:{color:textColor}}, showlegend:true });
+  if(showRAP){ d_pushTruthy(traces5, [ d_rapTrace('rh_2m_rap','2m RH (RAP)',c5[0]), d_rapTrace('rh_925mb_rap','925mb RH (RAP)',c5[1]) ]); }
+  if(showECMWF){ d_pushTruthy(traces5, [ d_extraTrace('rh_1000mb_ecmwf','1000mb RH (ECMWF)',c5[0],'ecmwf'), d_extraTrace('rh_925mb_ecmwf','925mb RH (ECMWF)',c5[1],'ecmwf') ]); }
+  if(showNBM){ d_pushTruthy(traces5, [ d_extraTrace('rh_2m_nbm','2m RH (NBM)',c5[0],'nbm') ]); }
+  d_renderOrHide('plot5', traces5, { title:{text:'Relative Humidity', font:{color:textColor}}, xaxis:{}, yaxis:{title:'Relative Humidity (%)'}, legend:{font:{color:textColor}}, showlegend:true });
 
   // Plot 6: 0°C isotherm
   const c6 = d_defaultColors; const traces6 = [];
   if(showHRRR) traces6.push({ x:convertedDates, y:data.hgt_0C_iso_hrrr.y.map(convertHeight), mode:'lines+markers', type:'scatter', name:'0°C Isotherm (HRRR)', line:{color:c6[0]}, marker:{symbol:d_modelMarkers.hrrr} });
   if(showNAM) traces6.push({ x:convertedDates, y:data.hgt_0C_iso_nam.y.map(convertHeight), mode:'lines+markers', type:'scatter', name:'0°C Isotherm (NAM)', line:{dash:'dash',color:c6[0]}, marker:{symbol:d_modelMarkers.nam} });
   if(showGFS) traces6.push({ x:convertedDates, y:data.hgt_0C_iso_gfs.y.map(convertHeight), mode:'lines+markers', type:'scatter', name:'0°C Isotherm (GFS)', line:{dash:'dot',color:c6[0]}, marker:{symbol:d_modelMarkers.gfs} });
-  Plotly.newPlot('plot6', traces6, { title:{text:'0°C Isotherm Height', font:{color:textColor}}, xaxis:{range:d_computeXRange(traces6)}, yaxis:{title:`Height (${d_heightLabel(selectedUnits)})`}, legend:{font:{color:textColor}}, showlegend:true });
+  if(showRAP){ d_pushTruthy(traces6, [ d_rapTrace('hgt_0C_iso_rap','0°C Isotherm (RAP)',c6[0],convertHeight) ]); }
+  d_renderOrHide('plot6', traces6, { title:{text:'0°C Isotherm Height', font:{color:textColor}}, xaxis:{}, yaxis:{title:`Height (${d_heightLabel(selectedUnits)})`}, legend:{font:{color:textColor}}, showlegend:true });
 
   // Plot 7: Visibility
   const c7 = d_defaultColors; const traces7 = [];
@@ -123,7 +144,9 @@ function loadDetailsPlotsFromData(data){
   if(showHRRR) traces7.push({ x:convertedDates, y:data.vis_surface_hrrr.y.map(convertVisibility), mode:'lines+markers', type:'scatter', name:'Surface Visibility (HRRR)', line:{color:c7[0]}, marker:{symbol:d_modelMarkers.hrrr} });
   if(showNAM) traces7.push({ x:convertedDates, y:data.vis_surface_nam.y.map(convertVisibility), mode:'lines+markers', type:'scatter', name:'Surface Visibility (NAM)', line:{dash:'dash',color:c7[0]}, marker:{symbol:d_modelMarkers.nam} });
   if(showGFS) traces7.push({ x:convertedDates, y:data.vis_surface_gfs.y.map(convertVisibility), mode:'lines+markers', type:'scatter', name:'Surface Visibility (GFS)', line:{dash:'dot',color:c7[0]}, marker:{symbol:d_modelMarkers.gfs} });
-  Plotly.newPlot('plot7', traces7, { title:{text:'Surface Visibility', font:{color:textColor}}, xaxis:{range:d_computeXRange(traces7)}, yaxis:{title:`Visibility (${d_visibilityLabel(selectedUnits)})`}, legend:{font:{color:textColor}}, showlegend:true });
+  if(showRAP){ d_pushTruthy(traces7, [ d_rapTrace('vis_surface_rap','Surface Visibility (RAP)',c7[0],convertVisibility) ]); }
+  if(showNBM){ d_pushTruthy(traces7, [ d_extraTrace('vis_surface_nbm','Surface Visibility (NBM)',c7[0],'nbm',convertVisibility) ]); }
+  d_renderOrHide('plot7', traces7, { title:{text:'Surface Visibility', font:{color:textColor}}, xaxis:{}, yaxis:{title:`Visibility (${d_visibilityLabel(selectedUnits)})`}, legend:{font:{color:textColor}}, showlegend:true });
 
   // Plot 10: Precipitation
   const c9 = d_defaultColors; const traces10 = [];
@@ -132,7 +155,9 @@ function loadDetailsPlotsFromData(data){
   if(showHRRR){ traces10.push({ x:convertedDates, y:data.apcp_surface_hrrr.y.map(convertPrecip), mode:'lines+markers', type:'scatter', name:'Accumulated Precip (HRRR)', line:{color:c9[0]}, marker:{symbol:d_modelMarkers.hrrr}, yaxis:'y' }, { x:convertedDates, y:data.prate_surface_hrrr.y.map(convertPrecipRate), mode:'lines+markers', type:'scatter', name:'Precip Rate (HRRR)', line:{color:c9[1]}, marker:{symbol:d_modelMarkers.hrrr}, yaxis:'y2' }); }
   if(showNAM){ traces10.push({ x:convertedDates, y:data.apcp_surface_nam.y.map(convertPrecip), mode:'lines+markers', type:'scatter', name:'Accumulated Precip (NAM)', line:{dash:'dash',color:c9[0]}, marker:{symbol:d_modelMarkers.nam}, yaxis:'y' }, { x:convertedDates, y:data.prate_surface_nam.y.map(convertPrecipRate), mode:'lines+markers', type:'scatter', name:'Precip Rate (NAM)', line:{dash:'dash',color:c9[1]}, marker:{symbol:d_modelMarkers.nam}, yaxis:'y2' }); }
   if(showGFS){ traces10.push({ x:convertedDates, y:data.apcp_surface_gfs.y.map(convertPrecip), mode:'lines+markers', type:'scatter', name:'Accumulated Precip (GFS)', line:{dash:'dot',color:c9[0]}, marker:{symbol:d_modelMarkers.gfs}, yaxis:'y' }, { x:convertedDates, y:data.prate_surface_gfs.y.map(convertPrecipRate), mode:'lines+markers', type:'scatter', name:'Precip Rate (GFS)', line:{dash:'dot',color:c9[1]}, marker:{symbol:d_modelMarkers.gfs}, yaxis:'y2' }); }
-  Plotly.newPlot('plot10', traces10, { title:{text:'Precipitation', font:{color:textColor}}, xaxis:{range:d_computeXRange(traces10)}, yaxis:{title:`Accumulated (${d_precipLabel(selectedUnits)})`, rangemode:'tozero'}, yaxis2:{title:`Rate (${d_precipRateLabel(selectedUnits)})`, overlaying:'y', side:'right', rangemode:'tozero'}, legend:{font:{color:textColor}}, showlegend:true });
+  if(showRAP){ d_pushTruthy(traces10, [ d_rapTrace('apcp_surface_rap','Accumulated Precip (RAP)',c9[0],convertPrecip,{yaxis:'y'}), d_rapTrace('prate_surface_rap','Precip Rate (RAP)',c9[1],convertPrecipRate,{yaxis:'y2'}) ]); }
+  if(showNBM){ d_pushTruthy(traces10, [ d_extraTrace('apcp_surface_nbm','Accumulated Precip (NBM)',c9[0],'nbm',convertPrecip,{yaxis:'y'}) ]); }
+  d_renderOrHide('plot10', traces10, { title:{text:'Precipitation', font:{color:textColor}}, xaxis:{}, yaxis:{title:`Accumulated (${d_precipLabel(selectedUnits)})`, rangemode:'tozero'}, yaxis2:{title:`Rate (${d_precipRateLabel(selectedUnits)})`, overlaying:'y', side:'right', rangemode:'tozero'}, legend:{font:{color:textColor}}, showlegend:true });
 
   // update last update display if available
   const lastEl = document.getElementById('last-update'); if(lastEl){ try{ const baseParts = (data.date_str||'').split(' '); const dateOnly=baseParts[0]; const timeOnly=baseParts[1]; const [y,m,d]=dateOnly.split('-').map(Number); const [hh,mm]=timeOnly.split(':').map(Number); const utcDate=new Date(Date.UTC(y,m-1,d,hh,mm,0)); const eastern = utcDate.toLocaleString('en-US',{timeZone:'America/New_York', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}); lastEl.textContent = `Model timestamp: ${eastern} ET`; }catch(e){ lastEl.textContent=''; } }

@@ -276,97 +276,39 @@ author_profile: true
     <p>Undercast days are rare, so the classes are heavily imbalanced. Rather than synthesizing samples, each model
         handles this with class weights (Random Forest's balanced class weights, XGBoost's <code>scale_pos_weight</code>,
         and balanced sample weights for Gradient Boosting), which suits tree ensembles and keeps the pipeline clean.</p>
-    <p>Because each date contributes many forecast-hour rows, every split and cross-validation fold is grouped by date,
-        so no single day's rows land in both training and evaluation (which would leak the answer). The decision
-        threshold is tuned on a validation split and reported on a separate held-out test split, and five-fold grouped
-        cross-validation provides threshold-free ROC-AUC / PR-AUC as a robustness check.</p>
-
-    <h4>A cautionary tale: how you split the data matters</h4>
-    <div
-        style="margin:12px 0; padding:14px 16px; background-color: var(--global-thead-color, #f6f6f6); border-left: 4px solid var(--global-border-color, #ccc); border-radius: 4px; color: var(--global-text-color, #333);">
-        <p style="margin-top:0;">When I first evaluated these models the scores looked fantastic — precision and recall
-            up in the 0.9s, seemingly nailing undercast days. It was too good to be true.</p>
-        <p>The catch is that each calendar date contributes <em>many</em> rows (one per forecast hour), and every row
-            from a given day shares the same undercast label. My first split shuffled and divided those rows
-            <em>randomly</em>, which scattered hours from the same day across both the training and test sets. The model
-            could effectively memorize a day from a few of its rows and then "predict" the remaining rows of that very
-            same day — textbook data leakage. The impressive numbers were mostly the model recognizing days it had
-            already seen, not forecasting new ones.</p>
-        <p>Splitting <em>by day</em> instead — so an entire date lands in exactly one of train/validation/test —
-            removes the leak. The honest scores (reported under <a href="#results-tables">Results</a> below) drop
-            considerably, but for the first time they actually reflect skill on days the model has never encountered.</p>
-        <p style="margin-bottom:0;">As a concrete example, here is the held-out performance of the combined
-            all-parameters model under the two splits — same data, same models, only the split changed:</p>
-        <div style="overflow-x:auto; margin-top:12px;">
-            <table style="width:100%; border-collapse:collapse; min-width:560px;">
-                <thead>
-                    <tr>
-                        <th style="text-align:left; padding:8px; border-bottom:1px solid var(--global-border-color,#ccc);">
-                            Combined model</th>
-                        <th style="text-align:right; padding:8px; border-bottom:1px solid var(--global-border-color,#ccc);"
-                            colspan="3">Random row split <em>(before — leaked)</em></th>
-                        <th style="text-align:right; padding:8px; border-bottom:1px solid var(--global-border-color,#ccc);"
-                            colspan="3">Grouped-by-day split <em>(after — honest)</em></th>
-                    </tr>
-                    <tr>
-                        <th style="text-align:left; padding:6px 8px; border-bottom:1px solid var(--global-border-color,#ccc);">
-                            Algorithm</th>
-                        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--global-border-color,#ccc);">P</th>
-                        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--global-border-color,#ccc);">R</th>
-                        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--global-border-color,#ccc);">F1</th>
-                        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--global-border-color,#ccc);">P</th>
-                        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--global-border-color,#ccc);">R</th>
-                        <th style="text-align:right; padding:6px 8px; border-bottom:1px solid var(--global-border-color,#ccc);">F1</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="padding:8px; vertical-align:top;">XGBoost</td>
-                        <td style="padding:8px; text-align:right;">0.68</td>
-                        <td style="padding:8px; text-align:right;">0.70</td>
-                        <td style="padding:8px; text-align:right;"><strong>0.69</strong></td>
-                        <td style="padding:8px; text-align:right;">0.19</td>
-                        <td style="padding:8px; text-align:right;">0.25</td>
-                        <td style="padding:8px; text-align:right;"><strong>0.22</strong></td>
-                    </tr>
-                    <tr>
-                        <td style="padding:8px; vertical-align:top;">Random Forest</td>
-                        <td style="padding:8px; text-align:right;">0.61</td>
-                        <td style="padding:8px; text-align:right;">0.63</td>
-                        <td style="padding:8px; text-align:right;"><strong>0.62</strong></td>
-                        <td style="padding:8px; text-align:right;">0.09</td>
-                        <td style="padding:8px; text-align:right;">0.31</td>
-                        <td style="padding:8px; text-align:right;"><strong>0.14</strong></td>
-                    </tr>
-                    <tr>
-                        <td style="padding:8px; vertical-align:top;">Gradient Boosting</td>
-                        <td style="padding:8px; text-align:right;">0.53</td>
-                        <td style="padding:8px; text-align:right;">0.63</td>
-                        <td style="padding:8px; text-align:right;"><strong>0.58</strong></td>
-                        <td style="padding:8px; text-align:right;">0.10</td>
-                        <td style="padding:8px; text-align:right;">0.25</td>
-                        <td style="padding:8px; text-align:right;"><strong>0.15</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <p style="margin-bottom:0; font-size:0.9em; color: var(--global-fig-caption-color, #666);">P = precision, R =
-            recall, F1 = F1-score, each on the held-out test set at the best-F1 threshold. The "before" column is the
-            original random-split evaluation (preserved in the project's git history); the "after" column is the current
-            date-grouped evaluation reported below.</p>
-    </div>
-    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666);">Held-out, grouped-by-day performance for
-        each algorithm is shown under <a href="#results-tables">Results</a> below (HRRR, NAM, GFS, and the combined
-        all-parameters model); the remaining single-model results (RAP, ECMWF, NBM) will appear there as those models
-        finish retraining on the expanded six-model dataset.</p>
+    <p>Because each date contributes many forecast-hour rows, every cross-validation fold is grouped by date, so no
+        single day's rows land in both training and scoring — otherwise the model would "see the answer" for a day it is
+        being tested on. (An earlier version split rows randomly and looked far more accurate than it really was.)
+        Performance is measured with five-fold grouped cross-validation, and each model's decision threshold is chosen on
+        the pooled out-of-fold predictions rather than a single split: undercast is so rare that any one validation fold
+        holds only a day or two of it. The threshold targets the most recall it can while holding precision above a
+        floor, so the deployed model leans toward staying quiet unless the signal is reasonably strong.</p>
+    <p>How well does it work? The three algorithms all <em>rank</em> undercast days well — ROC-AUC sits around
+        0.80–0.87 across the seven data sources (NBM and the combined all-parameters model are strongest). Precision is
+        the hard part: because undercast is only about 4% of days, even good ranking runs into a precision ceiling near
+        0.25, and the deployed majority vote (below) runs roughly 0.2 precision. In plain terms, when it does call an
+        undercast it's right maybe one time in five, and it catches only a minority of real undercast days. An earlier
+        writeup here implied ~0.8 precision, but that came from the row-leakage bug mentioned above; these are the honest
+        numbers.</p>
 
     <figure style="margin:18px 0; text-align:center;">
-        <img src="/files/weather/examples/model_training_images/confusion_matrix_first_pass.png"
-            alt="Confusion matrices for first-pass models"
+        <img src="/files/weather/examples/model_training_images/per_source_performance.png"
+            alt="ROC-AUC and PR-AUC per data source"
             style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Confusion matrices for
-            first-pass models: Logistic Regression, Random Forest, XGBoost, and Gradient Boosting. See model training
-            images in <a href="/files/weather/examples/model_training_images/">model_training_images</a>.</figcaption>
+        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Discrimination for each data
+            source (best of the three algorithms), from grouped out-of-fold cross-validation. Every source ranks well
+            above chance (ROC-AUC), but precision–recall area stays low because undercast is so rare (dashed line = base
+            rate).</figcaption>
+    </figure>
+
+    <figure style="margin:18px 0; text-align:center;">
+        <img src="/files/weather/examples/model_training_images/roc_pr_curves.png"
+            alt="ROC and precision-recall curves for the all-parameters model"
+            style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">ROC and precision–recall
+            curves for the combined all-parameters model (out-of-fold). The ROC curves sit well above the diagonal, while
+            the precision–recall curves show precision plateauing around 0.2–0.25 — the practical ceiling for this
+            signal.</figcaption>
     </figure>
 
     The top model features are shown below.
@@ -374,210 +316,26 @@ author_profile: true
     <figure style="margin:12px 0 24px 0; text-align:center;">
         <img src="/files/weather/examples/model_training_images/top_features.png" alt="Top feature importances"
             style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Top features (approximate
-            importance) computed from trained models. Feature importance varies by algorithm; see notebooks in <a
-                href="/scripts/">/scripts/</a> for generation details.</figcaption>
+        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Most important features for
+            the all-parameters XGBoost model. Physically sensible signals dominate — 925&nbsp;mb temperature,
+            boundary-layer mixing height, cloud-top height, and the freezing level. See <a
+                href="/scripts/plot_undercast_models.py">plot_undercast_models.py</a> for generation details.</figcaption>
     </figure>
 
-    <p> The models were then optimized for F1, precision, and recall thresholds, the results of which are shown below.
-    </p>
-    <div style="display:block;">
-        <figure style="width:100%; text-align:center; margin-bottom:18px;">
-            <img src="/files/weather/examples/model_training_images/model_optimization.png"
-                alt="Model optimization results"
-                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-            <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Model optimization
-                metrics across parameter searches. See <a
-                    href="/files/weather/examples/model_training_images/">model_training_images</a>.</figcaption>
-        </figure>
-
-        <figure style="width:100%; text-align:center; margin-bottom:18px;">
-            <img src="/files/weather/examples/model_training_images/confusion_matrices_optimized.png"
-                alt="Confusion matrices after optimization"
-                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-            <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Confusion matrices after
-                optimization (thresholds and hyperparameters tuned).</figcaption>
-        </figure>
-        <figure style="width:100%; text-align:center; margin-bottom:18px;">
-            <img src="/files/weather/examples/model_training_images/error_comparison_optimized.png"
-                alt="Error comparison after optimization"
-                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-            <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Error comparison across
-                models after optimization.</figcaption>
-        </figure>
-        <figure style="width:100%; text-align:center; margin-bottom:18px;">
-            <img src="/files/weather/examples/model_training_images/confusion_matrices_ensemble.png"
-                alt="Confusion matrices ensemble"
-                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-            <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Ensemble confusion
-                matrices and agreement between models. See <a
-                    href="/files/weather/examples/model_training_images/">model_training_images</a>.</figcaption>
-        </figure>
-    </div>
-
-
-
     <h3>Results</h3>
-    <p>The tables below report each classifier's honest, grouped-by-day performance. Precision, recall, F1, and the
-        false-positive / false-negative counts come from a held-out test set (an entire day never straddles train and
-        test) at the threshold that maximizes validation F1; ROC-AUC and PR-AUC are threshold-free, averaged over
-        grouped five-fold cross-validation. The numbers are modest — undercast days are rare and the labeled dataset is
-        small — but, unlike the leaked scores in the table above, they reflect real skill on days the model has never
-        seen.</p>
-    <p>By default the results are shown for the <strong>combined all-parameters</strong> model. Tick additional weather
-        models to line their results up side by side.</p>
-
-    <div id="results-model-toggle"
-        style="display: inline-flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 12px; margin: 4px 0 16px 0; border: 1px solid var(--global-border-color, #ccc); border-radius: 6px;">
-        <span style="font-weight: 600;">Show results for:</span>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="all" checked /> All parameters</label>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="hrrr" /> HRRR</label>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="nam" /> NAM</label>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="gfs" /> GFS</label>
-    </div>
-
-    <div id="results-tables"></div>
-
-    <script>
-        (function () {
-            const RESULT_MODELS = {
-                all: "Combined (all parameters)",
-                hrrr: "HRRR",
-                nam: "NAM",
-                gfs: "GFS",
-            };
-            const ALGORITHMS = ["XGBoost", "Random Forest", "Gradient Boosting"];
-            const metadataCache = {};
-
-            function metadataUrl(key) {
-                return key === "all"
-                    ? "/files/weather/models/model_metadata_all.json"
-                    : `/files/weather/models/model_metadata_${key}.json`;
-            }
-
-            function fmt(v) {
-                return typeof v === "number" ? v.toFixed(3) : "—";
-            }
-
-            function fmtInt(v) {
-                return typeof v === "number" ? String(v) : "—";
-            }
-
-            function buildTable(key, meta) {
-                const wrap = document.createElement("div");
-                wrap.style.overflowX = "auto";
-                wrap.style.margin = "12px 0 20px 0";
-
-                const caption = document.createElement("div");
-                caption.style.fontWeight = "600";
-                caption.style.marginBottom = "6px";
-                caption.textContent = RESULT_MODELS[key] || key;
-                wrap.appendChild(caption);
-
-                const table = document.createElement("table");
-                table.style.width = "100%";
-                table.style.borderCollapse = "collapse";
-                table.style.minWidth = "560px";
-
-                const border = "1px solid var(--global-border-color, #ccc)";
-                const headers = ["Algorithm", "Precision", "Recall", "F1", "Threshold", "FP", "FN", "ROC-AUC", "PR-AUC"];
-                const thead = document.createElement("thead");
-                const htr = document.createElement("tr");
-                headers.forEach((h, i) => {
-                    const th = document.createElement("th");
-                    th.textContent = h;
-                    th.style.textAlign = i === 0 ? "left" : "right";
-                    th.style.padding = "8px";
-                    th.style.borderBottom = border;
-                    htr.appendChild(th);
-                });
-                thead.appendChild(htr);
-                table.appendChild(thead);
-
-                const tbody = document.createElement("tbody");
-                ALGORITHMS.forEach((algo) => {
-                    const m = meta[algo] || {};
-                    const cells = [
-                        algo,
-                        fmt(m.test_precision),
-                        fmt(m.test_recall),
-                        fmt(m.test_f1_score),
-                        fmt(m.threshold_best_f1),
-                        fmtInt(m.test_fp),
-                        fmtInt(m.test_fn),
-                        fmt(m.cv_roc_auc_mean),
-                        fmt(m.cv_pr_auc_mean),
-                    ];
-                    const tr = document.createElement("tr");
-                    cells.forEach((c, i) => {
-                        const td = document.createElement("td");
-                        td.textContent = c;
-                        td.style.textAlign = i === 0 ? "left" : "right";
-                        td.style.padding = "8px";
-                        td.style.borderBottom = "1px solid var(--global-dark-border-color, #eee)";
-                        tr.appendChild(td);
-                    });
-                    tbody.appendChild(tr);
-                });
-                table.appendChild(tbody);
-                wrap.appendChild(table);
-                return wrap;
-            }
-
-            function selectedKeys() {
-                return Array.from(
-                    document.querySelectorAll('input[name="results-model"]:checked')
-                ).map((el) => el.value);
-            }
-
-            function render() {
-                const container = document.getElementById("results-tables");
-                const keys = selectedKeys();
-                if (keys.length === 0) {
-                    container.innerHTML =
-                        '<p style="color: var(--global-fig-caption-color, #666);">Select at least one model above to see its results.</p>';
-                    return;
-                }
-
-                Promise.all(
-                    keys.map((key) => {
-                        if (metadataCache[key]) return Promise.resolve({ key, meta: metadataCache[key] });
-                        return fetch(metadataUrl(key))
-                            .then((r) => {
-                                if (!r.ok) throw new Error("not found");
-                                return r.json();
-                            })
-                            .then((meta) => {
-                                metadataCache[key] = meta;
-                                return { key, meta };
-                            })
-                            .catch(() => ({ key, meta: null }));
-                    })
-                ).then((results) => {
-                    container.innerHTML = "";
-                    results.forEach(({ key, meta }) => {
-                        if (!meta) {
-                            const p = document.createElement("p");
-                            p.style.color = "var(--global-fig-caption-color, #666)";
-                            p.textContent = `Results for ${RESULT_MODELS[key] || key} are not available yet.`;
-                            container.appendChild(p);
-                            return;
-                        }
-                        container.appendChild(buildTable(key, meta));
-                    });
-                });
-            }
-
-            document
-                .querySelectorAll('input[name="results-model"]')
-                .forEach((el) => el.addEventListener("change", render));
-            render();
-        })();
-    </script>
+    <p>No single model is used on its own. The deployed prediction is a majority vote — a day is called undercast only
+        when at least two of the three algorithms agree at their chosen thresholds. Requiring agreement trims false
+        alarms at the cost of some recall, which is the right trade for a page you'd check before driving to a
+        trailhead.</p>
+    <figure style="margin:18px 0; text-align:center;">
+        <img src="/files/weather/examples/model_training_images/confusion_matrices.png"
+            alt="Confusion matrices at deployed thresholds and the 2-of-3 consensus"
+            style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Out-of-fold confusion
+            matrices for the all-parameters model at its deployed thresholds, plus the 2-of-3 consensus the site actually
+            shows. Undercast is the rare bottom row: the vote keeps false positives low but still misses a fair share of
+            real events — an honest reflection of a hard, data-limited problem.</figcaption>
+    </figure>
 
 
 
