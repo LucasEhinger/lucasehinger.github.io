@@ -818,8 +818,8 @@
     var wrap = document.querySelector(".bw-table-wrap");
     if (wrap) wrap.style.display = "";
 
-    // Default the leaderboard to the last 12 months rather than all-time.
-    var initialRange = presetRange("12");
+    // Default the leaderboard to all-time.
+    var initialRange = presetRange("all");
     fromYM = initialRange[0];
     toYM = initialRange[1];
 
