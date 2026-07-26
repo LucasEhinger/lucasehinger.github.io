@@ -326,6 +326,21 @@ function loadWeatherPlots(
         };
       };
       const pushTruthy = (arr, items) => items.forEach((t) => t && arr.push(t));
+      // Render a plot, or hide its container entirely when it has no traces for
+      // the current selection (e.g. ECMWF selected on a plot with no ECMWF
+      // fields), so irrelevant/empty plots collapse out of the grid.
+      const renderOrHide = (id, traces, layout) => {
+        const el = document.getElementById(id);
+        if (!traces || traces.length === 0) {
+          if (el) el.style.display = "none";
+          return;
+        }
+        if (el && el.style.display === "none") el.style.display = "";
+        Plotly.newPlot(id, traces, layout).then(() => {
+          const e = document.getElementById(id);
+          if (e) Plotly.Plots.resize(e);
+        });
+      };
 
       // cloud_layer_percent
       const c1 = defaultColors;
@@ -485,7 +500,12 @@ function loadWeatherPlots(
           seriesTrace("boundary_layer_cloud_layer_rap", "Boundary (RAP)", c1[3], "rap"),
         ]);
       }
-      Plotly.newPlot("plot1", plot1Traces, layout1);
+      if (showNBM) {
+        pushTruthy(plot1Traces, [
+          seriesTrace("tcdc_surface_nbm", "Total Cloud (NBM)", c1[0], "nbm"),
+        ]);
+      }
+      renderOrHide("plot1", plot1Traces, layout1);
 
       // Cloud ceiling + base height
       const c2 = defaultColors;
@@ -557,7 +577,13 @@ function loadWeatherPlots(
           seriesTrace("cloud_ceiling_m_rap", "Cloud<br>Ceiling (RAP)", c2[0], "rap", convertHeight),
         ]);
       }
-      Plotly.newPlot("plot2", plot2Traces, layout2);
+      if (showNBM) {
+        pushTruthy(plot2Traces, [
+          seriesTrace("cloud_ceiling_m_nbm", "Cloud<br>Ceiling (NBM)", c2[0], "nbm", convertHeight),
+          seriesTrace("cloud_base_m_nbm", "Cloud<br>Base (NBM)", c2[1], "nbm", convertHeight),
+        ]);
+      }
+      renderOrHide("plot2", plot2Traces, layout2);
 
       // Temperature
 
@@ -842,7 +868,23 @@ function loadWeatherPlots(
           seriesTrace("tmp_2m_rap", "2m (RAP)", c3[5], "rap", tC),
         ]);
       }
-      Plotly.newPlot("plot3", plot3Traces, layout3);
+      if (showECMWF) {
+        const tC = (v) => convertTemp(v, selectedUnits);
+        pushTruthy(plot3Traces, [
+          seriesTrace("tmp_1000mb_ecmwf", levelLabel("1000", 100, "ECMWF", selectedUnits), c3[0], "ecmwf", tC),
+          seriesTrace("tmp_925mb_ecmwf", levelLabel("925", 750, "ECMWF", selectedUnits), c3[1], "ecmwf", tC),
+          seriesTrace("tmp_850mb_ecmwf", levelLabel("850", 1500, "ECMWF", selectedUnits), c3[2], "ecmwf", tC),
+          seriesTrace("tmp_700mb_ecmwf", levelLabel("700", 3000, "ECMWF", selectedUnits), c3[3], "ecmwf", tC),
+          seriesTrace("tmp_500mb_ecmwf", levelLabel("500", 5500, "ECMWF", selectedUnits), c3[4], "ecmwf", tC),
+          seriesTrace("tmp_2m_ecmwf", "2m (ECMWF)", c3[5], "ecmwf", tC),
+        ]);
+      }
+      if (showNBM) {
+        pushTruthy(plot3Traces, [
+          seriesTrace("tmp_2m_nbm", "2m (NBM)", c3[5], "nbm", (v) => convertTemp(v, selectedUnits)),
+        ]);
+      }
+      renderOrHide("plot3", plot3Traces, layout3);
 
       const c4 = defaultColors;
 
@@ -900,7 +942,12 @@ function loadWeatherPlots(
           seriesTrace("hpbl_surface_rap", "HPBL (RAP)", c4[0], "rap", convertHeight),
         ]);
       }
-      Plotly.newPlot("plot4", plot4Traces, layout4);
+      if (showNBM) {
+        pushTruthy(plot4Traces, [
+          seriesTrace("mixing_height_nbm", "Mixing Height (NBM)", c4[0], "nbm", convertHeight),
+        ]);
+      }
+      renderOrHide("plot4", plot4Traces, layout4);
 
       const c5 = defaultColors;
 
@@ -975,7 +1022,18 @@ function loadWeatherPlots(
           seriesTrace("rh_925mb_rap", "925mb RH (RAP)", c5[1], "rap"),
         ]);
       }
-      Plotly.newPlot("plot5", plot5Traces, layout5);
+      if (showECMWF) {
+        pushTruthy(plot5Traces, [
+          seriesTrace("rh_1000mb_ecmwf", "1000mb RH (ECMWF)", c5[0], "ecmwf"),
+          seriesTrace("rh_925mb_ecmwf", "925mb RH (ECMWF)", c5[1], "ecmwf"),
+        ]);
+      }
+      if (showNBM) {
+        pushTruthy(plot5Traces, [
+          seriesTrace("rh_2m_nbm", "2m RH (NBM)", c5[0], "nbm"),
+        ]);
+      }
+      renderOrHide("plot5", plot5Traces, layout5);
 
       const c6 = defaultColors;
 
@@ -1033,7 +1091,7 @@ function loadWeatherPlots(
           seriesTrace("hgt_0C_iso_rap", "0°C Isotherm<br>Height (RAP)", c6[0], "rap", convertHeight),
         ]);
       }
-      Plotly.newPlot("plot6", plot6Traces, layout6);
+      renderOrHide("plot6", plot6Traces, layout6);
 
       const c7 = defaultColors;
 
@@ -1099,7 +1157,12 @@ function loadWeatherPlots(
           seriesTrace("vis_surface_rap", "Surface<br>Visibility (RAP)", c7[0], "rap", convertVisibility),
         ]);
       }
-      Plotly.newPlot("plot7", plot7Traces, layout7);
+      if (showNBM) {
+        pushTruthy(plot7Traces, [
+          seriesTrace("vis_surface_nbm", "Surface<br>Visibility (NBM)", c7[0], "nbm", convertVisibility),
+        ]);
+      }
+      renderOrHide("plot7", plot7Traces, layout7);
 
       // Plot 8: Undercast Probability
       const c8 = defaultColors;
@@ -1305,7 +1368,7 @@ function loadWeatherPlots(
           predTrace("consensus_nbm", "NBM (Consensus)", mlColors.consensus, "nbm", "longdash"),
         ]);
       if (showALL) plot8Traces.push(trace8_consensus_all);
-      Plotly.newPlot("plot8", plot8Traces, layout8);
+      renderOrHide("plot8", plot8Traces, layout8);
 
       // Plot 9: Undercast Probability (Other Models)
       const layout9 = {
@@ -1351,7 +1414,7 @@ function loadWeatherPlots(
       if (showALL) {
         plot9Traces.push(trace8_xgb_all, trace8_rf_all, trace8_gbdt_all);
       }
-      Plotly.newPlot("plot9", plot9Traces, layout9);
+      renderOrHide("plot9", plot9Traces, layout9);
 
       // Plot 10: Precipitation
       const c9 = defaultColors;
@@ -1467,7 +1530,12 @@ function loadWeatherPlots(
           seriesTrace("prate_surface_rap", "Precip Rate (RAP)", c9[1], "rap", convertPrecipRate, { yaxis: "y2" }),
         ]);
       }
-      Plotly.newPlot("plot10", plot10Traces, layout10);
+      if (showNBM) {
+        pushTruthy(plot10Traces, [
+          seriesTrace("apcp_surface_nbm", "Accumulated Precip (NBM)", c9[0], "nbm", convertPrecip, { yaxis: "y" }),
+        ]);
+      }
+      renderOrHide("plot10", plot10Traces, layout10);
 
       const c11 = defaultColors;
 
@@ -1672,7 +1740,16 @@ function loadWeatherPlots(
           seriesTrace("hgt_500mb_rap", levelLabel("500", 5500, "RAP", selectedUnits), c11[4], "rap", convertHeight),
         ]);
       }
-      Plotly.newPlot("plot11", plot11Traces, layout11);
+      if (showECMWF) {
+        pushTruthy(plot11Traces, [
+          seriesTrace("hgt_1000mb_ecmwf", levelLabel("1000", 100, "ECMWF", selectedUnits), c11[0], "ecmwf", convertHeight),
+          seriesTrace("hgt_925mb_ecmwf", levelLabel("925", 750, "ECMWF", selectedUnits), c11[1], "ecmwf", convertHeight),
+          seriesTrace("hgt_850mb_ecmwf", levelLabel("850", 1500, "ECMWF", selectedUnits), c11[2], "ecmwf", convertHeight),
+          seriesTrace("hgt_700mb_ecmwf", levelLabel("700", 3000, "ECMWF", selectedUnits), c11[3], "ecmwf", convertHeight),
+          seriesTrace("hgt_500mb_ecmwf", levelLabel("500", 5500, "ECMWF", selectedUnits), c11[4], "ecmwf", convertHeight),
+        ]);
+      }
+      renderOrHide("plot11", plot11Traces, layout11);
       } else {
         var plot11El = document.getElementById("plot11");
         if (plot11El) plot11El.style.display = "none";
