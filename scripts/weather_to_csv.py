@@ -295,6 +295,26 @@ def try_load(candidates, H):
     return None, None
 
 
+def _to_scalar(x):
+    """Coerce an xarray Dataset/DataArray, ndarray, or number to a plain float.
+
+    Returns nan when a single value can't be recovered. This guarantees the CSV
+    writer never receives a raw xarray object -- its multi-line repr would
+    otherwise be str()'d into a cell and corrupt the row structure.
+    """
+    try:
+        if hasattr(x, "data_vars"):  # xarray Dataset -> its single data variable
+            dvs = list(x.data_vars)
+            if len(dvs) != 1:
+                return float("nan")
+            x = x[dvs[0]]
+        vals = getattr(x, "values", x)
+        arr = np.asarray(vals).ravel()
+        return float(arr[0]) if arr.size else float("nan")
+    except Exception:
+        return float("nan")
+
+
 def sample_nearest(da, lat, lon):
     """Select nearest value from DataArray using common coordinate name variants."""
     sel_opts = [
@@ -306,11 +326,7 @@ def sample_nearest(da, lat, lon):
     for opts in sel_opts:
         try:
             point = da.sel(method="nearest", **opts)
-            val = point.squeeze()
-            try:
-                return float(val[list(val.data_vars)[0]].values)
-            except Exception:
-                return val
+            return _to_scalar(point.squeeze())
         except Exception:
             continue
     try:
@@ -319,17 +335,11 @@ def sample_nearest(da, lat, lon):
         ilat = abs(da[lat_dim] - lat).argmin().item()
         ilon = abs(da[lon_dim] - lon).argmin().item()
         val = da.isel({lat_dim: ilat, lon_dim: ilon}).squeeze()
-        try:
-            return float(val.values)
-        except Exception:
-            return val
+        return _to_scalar(val)
     except Exception:
         try:
             np_point, iy, ix, dkm = find_nearest_by_geodetic(da, lat, lon)
-            try:
-                return float(np_point[list(np_point.data_vars)[0]].values)
-            except Exception:
-                return np_point
+            return _to_scalar(np_point)
         except Exception:
             raise
 

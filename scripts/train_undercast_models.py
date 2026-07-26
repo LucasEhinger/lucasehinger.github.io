@@ -64,6 +64,15 @@ TARGET = "is_undercast"
 SOURCES = ["hrrr", "nam", "gfs", "rap", "ecmwf", "nbm", "all"]
 CV_SPLITS = 5
 MODEL_NAMES = ("XGBoost", "Random Forest", "Gradient Boosting")
+# Undercast is rare (~24 of 589 dates), so a single val split holds ~1 positive
+# event and F1-tuned thresholds are unstable. Instead pick the deployed threshold
+# on pooled out-of-fold predictions, targeting this precision floor (max recall
+# subject to precision >= floor). Raise for fewer false "undercast" calls.
+# The honest precision ceiling for this signal is ~0.25 (the old models' ~0.8 was
+# a leakage artifact), so 0.2 is near the attainable max; higher just makes models
+# fall back to the over-firing F1-max threshold.
+PRECISION_FLOOR = 0.2
+SHORT_NAME = {"XGBoost": "XGB", "Random Forest": "RF", "Gradient Boosting": "GB"}
 
 
 def load_data(csv_dir):
@@ -160,23 +169,48 @@ def metrics_at(y_true, proba, thr):
     }
 
 
-def grouped_cv_auc(X, y, groups):
-    """Threshold-free ROC-AUC / PR-AUC per model via date-grouped stratified CV."""
+def oof_predictions(X, y, groups):
+    """Pooled out-of-fold predicted probabilities per model via date-grouped CV.
+
+    Every row is scored by a model that never saw its date in training, so the
+    pooled predictions use all positives at once -- far more stable than a single
+    tiny validation split when positives are rare (~24 undercast dates here).
+    """
     cv = StratifiedGroupKFold(n_splits=CV_SPLITS, shuffle=True, random_state=RANDOM_STATE)
-    scores = {name: {"roc": [], "pr": []} for name in MODEL_NAMES}
+    oof = {name: np.full(len(y), np.nan) for name in MODEL_NAMES}
     for tr_i, te_i in cv.split(X, y, groups):
         pre, _, _ = make_preprocessor(X.iloc[tr_i])
         Xtr = pre.fit_transform(X.iloc[tr_i])
         Xte = pre.transform(X.iloc[te_i])
-        ytr, yte = y.iloc[tr_i], y.iloc[te_i]
-        if yte.nunique() < 2:
-            continue  # AUC undefined for a single-class fold
-        for name, model in build_models(ytr).items():
-            fit_model(model, name, Xtr, ytr)
-            p = model.predict_proba(Xte)[:, 1]
-            scores[name]["roc"].append(roc_auc_score(yte, p))
-            scores[name]["pr"].append(average_precision_score(yte, p))
-    return scores
+        for name, model in build_models(y.iloc[tr_i]).items():
+            fit_model(model, name, Xtr, y.iloc[tr_i])
+            oof[name][te_i] = model.predict_proba(Xte)[:, 1]
+    return oof
+
+
+def threshold_for_precision(y_true, proba, floor):
+    """Threshold with the highest recall whose precision is >= floor.
+
+    Falls back to the F1-maximizing threshold when no threshold reaches the
+    precision floor (e.g. a weak source). Returns (threshold, floor_met).
+    """
+    best = None  # (recall, -threshold, threshold), maximized lexicographically
+    for thr in np.linspace(0.05, 0.95, 181):
+        pred = (proba >= thr).astype(int)
+        tp = int(((pred == 1) & (y_true == 1)).sum())
+        fp = int(((pred == 1) & (y_true == 0)).sum())
+        fn = int(((pred == 0) & (y_true == 1)).sum())
+        if tp + fp == 0:
+            continue
+        prec = tp / (tp + fp)
+        rec = tp / (tp + fn) if tp + fn else 0.0
+        if prec >= floor:
+            cand = (rec, -float(thr), float(thr))
+            if best is None or cand > best:
+                best = cand
+    if best is not None:
+        return best[2], True
+    return best_threshold(y_true, proba)[0], False
 
 
 def train_source(df, source, out_dir):
@@ -184,55 +218,30 @@ def train_source(df, source, out_dir):
     y = (df[TARGET] >= 0.5).astype(int)
     groups = df["date"]
 
-    # --- date-grouped train / val / test (~60/20/20) ---
-    dev_i, test_i = next(
-        GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=RANDOM_STATE).split(
-            X, y, groups
-        )
-    )
-    X_dev, y_dev, g_dev = X.iloc[dev_i], y.iloc[dev_i], groups.iloc[dev_i]
-    X_test, y_test = X.iloc[test_i], y.iloc[test_i]
-    tr_i, val_i = next(
-        GroupShuffleSplit(n_splits=1, test_size=0.25, random_state=RANDOM_STATE).split(
-            X_dev, y_dev, g_dev
-        )
-    )
-    X_tr, y_tr = X_dev.iloc[tr_i], y_dev.iloc[tr_i]
-    X_val, y_val = X_dev.iloc[val_i], y_dev.iloc[val_i]
-
-    pre, _, _ = make_preprocessor(X_tr)
-    Xtr_p = pre.fit_transform(X_tr)
-    Xval_p = pre.transform(X_val)
-    Xtest_p = pre.transform(X_test)
-
-    # --- fit eval models, tune threshold on val, report on held-out test ---
+    # --- pooled out-of-fold CV predictions (robust when positives are rare) ---
+    # threshold + reported metrics both come from OOF preds over all data, so the
+    # deployed threshold is tuned against all ~24 positives, not a single split.
+    oof = oof_predictions(X, y, groups)
     metadata = {}
-    for name, model in build_models(y_tr).items():
-        fit_model(model, name, Xtr_p, y_tr)
-        thr, val_f1 = best_threshold(y_val, model.predict_proba(Xval_p)[:, 1])
-        test_m = metrics_at(y_test, model.predict_proba(Xtest_p)[:, 1], thr)
-        metadata[name] = {
-            "threshold_best_f1": thr,  # consumed by weather_to_json.py at predict time
-            "val_f1_score": val_f1,
-            "test_precision": test_m["precision"],
-            "test_recall": test_m["recall"],
-            "test_f1_score": test_m["f1_score"],
-            "test_fp": test_m["fp"],
-            "test_fn": test_m["fn"],
-        }
-
-    # --- grouped CV robustness metrics (threshold-free) ---
-    cv = grouped_cv_auc(X, y, groups)
     for name in MODEL_NAMES:
-        roc, pr = cv[name]["roc"], cv[name]["pr"]
-        metadata[name].update(
-            {
-                "cv_roc_auc_mean": float(np.mean(roc)) if roc else None,
-                "cv_roc_auc_std": float(np.std(roc)) if roc else None,
-                "cv_pr_auc_mean": float(np.mean(pr)) if pr else None,
-                "cv_pr_auc_std": float(np.std(pr)) if pr else None,
-            }
-        )
+        p = oof[name]
+        thr, floor_met = threshold_for_precision(y, p, PRECISION_FLOOR)
+        pred = (p >= thr).astype(int)
+        _, fp, fn, _ = confusion_matrix(y, pred, labels=[0, 1]).ravel()
+        metadata[name] = {
+            "threshold_best_f1": float(thr),  # deployed threshold, read by weather_to_json.py
+            "threshold_strategy": f"max-recall s.t. precision>={PRECISION_FLOOR}"
+            + ("" if floor_met else " (floor unreachable; fell back to F1-max)"),
+            "precision_floor": PRECISION_FLOOR,
+            "precision_floor_met": bool(floor_met),
+            "oof_precision": float(precision_score(y, pred, zero_division=0)),
+            "oof_recall": float(recall_score(y, pred, zero_division=0)),
+            "oof_f1_score": float(f1_score(y, pred, zero_division=0)),
+            "oof_fp": int(fp),
+            "oof_fn": int(fn),
+            "cv_roc_auc": float(roc_auc_score(y, p)),
+            "cv_pr_auc": float(average_precision_score(y, p)),
+        }
 
     # --- refit deployed models + preprocessor on ALL data (no rows wasted) ---
     pre_final, cat_cols, num_cols = make_preprocessor(X)
@@ -272,17 +281,18 @@ def train_source(df, source, out_dir):
     with open(os.path.join(out_dir, f"model_metadata_{source}.json"), "w") as f:
         json.dump(metadata, f, indent=2)
 
-    def pr_auc(name):
-        v = metadata[name]["cv_pr_auc_mean"]
-        return f"{v:.3f}" if v is not None else "n/a"
+    def fmt(name):
+        m = metadata[name]
+        flag = "" if m["precision_floor_met"] else "!"
+        return (
+            f"{SHORT_NAME[name]}{flag} thr={m['threshold_best_f1']:.2f} "
+            f"P={m['oof_precision']:.2f} R={m['oof_recall']:.2f} AUC={m['cv_roc_auc']:.2f}"
+        )
 
     print(
         f"[{source:>5}] {X.shape[1]:3d} feat / {groups.nunique()} dates | "
-        f"test-F1 XGB={metadata['XGBoost']['test_f1_score']:.3f} "
-        f"RF={metadata['Random Forest']['test_f1_score']:.3f} "
-        f"GB={metadata['Gradient Boosting']['test_f1_score']:.3f} | "
-        f"CV PR-AUC XGB={pr_auc('XGBoost')} RF={pr_auc('Random Forest')} "
-        f"GB={pr_auc('Gradient Boosting')} -> saved 5 artifacts"
+        + " | ".join(fmt(n) for n in MODEL_NAMES)
+        + "  (! = precision floor unreachable)"
     )
 
 
