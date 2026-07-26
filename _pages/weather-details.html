@@ -276,20 +276,39 @@ author_profile: true
     <p>Undercast days are rare, so the classes are heavily imbalanced. Rather than synthesizing samples, each model
         handles this with class weights (Random Forest's balanced class weights, XGBoost's <code>scale_pos_weight</code>,
         and balanced sample weights for Gradient Boosting), which suits tree ensembles and keeps the pipeline clean.</p>
-    <p>Because each date contributes many forecast-hour rows, every split and cross-validation fold is grouped by date,
-        so no single day's rows land in both training and evaluation (which would leak the answer). The decision
-        threshold is tuned on a validation split and reported on a separate held-out test split, and five-fold grouped
-        cross-validation provides threshold-free ROC-AUC / PR-AUC as a robustness check.</p>
-    <p style="font-size:0.95em; color:var(--text-color,#666);">Per-model performance (held-out F1 and cross-validated
-        PR-AUC for each algorithm) will be added here once the models are retrained on the expanded six-model dataset.</p>
+    <p>Because each date contributes many forecast-hour rows, every cross-validation fold is grouped by date, so no
+        single day's rows land in both training and scoring — otherwise the model would "see the answer" for a day it is
+        being tested on. (An earlier version split rows randomly and looked far more accurate than it really was.)
+        Performance is measured with five-fold grouped cross-validation, and each model's decision threshold is chosen on
+        the pooled out-of-fold predictions rather than a single split: undercast is so rare that any one validation fold
+        holds only a day or two of it. The threshold targets the most recall it can while holding precision above a
+        floor, so the deployed model leans toward staying quiet unless the signal is reasonably strong.</p>
+    <p>How well does it work? The three algorithms all <em>rank</em> undercast days well — ROC-AUC sits around
+        0.80–0.87 across the seven data sources (NBM and the combined all-parameters model are strongest). Precision is
+        the hard part: because undercast is only about 4% of days, even good ranking runs into a precision ceiling near
+        0.25, and the deployed majority vote (below) runs roughly 0.2 precision. In plain terms, when it does call an
+        undercast it's right maybe one time in five, and it catches only a minority of real undercast days. An earlier
+        writeup here implied ~0.8 precision, but that came from the row-leakage bug mentioned above; these are the honest
+        numbers.</p>
 
     <figure style="margin:18px 0; text-align:center;">
-        <img src="/files/weather/examples/model_training_images/confusion_matrix_first_pass.png"
-            alt="Confusion matrices for first-pass models"
+        <img src="/files/weather/examples/model_training_images/per_source_performance.png"
+            alt="ROC-AUC and PR-AUC per data source"
             style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-        <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Confusion matrices for
-            first-pass models: Logistic Regression, Random Forest, XGBoost, and Gradient Boosting. See model training
-            images in <a href="/files/weather/examples/model_training_images/">model_training_images</a>.</figcaption>
+        <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Discrimination for each data
+            source (best of the three algorithms), from grouped out-of-fold cross-validation. Every source ranks well
+            above chance (ROC-AUC), but precision–recall area stays low because undercast is so rare (dashed line = base
+            rate).</figcaption>
+    </figure>
+
+    <figure style="margin:18px 0; text-align:center;">
+        <img src="/files/weather/examples/model_training_images/roc_pr_curves.png"
+            alt="ROC and precision-recall curves for the all-parameters model"
+            style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+        <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">ROC and precision–recall
+            curves for the combined all-parameters model (out-of-fold). The ROC curves sit well above the diagonal, while
+            the precision–recall curves show precision plateauing around 0.2–0.25 — the practical ceiling for this
+            signal.</figcaption>
     </figure>
 
     The top model features are shown below.
@@ -297,53 +316,26 @@ author_profile: true
     <figure style="margin:12px 0 24px 0; text-align:center;">
         <img src="/files/weather/examples/model_training_images/top_features.png" alt="Top feature importances"
             style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-        <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Top features (approximate
-            importance) computed from trained models. Feature importance varies by algorithm; see notebooks in <a
-                href="/scripts/">/scripts/</a> for generation details.</figcaption>
+        <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Most important features for
+            the all-parameters XGBoost model. Physically sensible signals dominate — 925&nbsp;mb temperature,
+            boundary-layer mixing height, cloud-top height, and the freezing level. See <a
+                href="/scripts/plot_undercast_models.py">plot_undercast_models.py</a> for generation details.</figcaption>
     </figure>
 
-    <p> The models were then optimized for F1, precision, and recall thresholds, the results of which are shown below.
-    </p>
-    <div style="display:block;">
-        <figure style="width:100%; text-align:center; margin-bottom:18px;">
-            <img src="/files/weather/examples/model_training_images/model_optimization.png"
-                alt="Model optimization results"
-                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-            <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Model optimization
-                metrics across parameter searches. See <a
-                    href="/files/weather/examples/model_training_images/">model_training_images</a>.</figcaption>
-        </figure>
-
-        <figure style="width:100%; text-align:center; margin-bottom:18px;">
-            <img src="/files/weather/examples/model_training_images/confusion_matrices_optimized.png"
-                alt="Confusion matrices after optimization"
-                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-            <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Confusion matrices after
-                optimization (thresholds and hyperparameters tuned).</figcaption>
-        </figure>
-        <figure style="width:100%; text-align:center; margin-bottom:18px;">
-            <img src="/files/weather/examples/model_training_images/error_comparison_optimized.png"
-                alt="Error comparison after optimization"
-                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-            <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Error comparison across
-                models after optimization.</figcaption>
-        </figure>
-        <figure style="width:100%; text-align:center; margin-bottom:18px;">
-            <img src="/files/weather/examples/model_training_images/confusion_matrices_ensemble.png"
-                alt="Confusion matrices ensemble"
-                style="width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-            <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Ensemble confusion
-                matrices and agreement between models. See <a
-                    href="/files/weather/examples/model_training_images/">model_training_images</a>.</figcaption>
-        </figure>
-    </div>
-
-
-
     <h3>Results</h3>
-    While each model performs decently well, we can further improve the performance by ensembling the three models
-    together. By taking a majority vote across the three models, we can achieve better performance than any individual
-    model.
+    <p>No single model is used on its own. The deployed prediction is a majority vote — a day is called undercast only
+        when at least two of the three algorithms agree at their chosen thresholds. Requiring agreement trims false
+        alarms at the cost of some recall, which is the right trade for a page you'd check before driving to a
+        trailhead.</p>
+    <figure style="margin:18px 0; text-align:center;">
+        <img src="/files/weather/examples/model_training_images/confusion_matrices.png"
+            alt="Confusion matrices at deployed thresholds and the 2-of-3 consensus"
+            style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+        <figcaption style="font-size:0.95em; color:var(--text-color,#666); margin-top:8px;">Out-of-fold confusion
+            matrices for the all-parameters model at its deployed thresholds, plus the 2-of-3 consensus the site actually
+            shows. Undercast is the rare bottom row: the vote keeps false positives low but still misses a fair share of
+            real events — an honest reflection of a hard, data-limited problem.</figcaption>
+    </figure>
 
 
 
