@@ -93,7 +93,9 @@ author_profile: true
                 ?
                 <div
                     style="position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-size: 12px; white-space: nowrap; font-weight: normal; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1000;">
-                    Check HRRR, NAM, and/or GFS to show those model traces on the plots.
+                    Toggle model traces on the plots. HRRR, NAM, GFS and RAP appear on all plots;
+                    ECMWF and NBM appear on the undercast-prediction plots only (their forecast fields
+                    differ). "All" is the combined-parameters undercast model.
                 </div>
             </div>
             <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
@@ -104,6 +106,18 @@ author_profile: true
             </label>
             <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
                 <input type="checkbox" name="model-toggle" value="gfs" aria-label="GFS" /> GFS
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+                <input type="checkbox" name="model-toggle" value="rap" aria-label="RAP" /> RAP
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+                <input type="checkbox" name="model-toggle" value="ecmwf" aria-label="ECMWF" /> ECMWF
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+                <input type="checkbox" name="model-toggle" value="nbm" aria-label="NBM" /> NBM
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+                <input type="checkbox" name="model-toggle" value="all" aria-label="All" checked /> All
             </label>
         </div>
         <div id="units-toggle"
