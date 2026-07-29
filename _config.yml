@@ -199,6 +199,7 @@ exclude:
   - node_modules
   - package.json*
   - Rakefile
+  - scripts/cache
   - README
   - tmp
   - vendor
