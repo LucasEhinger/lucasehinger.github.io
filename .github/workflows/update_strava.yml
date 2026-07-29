@@ -1,0 +1,65 @@
+name: Strava Activity Update
+
+on:
+  schedule:
+    # Once a day, early morning US Eastern.
+    - cron: "0 10 * * *"
+  workflow_dispatch: # Allows manual trigger
+
+# Never let two runs commit on top of each other.
+concurrency:
+  group: strava-update
+  cancel-in-progress: false
+
+jobs:
+  update-strava:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      # Incremental: reads the newest date out of the committed
+      # files/strava/activities.json and only asks Strava for what came after,
+      # so a daily run is one API call even though the history is 1,600+ rides.
+      - name: Fetch new activities
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+        run: python scripts/strava_sync.py
+
+      # Rematches summits from scripts/cache/tracks.json. Overpass is only
+      # queried for map tiles that aren't already in scripts/cache/osm_peaks.json,
+      # so this is usually a purely local computation. Allowed to fail: the
+      # public Overpass mirrors are flaky, and a bad day there shouldn't hold
+      # back the activity data.
+      - name: Match peaks
+        id: peaks
+        continue-on-error: true
+        run: python scripts/strava_peaks.py
+
+      - name: Commit and push if changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add files/strava/*.json scripts/cache/*.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update Strava activity data" && git push)
+
+      - name: Flag Overpass failure
+        if: steps.peaks.outcome == 'failure'
+        run: |
+          echo "::warning::Peak matching failed (likely Overpass throttling)." \
+               "Activity data was still updated; peaks will retry tomorrow."

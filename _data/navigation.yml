@@ -24,7 +24,10 @@ main:
     url: /cv/
 
   - title: "Outdoors"
-    url: /outdoors/    
+    url: /outdoors/
+
+  - title: "Hikes"
+    url: /hikes/
     
   - title: "NH Weather"
     url: /weather/

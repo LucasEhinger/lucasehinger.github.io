@@ -1,0 +1,532 @@
+---
+layout: archive
+title: "Hikes & Mileage"
+permalink: /hikes/
+author_profile: true
+---
+
+<style>
+    .hk-panel {
+        border: 1px solid var(--global-border-color, #ccc);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 18px;
+    }
+
+    .hk-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 16px;
+    }
+
+    .hk-row + .hk-row {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--global-border-color, #ddd);
+    }
+
+    .hk-label {
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .hk-presets {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .hk-presets button {
+        border: 1px solid #bbb;
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.85em;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+    }
+
+    .hk-presets button:hover {
+        background-color: rgba(128, 128, 128, 0.15);
+    }
+
+    .hk-presets button.active {
+        background-color: #1f77b4;
+        border-color: #1f77b4;
+        color: #fff;
+    }
+
+    .hk-selects {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* The theme leaves <select> unstyled, which renders as white-on-white in
+       dark mode. Pin both colours to the theme variables. */
+    #hk-from,
+    #hk-to,
+    #hk-metric,
+    #hk-peak-sort {
+        background-color: var(--global-bg-color, #fff);
+        color: var(--global-text-color, #333);
+        border: 1px solid var(--global-border-color, #bbb);
+        border-radius: 6px;
+        padding: 3px 6px;
+        font-size: 0.85em;
+        width: auto;
+        margin: 0;
+    }
+
+    #hk-categories {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    /* Toggles carry their category colour so the charts below read the same. */
+    .hk-cat {
+        border: 1px solid var(--cat, #999);
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.85em;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+        opacity: 0.5;
+    }
+
+    .hk-cat.active {
+        background-color: var(--cat, #999);
+        border-color: var(--cat, #999);
+        color: #fff;
+        opacity: 1;
+    }
+
+    .hk-updated {
+        margin-left: auto;
+        font-size: 0.8em;
+        opacity: 0.65;
+        white-space: nowrap;
+    }
+
+    .hk-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        margin: 1.2em 0;
+    }
+
+    .hk-card {
+        border: 1px solid var(--global-border-color, #ddd);
+        border-radius: 6px;
+        padding: 14px 16px;
+    }
+
+    .hk-card h3 {
+        margin: 0 0 10px 0;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--global-text-color-light, #666);
+    }
+
+    .hk-card .big {
+        font-size: 1.6em;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+
+    .hk-card .big span {
+        font-size: 0.5em;
+        font-weight: 400;
+        color: var(--global-text-color-light, #666);
+    }
+
+    .hk-card ul {
+        list-style: none;
+        margin: 8px 0 0 0;
+        padding: 0;
+        font-size: 0.85em;
+        color: var(--global-text-color-light, #666);
+    }
+
+    .hk-card ul li {
+        display: flex;
+        justify-content: space-between;
+        padding: 2px 0;
+    }
+
+    .hk-card ul li b {
+        color: var(--global-text-color, #333);
+        font-weight: 600;
+    }
+
+    .hk-table-wrap {
+        overflow-x: auto;
+        max-height: 32em;
+        overflow-y: auto;
+    }
+
+    table.hk-table {
+        width: 100%;
+        font-size: 0.85em;
+        border-collapse: collapse;
+    }
+
+    table.hk-table th {
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+        text-align: left;
+        position: sticky;
+        top: 0;
+        background-color: var(--global-bg-color, #fff);
+        z-index: 1;
+    }
+
+    table.hk-table th::after {
+        content: " \2195";
+        opacity: 0.35;
+    }
+
+    table.hk-table th.sorted-asc::after {
+        content: " \2191";
+        opacity: 1;
+    }
+
+    table.hk-table th.sorted-desc::after {
+        content: " \2193";
+        opacity: 1;
+    }
+
+    table.hk-table td.num {
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .hk-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+        vertical-align: middle;
+    }
+
+    .hk-charts {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+
+    @media (min-width: 900px) {
+        .hk-charts {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    .hk-chart {
+        width: 100%;
+        height: 340px;
+    }
+
+    .hk-chart-title {
+        font-size: 0.85em;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .hk-peaks {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 8px;
+        align-items: start;
+    }
+
+    .hk-peak {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--global-border-color, #ddd);
+        border-radius: 6px;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+        font-size: 0.9em;
+        text-align: left;
+    }
+
+    .hk-peak:hover {
+        background-color: rgba(128, 128, 128, 0.12);
+    }
+
+    .hk-peak.open {
+        background-color: rgba(128, 128, 128, 0.15);
+        border-color: var(--global-text-color-light, #888);
+        font-weight: 700;
+    }
+
+    .hk-peak-name {
+        flex: 1;
+    }
+
+    .hk-peak-meta {
+        font-size: 0.85em;
+        opacity: 0.7;
+        white-space: nowrap;
+    }
+
+    .hk-peak-count {
+        font-size: 0.8em;
+        opacity: 0.8;
+        border: 1px solid var(--global-border-color, #ccc);
+        border-radius: 999px;
+        padding: 0 7px;
+    }
+
+    /* Spans the full grid width as its own row, spliced in directly beneath
+       the row holding the selected peak. */
+    #hk-peak-detail {
+        grid-column: 1 / -1;
+        border: 1px solid var(--global-text-color-light, #888);
+        border-radius: 6px;
+        padding: 10px 12px;
+        background-color: rgba(128, 128, 128, 0.07);
+    }
+
+    .hk-detail-head {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--global-border-color, #eee);
+    }
+
+    #hk-peak-detail ul {
+        list-style: none;
+        margin: 8px 0 0 0;
+        padding: 0;
+        font-size: 0.85em;
+        columns: 2;
+        column-gap: 24px;
+    }
+
+    @media (max-width: 700px) {
+        #hk-peak-detail ul {
+            columns: 1;
+        }
+    }
+
+    #hk-peak-detail li {
+        display: flex;
+        gap: 8px;
+        padding: 3px 0;
+        break-inside: avoid;
+    }
+
+    #hk-peak-detail li span {
+        opacity: 0.65;
+        white-space: nowrap;
+    }
+
+    .hk-note {
+        font-size: 0.8em;
+        color: var(--global-text-color-light, #666);
+    }
+
+    /* Collapsible section: the marker sits inline with the existing h2. */
+    .hk-details > summary {
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .hk-details > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .hk-details > summary h2 {
+        display: inline-block;
+        margin: 0;
+    }
+
+    .hk-details > summary::after {
+        content: "\25BE";
+        font-size: 0.9em;
+        opacity: 0.6;
+        transition: transform 0.15s ease;
+    }
+
+    .hk-details:not([open]) > summary::after {
+        transform: rotate(-90deg);
+    }
+
+    .hk-details > summary:hover::after {
+        opacity: 1;
+    }
+
+    #hk-peak-filters {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .hk-plist {
+        border: 1px solid #bbb;
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.85em;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+    }
+
+    .hk-plist:hover {
+        background-color: rgba(128, 128, 128, 0.15);
+    }
+
+    .hk-plist.active {
+        background-color: #1f77b4;
+        border-color: #1f77b4;
+        color: #fff;
+    }
+
+    /* Winter stacks on the list choice rather than replacing it, so it gets a
+       separate colour to read as a modifier and not a fourth list. */
+    .hk-winter {
+        margin-left: 4px;
+    }
+
+    .hk-winter.active {
+        background-color: #0097a7;
+        border-color: #0097a7;
+        color: #fff;
+    }
+
+    /* Unclimbed list members stay visible as a checklist, but read as absent. */
+    .hk-peak.unclimbed {
+        opacity: 0.45;
+        cursor: default;
+        border-style: dashed;
+    }
+
+    .hk-peak.unclimbed:hover {
+        background-color: transparent;
+    }
+</style>
+
+<p>
+    Every activity below is pulled automatically from Strava. Use the date range and
+    category toggles to scope everything on the page — stats, charts, table, and peaks.
+</p>
+
+<div id="hk-loading">Loading activity data&hellip;</div>
+
+<div id="hk-content" style="display: none;">
+
+    <div class="hk-panel">
+        <div class="hk-row">
+            <span class="hk-label">Date range:</span>
+            <div class="hk-presets" id="hk-presets">
+                <button type="button" data-preset="all">All-time</button>
+                <button type="button" data-preset="60">Last 5 yr</button>
+                <button type="button" data-preset="12">Last 12 mo</button>
+                <button type="button" data-preset="ytd">Year to date</button>
+            </div>
+            <span class="hk-selects">
+                From <select id="hk-from"></select>
+                to <select id="hk-to"></select>
+            </span>
+            <span class="hk-updated" id="hk-updated"></span>
+        </div>
+        <div class="hk-row">
+            <span class="hk-label">Categories:</span>
+            <div id="hk-categories"></div>
+        </div>
+    </div>
+
+    <div class="hk-grid" id="hk-summary"></div>
+
+    <details class="hk-details" id="hk-category-details" open>
+        <summary>
+            <h2>By category</h2>
+        </summary>
+        <div class="hk-grid" id="hk-category-cards"></div>
+    </details>
+
+    <h2>Trends</h2>
+    <div class="hk-row" style="margin-bottom: 10px;">
+        <label class="hk-label" for="hk-metric">Metric:</label>
+        <select id="hk-metric">
+            <option value="distance">Distance (mi)</option>
+            <option value="elevation">Elevation gain (ft)</option>
+            <option value="time">Moving time (h)</option>
+        </select>
+    </div>
+
+    <div class="hk-charts">
+        <div>
+            <div class="hk-chart-title">By month, each year</div>
+            <div class="hk-chart" id="hk-chart-monthly"></div>
+        </div>
+        <div>
+            <div class="hk-chart-title">By year, split by category</div>
+            <div class="hk-chart" id="hk-chart-yearly"></div>
+        </div>
+    </div>
+
+    <h2>Activities</h2>
+    <p class="hk-note"><span id="hk-table-count"></span> — click a column heading to sort.</p>
+    <div class="hk-table-wrap">
+        <table class="hk-table" id="hk-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Activity</th>
+                    <th>Type</th>
+                    <th>Miles</th>
+                    <th>Vert (ft)</th>
+                    <th>Moving</th>
+                    <th>High pt (ft)</th>
+                </tr>
+            </thead>
+            <tbody id="hk-tbody"></tbody>
+        </table>
+    </div>
+
+    <h2>Peaks climbed</h2>
+    <div class="hk-row" style="margin-bottom: 10px;">
+        <span class="hk-label">Show:</span>
+        <div id="hk-peak-filters"></div>
+        <button type="button" id="hk-winter" class="hk-plist hk-winter" aria-pressed="false">
+            &#10052; Winter only
+        </button>
+        <span class="hk-selects">
+            <label class="hk-label" for="hk-peak-sort">Sort:</label>
+            <select id="hk-peak-sort">
+                <option value="elevation">Elevation</option>
+                <option value="frequency">Times climbed</option>
+                <option value="name">Alphabetical</option>
+            </select>
+        </span>
+    </div>
+    <p class="hk-note">
+        <span id="hk-peak-count"></span> — click a peak to see the hikes it was climbed on.
+        Summits are matched from GPS tracks against named peaks in OpenStreetMap, and count
+        once per activity however many times the track crosses them. Peaks follow the date
+        range above; they come from hikes and trail runs regardless of the category toggles.
+    </p>
+    <div class="hk-peaks" id="hk-peaks"></div>
+    <div id="hk-peak-detail" style="display: none;"></div>
+
+</div>
+
+<script src="https://cdn.plot.ly/plotly-3.3.1.min.js"></script>
+<script src="/assets/js/hikes.js?{{ site.time | date: '%s' }}"></script>
