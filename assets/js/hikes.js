@@ -55,6 +55,7 @@
     peakList: "all",
     categoriesOpen: true,
     winterOnly: false,
+    peakRegion: "all",
     peakSort: "elevation",
     allYears: []
   };
@@ -570,6 +571,8 @@
     $("hk-peak-filters").querySelectorAll(".hk-plist").forEach(function (button) {
       button.addEventListener("click", function () {
         state.peakList = button.dataset.list;
+        // Region only applies to the full list; don't leave a hidden filter on.
+        state.peakRegion = "all";
         state.openPeak = null;
         renderPeaks();
       });
@@ -580,6 +583,50 @@
     var winter = $("hk-winter");
     winter.classList.toggle("active", state.winterOnly);
     winter.setAttribute("aria-pressed", state.winterOnly ? "true" : "false");
+
+    renderRegionFilters();
+  }
+
+  function renderRegionFilters() {
+    var regions = state.peaks.regions || [];
+
+    // The curated lists are already regional — every NH48 peak is in New
+    // England, every volcano in the Pacific NW — so the row would only ever
+    // narrow a list to itself or to nothing.
+    if (!regions.length || state.peakList !== "all") {
+      $("hk-region-row").style.display = "none";
+      return;
+    }
+    $("hk-region-row").style.display = "";
+
+    // Counts reflect the date range and winter toggle, so a region that has
+    // nothing in the current scope reads as zero rather than disappearing.
+    var counts = {};
+    state.peaks.peaks.forEach(function (peak) {
+      if (ascentsInRange(peak).length) {
+        counts[peak.region] = (counts[peak.region] || 0) + 1;
+      }
+    });
+
+    var chips = ['<button type="button" class="hk-plist' +
+      (state.peakRegion === "all" ? " active" : "") +
+      '" data-region="all">Everywhere</button>'];
+
+    regions.forEach(function (region) {
+      chips.push('<button type="button" class="hk-plist' +
+        (state.peakRegion === region.key ? " active" : "") +
+        '" data-region="' + region.key + '">' + escapeHtml(region.label) +
+        " <b>" + (counts[region.key] || 0) + "</b></button>");
+    });
+
+    $("hk-region-filters").innerHTML = chips.join("");
+    $("hk-region-filters").querySelectorAll(".hk-plist").forEach(function (button) {
+      button.addEventListener("click", function () {
+        state.peakRegion = button.dataset.region;
+        state.openPeak = null;
+        renderPeaks();
+      });
+    });
   }
 
   function sortPeakRows(rows) {
@@ -613,12 +660,21 @@
     var rows;
 
     if (state.peakList === "all") {
-      rows = state.peaks.peaks.map(function (peak) {
+      rows = state.peaks.peaks.filter(function (peak) {
+        return state.peakRegion === "all" || peak.region === state.peakRegion;
+      }).map(function (peak) {
         return { peak: peak, ascents: ascentsInRange(peak) };
       }).filter(function (row) { return row.ascents.length > 0; });
 
+      var where = "";
+      if (state.peakRegion !== "all") {
+        (state.peaks.regions || []).forEach(function (region) {
+          if (region.key === state.peakRegion) where = " " + region.phrase;
+        });
+      }
+
       $("hk-peak-count").textContent = fmt(rows.length, 0) +
-        (rows.length === 1 ? " named peak" : " named peaks") +
+        (rows.length === 1 ? " named peak" : " named peaks") + where +
         (state.winterOnly ? " climbed in winter" : "");
     } else {
       // A list view is a checklist: every member shows, climbed or not.

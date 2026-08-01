@@ -3,6 +3,9 @@ layout: archive
 title: "Hikes & Mileage"
 permalink: /hikes/
 author_profile: true
+sitemap: false
+noindex: true
+hidden: true
 ---
 
 <style>
@@ -372,7 +375,8 @@ author_profile: true
         opacity: 1;
     }
 
-    #hk-peak-filters {
+    #hk-peak-filters,
+    #hk-region-filters {
         display: inline-flex;
         flex-wrap: wrap;
         gap: 6px;
@@ -516,6 +520,11 @@ author_profile: true
                 <option value="name">Alphabetical</option>
             </select>
         </span>
+    </div>
+
+    <div class="hk-row" id="hk-region-row" style="margin-bottom: 10px;">
+        <span class="hk-label">Region:</span>
+        <div id="hk-region-filters"></div>
     </div>
     <p class="hk-note">
         <span id="hk-peak-count"></span> — click a peak to see the hikes it was climbed on.

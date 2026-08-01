@@ -308,6 +308,7 @@ def main():
             "name": peak["name"],
             "lat": round(peak["lat"], 5),
             "lon": round(peak["lon"], 5),
+            "region": peak_lists.region_for(peak["lat"], peak["lon"]),
             "count": len(climbs),
             "first": climbs[-1]["date"],
             "last": climbs[0]["date"],
@@ -351,11 +352,29 @@ def main():
         }
         print(f"  {spec['label']}: {climbed} / {len(members)}")
 
+    # Only regions that actually contain a summit, in the order declared, so
+    # the page never offers a filter that returns nothing.
+    region_counts = {}
+    for p in peaks:
+        region_counts[p["region"]] = region_counts.get(p["region"], 0) + 1
+    ordered = [key for key, _, _ in peak_lists.REGIONS] + ["other"]
+    regions_payload = [
+        {
+            "key": key,
+            "label": peak_lists.REGION_LABELS[key],
+            "phrase": peak_lists.REGION_PHRASES[key],
+            "count": region_counts[key],
+        }
+        for key in ordered
+        if key in region_counts
+    ]
+
     payload = {
         "threshold_m": args.threshold,
         "unique_peaks": len(peaks),
         "total_ascents": sum(p["count"] for p in peaks),
         "lists": lists_payload,
+        "regions": regions_payload,
         "peaks": peaks,
     }
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)

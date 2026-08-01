@@ -85,3 +85,43 @@ LISTS = {
     "nh48": {"label": "NH48", "peaks": NH48},
     "wa_volcanoes": {"label": "WA volcanoes", "peaks": WA_VOLCANOES},
 }
+
+
+# Coarse regions for filtering, tested in order — first match wins, so the
+# boxes don't need to be disjoint. These are deliberately rough: they only have
+# to sort summits into recognisable buckets, not survey state lines.
+REGIONS = [
+    # key, label, (lat_min, lat_max, lon_min, lon_max)
+    ("pnw", "Pacific NW", (42.0, 60.0, -125.0, -116.0)),
+    ("california", "California", (32.0, 42.0, -125.0, -114.0)),
+    ("southwest", "Southwest", (31.0, 38.0, -114.0, -102.0)),
+    ("rockies", "Rockies", (38.0, 60.0, -116.0, -102.0)),
+    ("midwest", "Midwest", (37.0, 60.0, -102.0, -80.0)),
+    ("south", "South", (24.0, 37.0, -102.0, -75.0)),
+    ("northeast", "Northeast", (37.0, 60.0, -80.0, -60.0)),
+]
+
+REGION_LABELS = dict((key, label) for key, label, _ in REGIONS)
+REGION_LABELS["other"] = "Elsewhere"
+
+# How each region reads in a sentence: "13 named peaks in the Pacific NW", but
+# "6 named peaks in California". Carried in the data so the page doesn't have to
+# guess which labels take an article.
+REGION_PHRASES = {
+    "pnw": "in the Pacific NW",
+    "california": "in California",
+    "southwest": "in the Southwest",
+    "rockies": "in the Rockies",
+    "midwest": "in the Midwest",
+    "south": "in the South",
+    "northeast": "in the Northeast",
+    "other": "elsewhere",
+}
+
+
+def region_for(lat, lon):
+    for key, _, (lat_min, lat_max, lon_min, lon_max) in REGIONS:
+        if lat_min <= lat <= lat_max and lon_min <= lon <= lon_max:
+            return key
+    # Alaska, Hawaii, and anywhere outside North America land here.
+    return "other"

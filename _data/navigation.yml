@@ -25,9 +25,6 @@ main:
 
   - title: "Outdoors"
     url: /outdoors/
-
-  - title: "Hikes"
-    url: /hikes/
     
   - title: "NH Weather"
     url: /weather/
