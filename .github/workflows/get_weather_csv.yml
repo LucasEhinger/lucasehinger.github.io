@@ -6,7 +6,9 @@ on:
 jobs:
   update-weather:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: write # this workflow commits refreshed CSVs back to the repo
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v7
@@ -29,4 +31,18 @@ jobs:
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         git add files/weather/csv/*.csv
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Update weather csv's" && git push)
+        git diff --quiet && git diff --staged --quiet && { echo "No changes to commit."; exit 0; }
+        git commit -m "Update weather csv's"
+        # A manual push (or another workflow) can land on master mid-run and
+        # leave this push non-fast-forward. Rebase and retry rather than
+        # failing the run.
+        for attempt in 1 2 3 4 5; do
+          if git push; then
+            echo "Pushed on attempt $attempt."
+            exit 0
+          fi
+          echo "Push rejected (attempt $attempt); rebasing onto latest master..."
+          git pull --rebase origin master
+        done
+        echo "Failed to push after multiple attempts." >&2
+        exit 1
