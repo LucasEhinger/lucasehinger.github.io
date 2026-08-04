@@ -13,6 +13,70 @@ author_profile: true
             gap: 12px !important;
         }
     }
+
+    /* Source pickers for the swappable figures, styled like #results-model-toggle. */
+    .figure-picker {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        margin: 4px 0 12px 0;
+        border: 1px solid var(--global-border-color, #ccc);
+        border-radius: 6px;
+    }
+
+    .figure-picker label {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin: 0;
+    }
+
+    /* Wide 4-panel confusion figures need the full column; the taller feature
+       charts stay readable side by side, so let them pair up. */
+    .figure-grid {
+        display: grid;
+        gap: 8px 20px;
+        margin: 12px 0 8px 0;
+    }
+
+    .figure-grid.paired {
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    }
+
+    .figure-grid figure {
+        margin: 0;
+        text-align: center;
+    }
+
+    .figure-grid img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #ddd;
+        padding: 6px;
+        background: #fff;
+    }
+
+    .figure-grid figcaption {
+        font-weight: 600;
+        font-size: 0.95em;
+        margin-top: 6px;
+    }
+
+    /* The leakage writeup is an aside about a past bug, not part of the current
+       results -- set it apart from the surrounding figures. */
+    .leakage-note {
+        border: 1px solid var(--global-border-color, #ccc);
+        border-left: 4px solid #C44E52;
+        border-radius: 6px;
+        background: rgba(196, 78, 82, 0.06);
+        padding: 12px 16px;
+    }
+
+    .leakage-note>summary {
+        color: #C44E52;
+    }
 </style>
 
 <div style="margin-bottom: 16px;">
@@ -287,9 +351,30 @@ author_profile: true
         0.80–0.87 across the seven data sources (NBM and the combined all-parameters model are strongest). Precision is
         the hard part: because undercast is only about 4% of days, even good ranking runs into a precision ceiling near
         0.25, and the deployed majority vote (below) runs roughly 0.2 precision. In plain terms, when it does call an
-        undercast it's right maybe one time in five, and it catches only a minority of real undercast days. An earlier
-        writeup here implied ~0.8 precision, but that came from the row-leakage bug mentioned above; these are the honest
-        numbers.</p>
+        undercast it's right maybe one time in five, and it catches only a minority of real undercast days.</p>
+
+    <details class="leakage-note" style="margin:16px 0;">
+        <summary style="cursor:pointer; font-weight:600;">What the row-leakage bug was hiding (click to expand)</summary>
+        <p style="margin-top:12px;">An earlier writeup here implied ~0.8 precision. That number came from the row-leakage
+            bug mentioned above: folds were split by row rather than by date, so when a given forecast-hour row was
+            scored, the other ~22 rows from the same day were sitting in the training set. The model didn't have to
+            forecast an undercast — it only had to recognize a day it had already memorized.</p>
+        <p>Below is the same all-parameters model evaluated both ways, each panel at its own F1-maximizing threshold.
+            The top row is the leaky split, the bottom row is the honest date-grouped split. Reproducing the old split
+            here looks even better than the original writeup claimed — 0.9+ precision with nearly all undercast days
+            caught — while the same model, same data, same algorithms scored honestly lands near 0.2 precision and
+            misses most events. That collapse is the whole reason the deployed thresholds now aim for ~0.2: the old
+            numbers were never forecast skill, just memorized days.</p>
+        <figure style="margin:14px 0; text-align:center;">
+            <img src="/files/weather/examples/model_training_images/leakage_before_after.png"
+                alt="Confusion matrices before and after the row-leakage fix"
+                style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+            <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Before
+                (row-wise split) vs after (date-grouped split), all-parameters model, out-of-fold. Precision (P) and
+                recall (R) per panel. Same data, same algorithms, same thresholds strategy — only the fold structure
+                changed.</figcaption>
+        </figure>
+    </details>
 
     <figure style="margin:18px 0; text-align:center;">
         <img src="/files/weather/examples/model_training_images/per_source_performance.png"
@@ -313,32 +398,34 @@ author_profile: true
 
     The top model features are shown below.
     <h3>Top features</h3>
-    <figure style="margin:12px 0 24px 0; text-align:center;">
-        <img src="/files/weather/examples/model_training_images/top_features.png" alt="Top feature importances"
-            style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Most important features for
-            the all-parameters XGBoost model. Physically sensible signals dominate — 925&nbsp;mb temperature,
-            boundary-layer mixing height, cloud-top height, and the freezing level. See <a
-                href="/scripts/plot_undercast_models.py">plot_undercast_models.py</a> for generation details.</figcaption>
-    </figure>
+    <p>This starts on the combined all-parameters model; tick additional weather models to see which of their own
+        parameters carry the signal, or to line several up side by side.</p>
+    <div class="figure-picker" id="features-toggle">
+        <span style="font-weight:600;">Show features for:</span>
+    </div>
+    <div class="figure-grid paired" id="features-figures"></div>
+    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin:0 0 24px 0;">Most important features
+        for each selected XGBoost model. For the all-parameters model, physically sensible signals dominate —
+        925&nbsp;mb temperature, boundary-layer mixing height, cloud-top height, and the freezing level. See <a
+            href="/scripts/plot_undercast_models.py">plot_undercast_models.py</a> for generation details.</p>
 
     <h3>Results</h3>
     <p>No single model is used on its own. The deployed prediction is a majority vote — a day is called undercast only
         when at least two of the three algorithms agree at their chosen thresholds. Requiring agreement trims false
         alarms at the cost of some recall, which is the right trade for a page you'd check before driving to a
         trailhead.</p>
-    <figure style="margin:18px 0; text-align:center;">
-        <img src="/files/weather/examples/model_training_images/confusion_matrices.png"
-            alt="Confusion matrices at deployed thresholds and the 2-of-3 consensus"
-            style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Out-of-fold confusion
-            matrices for the all-parameters model at its deployed thresholds, plus the 2-of-3 consensus the site actually
-            shows. Undercast is the rare bottom row: the vote keeps false positives low but still misses a fair share of
-            real events — an honest reflection of a hard, data-limited problem.</figcaption>
-    </figure>
+    <div class="figure-picker" id="confusion-toggle">
+        <span style="font-weight:600;">Show confusion matrices for:</span>
+    </div>
+    <div class="figure-grid" id="confusion-figures"></div>
+    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin:0 0 18px 0;">Out-of-fold confusion
+        matrices for each selected model at its deployed thresholds, plus the 2-of-3 consensus. (The site itself runs
+        the all-parameters consensus; the individual weather models are shown for comparison.) Undercast is the rare
+        bottom row: the vote keeps false positives low but still misses a fair share of real events — an honest
+        reflection of a hard, data-limited problem.</p>
 
     <h4>Per-source numbers</h4>
-    <p>The figures above summarize the all-parameters model. To see the exact grouped, out-of-fold metrics for any
+    <p>The figures above show one source at a time. To see the exact grouped, out-of-fold metrics for any
         individual data source — or to line several up side by side — tick the sources below. Precision, recall, F1 and
         the false-positive / false-negative counts are at each algorithm's deployed threshold; ROC-AUC and PR-AUC are
         threshold-free.</p>
@@ -377,6 +464,61 @@ author_profile: true
             };
             const ALGORITHMS = ["XGBoost", "Random Forest", "Gradient Boosting"];
             const metadataCache = {};
+
+            // Figure pickers: show the confusion-matrix / top-feature images for any
+            // combination of the combined model and the individual weather models.
+            function wireFigurePicker(toggleId, figuresId, filePrefix, altText) {
+                const toggle = document.getElementById(toggleId);
+                const figures = document.getElementById(figuresId);
+                if (!toggle || !figures) return;
+                const name = `${toggleId}-source`;
+
+                Object.entries(RESULT_MODELS).forEach(([key, label]) => {
+                    const wrap = document.createElement("label");
+                    const box = document.createElement("input");
+                    box.type = "checkbox";
+                    box.name = name;
+                    box.value = key;
+                    box.checked = key === "all";
+                    box.addEventListener("change", draw);
+                    wrap.appendChild(box);
+                    wrap.appendChild(document.createTextNode(` ${label}`));
+                    toggle.appendChild(wrap);
+                });
+
+                function draw() {
+                    const keys = Array.from(
+                        toggle.querySelectorAll(`input[name="${name}"]:checked`)
+                    ).map((el) => el.value);
+                    figures.innerHTML = "";
+                    if (keys.length === 0) {
+                        const p = document.createElement("p");
+                        p.style.color = "var(--global-fig-caption-color, #666)";
+                        p.textContent = "Select at least one source above to see its figure.";
+                        figures.appendChild(p);
+                        return;
+                    }
+                    keys.forEach((key) => {
+                        const fig = document.createElement("figure");
+                        const img = document.createElement("img");
+                        img.src = `/files/weather/examples/model_training_images/${filePrefix}_${key}.png`;
+                        img.alt = `${altText} — ${RESULT_MODELS[key] || key}`;
+                        img.loading = "lazy";
+                        const cap = document.createElement("figcaption");
+                        cap.textContent = RESULT_MODELS[key] || key;
+                        fig.appendChild(img);
+                        fig.appendChild(cap);
+                        figures.appendChild(fig);
+                    });
+                }
+
+                draw();
+            }
+
+            wireFigurePicker("confusion-toggle", "confusion-figures", "confusion_matrices",
+                "Confusion matrices at deployed thresholds and the 2-of-3 consensus");
+            wireFigurePicker("features-toggle", "features-figures", "top_features",
+                "Top feature importances");
 
             function metadataUrl(key) {
                 return `/files/weather/models/model_metadata_${key}.json`;

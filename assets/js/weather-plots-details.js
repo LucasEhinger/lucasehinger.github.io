@@ -4,7 +4,9 @@
 
 const d_defaultColors = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];
 const d_modelMarkers = { hrrr: "circle", nam: "square", gfs: "diamond", rap: "triangle-up", ecmwf: "cross", nbm: "x" };
-const d_modelDash = { rap: "dashdot", ecmwf: "longdash", nbm: "longdashdot" };
+// hrrr is solid (no entry); nam/gfs match the dash/dot they use in the
+// hand-built traces on the other plots.
+const d_modelDash = { nam: "dash", gfs: "dot", rap: "dashdot", ecmwf: "longdash", nbm: "longdashdot" };
 const D_METERS_TO_FEET = 3.28084;
 const D_METERS_TO_MILES = 0.000621371;
 const D_METERS_TO_FEMTO_PARSECS = 3.24078e-2;
@@ -28,6 +30,38 @@ function d_visibilityLabel(units){ if(units==='imperial') return 'mi'; if(units=
 function d_heightToUnits(valueMeters,units){ if(valueMeters==null) return null; if(units==='imperial') return valueMeters*D_METERS_TO_FEET; if(units==='stupid') return valueMeters*D_METERS_TO_FEMTO_PARSECS; return valueMeters; }
 function d_heightLabel(units){ if(units==='imperial') return 'ft'; if(units==='stupid') return 'fempto-pc'; return 'm'; }
 function d_tempLabel(units){ if(units==='imperial') return 'F'; if(units==='stupid') return '°R'; return 'C'; }
+
+// NBM reports "no ceiling" as a sentinel near 88888 m rather than a null, which
+// would otherwise plot as an 88 km spike and flatten every real value.
+const D_NBM_NO_CEILING = 88000;
+function d_maskCeiling(v){ return (v==null || v>=D_NBM_NO_CEILING) ? null : v; }
+
+// NBM probabilistic ceiling/visibility ladders. The thresholds are defined in
+// feet/miles upstream, so label them in whichever unit the reader picked.
+// Mt. Washington's summit is 1917 m, so the 2012 m rung is effectively
+// "probability the cloud deck is below the summit" -- i.e. undercast.
+const D_SUMMIT_M = 1917;
+const D_CEIL_PROB = [
+  { key:'ceil_prob_below_152m_nbm',  m:152,  ft:500 },
+  { key:'ceil_prob_below_305m_nbm',  m:305,  ft:1000 },
+  { key:'ceil_prob_below_610m_nbm',  m:610,  ft:2000 },
+  { key:'ceil_prob_below_914m_nbm',  m:914,  ft:3000 },
+  { key:'ceil_prob_below_2012m_nbm', m:2012, ft:6600 },
+];
+const D_VIS_PROB = [
+  { key:'vis_prob_below_1609m_nbm', m:1609, mi:1 },
+  { key:'vis_prob_below_3219m_nbm', m:3219, mi:2 },
+  { key:'vis_prob_below_4828m_nbm', m:4828, mi:3 },
+  { key:'vis_prob_below_8047m_nbm', m:8047, mi:5 },
+];
+// A mixing height of 0 m is physically impossible, so an all-zero series means
+// the archive never populated the field (true for NBM on most 2024/25 example
+// days). Drop it rather than draw a flat line that reads as a real measurement.
+// Deliberately not applied to fields where zero is meaningful, e.g. 0% cloud.
+function d_dropAllZero(trace){ if(!trace||!trace.y) return null; const nn=trace.y.filter(v=>v!=null); return (nn.length && nn.every(v=>Number(v)===0)) ? null : trace; }
+
+function d_ceilProbLabel(rung, units){ const base = units==='imperial' ? `below ${rung.ft.toLocaleString()} ft` : `below ${rung.m.toLocaleString()} m`; return rung.m > D_SUMMIT_M ? `${base}<br>(≈ summit)` : base; }
+function d_visProbLabel(rung, units){ return units==='imperial' ? `below ${rung.mi} mi` : `below ${rung.m.toLocaleString()} m`; }
 
 function d_getSelectedModel(){ const selected = Array.from(document.querySelectorAll('input[name="model-toggle"]:checked')).map(el=>el.value); return { hrrr: selected.includes('hrrr'), nam: selected.includes('nam'), gfs: selected.includes('gfs'), rap: selected.includes('rap'), ecmwf: selected.includes('ecmwf'), nbm: selected.includes('nbm') }; }
 function d_getSelectedUnits(){ return document.querySelector('input[name="units-toggle"]:checked')?.value || 'metric'; }
@@ -60,7 +94,7 @@ function d_convertTimeToDateTime(timeValues, dateStr) {
 
 function attachSimpleTooltips() {
   // Small info icons similar to main site; simplified
-  const map = { plot1: 'Cloud Coverage (%)', plot2: 'Cloud ceiling/base', plot3: 'Temperatures', plot5: 'Relative humidity', plot6: '0°C isotherm', plot7: 'Visibility', plot10: 'Precipitation' };
+  const map = { plot1: 'Cloud Coverage (%)', plot2: 'Cloud ceiling/base', plot3: 'Temperatures', plot4: 'Boundary layer / mixing height', plot5: 'Relative humidity', plot6: '0°C isotherm', plot7: 'Visibility', plot11: 'NBM ceiling probability', plot12: 'NBM visibility probability', plot10: 'Precipitation' };
   Object.keys(map).forEach((id)=>{
     const el = document.getElementById(id); if(!el) return; el.style.position='relative';
     const old = el.querySelector('.plot-info-button'); if(old) old.remove();
@@ -81,7 +115,10 @@ function loadDetailsPlotsFromData(data){
   // Guarded extra-model trace builder: returns null when the snapshot lacks the
   // field (e.g. older example days without RAP, or ECMWF/NBM which the example
   // archive doesn't reach), so a toggle never breaks a plot.
-  const d_extraTrace = (key, name, color, model, mapFn, extra) => { const d = data[key]; if(!d||!d.y) return null; return Object.assign({ x:convertedDates, y: mapFn ? d.y.map(mapFn) : d.y, mode:'lines+markers', type:'scatter', name, line:{dash:d_modelDash[model],color}, marker:{symbol:d_modelMarkers[model]} }, extra||{}); };
+  // ECMWF/IFS runs 3-hourly against this 2-hourly axis, so it only lands on every
+  // 6th hour with nulls between. Without connectgaps its lines would never join
+  // and it would render as isolated markers; the gaps are cadence, not missing data.
+  const d_extraTrace = (key, name, color, model, mapFn, extra) => { const d = data[key]; if(!d||!d.y) return null; return Object.assign({ x:convertedDates, y: mapFn ? d.y.map(mapFn) : d.y, mode:'lines+markers', type:'scatter', connectgaps: model==='ecmwf', name, line:{dash:d_modelDash[model],color}, marker:{symbol:d_modelMarkers[model]} }, extra||{}); };
   const d_rapTrace = (key, name, color, mapFn, extra) => d_extraTrace(key, name, color, 'rap', mapFn, extra);
   const d_pushTruthy = (arr, items) => items.forEach(t=>t&&arr.push(t));
   // Render a plot, or hide its container when it has no traces for the current
@@ -106,7 +143,7 @@ function loadDetailsPlotsFromData(data){
   if(showNAM){ traces2.push({ x:convertedDates, y:data.cloud_ceiling_nam.y.map(convertHeight), mode:'lines+markers', type:'scatter', name:'Cloud<br>Ceiling (NAM)', line:{dash:'dash',color:c2[0]}, marker:{symbol:d_modelMarkers.nam} }); }
   if(showGFS){ traces2.push({ x:convertedDates, y:data.cloud_ceiling_gfs.y.map(convertHeight), mode:'lines+markers', type:'scatter', name:'Cloud<br>Ceiling (GFS)', line:{dash:'dot',color:c2[0]}, marker:{symbol:d_modelMarkers.gfs} }); }
   if(showRAP){ d_pushTruthy(traces2, [ d_rapTrace('cloud_ceiling_m_rap','Cloud<br>Ceiling (RAP)',c2[0],convertHeight) ]); }
-  if(showNBM){ d_pushTruthy(traces2, [ d_extraTrace('cloud_ceiling_m_nbm','Cloud<br>Ceiling (NBM)',c2[0],'nbm',convertHeight), d_extraTrace('cloud_base_m_nbm','Cloud<br>Base (NBM)',c2[1],'nbm',convertHeight) ]); }
+  if(showNBM){ const maskedHeight=(v)=>convertHeight(d_maskCeiling(v)); d_pushTruthy(traces2, [ d_extraTrace('cloud_ceiling_m_nbm','Cloud<br>Ceiling (NBM)',c2[0],'nbm',maskedHeight), d_extraTrace('cloud_base_m_nbm','Cloud<br>Base (NBM)',c2[1],'nbm',maskedHeight) ]); }
   d_renderOrHide('plot2', traces2, { title:{text:'Cloud Ceiling and Base Height', font:{color:textColor}}, xaxis:{}, yaxis:{title:`Height (${d_heightLabel(selectedUnits)})`}, legend:{font:{color:textColor}}, showlegend:true });
 
   // Plot 3: Temperatures
@@ -119,6 +156,16 @@ function loadDetailsPlotsFromData(data){
   if(showECMWF){ const tC=(v)=>d_convertTemp(v,selectedUnits); d_pushTruthy(traces3, [ d_extraTrace('tmp_1000mb_ecmwf',d_levelLabel('1000',100,'ECMWF',selectedUnits),c3[0],'ecmwf',tC), d_extraTrace('tmp_925mb_ecmwf',d_levelLabel('925',750,'ECMWF',selectedUnits),c3[1],'ecmwf',tC), d_extraTrace('tmp_850mb_ecmwf',d_levelLabel('850',1500,'ECMWF',selectedUnits),c3[2],'ecmwf',tC), d_extraTrace('tmp_700mb_ecmwf',d_levelLabel('700',3000,'ECMWF',selectedUnits),c3[3],'ecmwf',tC), d_extraTrace('tmp_500mb_ecmwf',d_levelLabel('500',5500,'ECMWF',selectedUnits),c3[4],'ecmwf',tC), d_extraTrace('tmp_2m_ecmwf','2m (ECMWF)',c3[5],'ecmwf',tC) ]); }
   if(showNBM){ d_pushTruthy(traces3, [ d_extraTrace('tmp_2m_nbm','2m (NBM)',c3[5],'nbm',(v)=>d_convertTemp(v,selectedUnits)) ]); }
   d_renderOrHide('plot3', traces3, { title:{text:'Temperature at Various Isobars', font:{color:textColor}}, xaxis:{}, yaxis:{title:`Temperature (${tempUnitLabel})`}, legend:{font:{color:textColor}}, showlegend:true });
+
+  // Plot 4: Boundary layer / mixing height. The inversion cap: a shallow mixing
+  // layer under a warm nose is what traps the deck below the summit.
+  const c4 = d_defaultColors; const traces4 = [];
+  if(showHRRR){ d_pushTruthy(traces4, [ d_extraTrace('hpbl_surface_hrrr','HPBL (HRRR)',c4[0],'hrrr',convertHeight) ]); }
+  if(showNAM){ d_pushTruthy(traces4, [ d_extraTrace('hpbl_surface_nam','HPBL (NAM)',c4[0],'nam',convertHeight) ]); }
+  if(showGFS){ d_pushTruthy(traces4, [ d_extraTrace('hpbl_surface_gfs','HPBL (GFS)',c4[0],'gfs',convertHeight) ]); }
+  if(showRAP){ d_pushTruthy(traces4, [ d_rapTrace('hpbl_surface_rap','HPBL (RAP)',c4[0],convertHeight) ]); }
+  if(showNBM){ d_pushTruthy(traces4, [ d_dropAllZero(d_extraTrace('mixing_height_nbm','Mixing Height (NBM)',c4[1],'nbm',convertHeight)) ]); }
+  d_renderOrHide('plot4', traces4, { title:{text:'Boundary Layer / Mixing Height', font:{color:textColor}}, xaxis:{}, yaxis:{title:`Height (${d_heightLabel(selectedUnits)})`, rangemode:'tozero'}, legend:{font:{color:textColor}}, showlegend:true });
 
   // Plot 5: Relative Humidity
   const c5 = d_defaultColors; const traces5 = [];
@@ -147,6 +194,19 @@ function loadDetailsPlotsFromData(data){
   if(showRAP){ d_pushTruthy(traces7, [ d_rapTrace('vis_surface_rap','Surface Visibility (RAP)',c7[0],convertVisibility) ]); }
   if(showNBM){ d_pushTruthy(traces7, [ d_extraTrace('vis_surface_nbm','Surface Visibility (NBM)',c7[0],'nbm',convertVisibility) ]); }
   d_renderOrHide('plot7', traces7, { title:{text:'Surface Visibility', font:{color:textColor}}, xaxis:{}, yaxis:{title:`Visibility (${d_visibilityLabel(selectedUnits)})`}, legend:{font:{color:textColor}}, showlegend:true });
+
+  // Plot 11: NBM probabilistic ceiling. The rung above the summit height is as
+  // close to a native "undercast probability" as any of these models produce.
+  const c11 = d_defaultColors; const traces11 = [];
+  // Every trace here is NBM, so the per-model dash would just add noise: use
+  // solid lines and let color carry the threshold.
+  if(showNBM){ d_pushTruthy(traces11, D_CEIL_PROB.map((rung,i)=>d_extraTrace(rung.key, d_ceilProbLabel(rung,selectedUnits), c11[i%c11.length], 'nbm', null, { line:{color:c11[i%c11.length]} }))); }
+  d_renderOrHide('plot11', traces11, { title:{text:'NBM Ceiling Probability', font:{color:textColor}}, xaxis:{}, yaxis:{title:'Probability of ceiling below (%)', range:[0,100]}, legend:{font:{color:textColor}}, showlegend:true });
+
+  // Plot 12: NBM probabilistic visibility.
+  const c12 = d_defaultColors; const traces12 = [];
+  if(showNBM){ d_pushTruthy(traces12, D_VIS_PROB.map((rung,i)=>d_extraTrace(rung.key, d_visProbLabel(rung,selectedUnits), c12[i%c12.length], 'nbm', null, { line:{color:c12[i%c12.length]} }))); }
+  d_renderOrHide('plot12', traces12, { title:{text:'NBM Visibility Probability', font:{color:textColor}}, xaxis:{}, yaxis:{title:'Probability of visibility below (%)', range:[0,100]}, legend:{font:{color:textColor}}, showlegend:true });
 
   // Plot 10: Precipitation
   const c9 = d_defaultColors; const traces10 = [];
@@ -297,6 +357,11 @@ function normalizeExamplePath(path){
   if(m){ const prefix=m[1], y=m[2], mo=m[3].padStart(2,'0'), d=m[4].padStart(2,'0'), suffix=m[5]; return `${prefix}${y}-${mo}-${d}${suffix}`; }
   return path;
 }
+
+// Plotly sizes to the container at plot time only, so the two-column grid would
+// keep its old pixel width after a window resize or phone rotation.
+let d_resizeTimer;
+window.addEventListener('resize', ()=>{ clearTimeout(d_resizeTimer); d_resizeTimer = setTimeout(()=>{ ['plot1','plot2','plot3','plot4','plot5','plot6','plot7','plot11','plot12','plot10'].forEach((id)=>{ const el=document.getElementById(id); if(el && el.style.display!=='none' && el.data) Plotly.Plots.resize(el); }); }, 150); });
 
 document.getElementById('details-date-select').addEventListener('change',(e)=>{ loadDetailsPlots(normalizeExamplePath(e.target.value)); });
 document.querySelectorAll('input[name="model-toggle"]').forEach(inp=>inp.addEventListener('change',()=>{ const cur = normalizeExamplePath(document.getElementById('details-date-select').value); loadDetailsPlots(cur); }));

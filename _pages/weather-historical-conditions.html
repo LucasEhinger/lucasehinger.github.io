@@ -14,6 +14,72 @@ author_profile: true
             gap: 12px !important;
         }
     }
+
+    /* Text column and the day's photo sit side by side; the photo shrinks rather
+       than forcing a wrap, so it stays beside the text down to the mobile break. */
+    .wx-top {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        align-items: flex-start;
+        margin-bottom: 24px;
+    }
+
+    .wx-top .wx-controls {
+        flex: 1 1 340px;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    /* The toggle rows are inline-flex with no wrapping, so at min-content they
+       are wider than the column and spill over the photo. Let them wrap and cap
+       them to the column width. align-self stops the column stretching them. */
+    .wx-top .wx-controls>div {
+        flex-wrap: wrap;
+        max-width: 100%;
+        align-self: flex-start;
+    }
+
+    .wx-top .wx-controls p {
+        max-width: 100%;
+    }
+
+    .wx-top .wx-controls select {
+        max-width: 100%;
+    }
+
+    .wx-top .wx-photo {
+        flex: 0 1 530px;
+        min-width: 0;
+        max-width: 100%;
+        margin-left: auto;
+    }
+
+    /* All plots below, two across. min-width:0 keeps a wide Plotly SVG from
+       inflating its grid track instead of shrinking to it. */
+    .wx-plots {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .wx-plots>div {
+        min-width: 0;
+    }
+
+    @media (max-width: 768px) {
+        .wx-plots {
+            grid-template-columns: 1fr;
+        }
+
+        .wx-top .wx-photo {
+            flex-basis: 100%;
+            margin-left: 0;
+        }
+    }
 </style>
 
 <div style="margin-bottom: 16px;">
@@ -22,9 +88,8 @@ author_profile: true
 
 Undercasts are caused by temperature inversions, right??!
 
-<div style="margin-bottom: 20px; width: 100%; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;"
-    class="weather-main-container">
-    <div style="display: flex; flex-direction: column; gap: 12px;" class="weather-controls">
+<div class="wx-top weather-main-container">
+    <div class="wx-controls weather-controls">
         <p style="margin-bottom:12px; font-size:1rem; color:var(--global-text-color,#222); max-width:420px;">
             Here you can view model parameters for select dates with different weather conditions. Clearly, weather
             models do not predict temperature inversions during undercasts. While this may be a limitation of the
@@ -70,9 +135,8 @@ Undercasts are caused by temperature inversions, right??!
 
     </div>
 
-    <div
-        style="margin-left: auto; min-width: 530px; display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
-        <div id="example-image-wrap" style="position:relative; width:530px;">
+    <div class="wx-photo">
+        <div id="example-image-wrap" style="position:relative; width:100%;">
             <img id="example-image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
                 alt="Example image"
                 style="width:100%; height:auto; border:1px solid #ddd; padding:4px; background:#fff; display:block;" />
@@ -96,48 +160,20 @@ Undercasts are caused by temperature inversions, right??!
     </div>
 </div>
 
-<div id="plot1" style="width:48%;display:inline-block;"></div>
-<div id="plot2" style="width:48%;display:inline-block;"></div>
-<div id="plot3" style="width:48%;display:inline-block;"></div>
-<div id="plot4" style="width:48%;display:none;"></div>
-<div id="plot5" style="width:48%;display:inline-block;"></div>
-<div id="plot6" style="width:48%;display:inline-block;"></div>
-<div id="plot7" style="width:48%;display:inline-block;"></div>
-<div id="plot10" style="width:96%;display:inline-block;"></div>
+<div class="wx-plots">
+    <div id="plot1"></div>
+    <div id="plot2"></div>
+    <div id="plot3"></div>
+    <div id="plot4"></div>
+    <div id="plot5"></div>
+    <div id="plot6"></div>
+    <div id="plot7"></div>
+    <div id="plot11"></div>
+    <div id="plot12"></div>
+    <div id="plot10"></div>
 </div>
 
 <script src="https://cdn.plot.ly/plotly-3.3.1.min.js"></script>
-
-<style>
-    @media (max-width: 768px) {
-
-        #plot1,
-        #plot2,
-        #plot3,
-        #plot4,
-        #plot5,
-        #plot6,
-        #plot7,
-        #plot10 {
-            width: 100% !important;
-            display: block !important;
-            margin-bottom: 20px;
-        }
-    }
-
-    @media (min-width:769px) {
-
-        #plot1,
-        #plot2,
-        #plot3,
-        #plot5,
-        #plot6,
-        #plot7,
-        #plot10 {
-            margin-right: 10px;
-        }
-    }
-</style>
 
 
 

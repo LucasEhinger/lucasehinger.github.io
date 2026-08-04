@@ -598,9 +598,14 @@ function loadWeatherPlots(
         ]);
       }
       if (showNBM) {
+        // NBM encodes "no ceiling" as a sentinel near 88888 m rather than a
+        // null; plotted raw it becomes an 88 km spike that flattens the real
+        // values against the axis.
+        const maskedHeight = (v) =>
+          convertHeight(v == null || v >= 88000 ? null : v);
         pushTruthy(plot2Traces, [
-          seriesTrace("cloud_ceiling_m_nbm", "Cloud<br>Ceiling (NBM)", c2[0], "nbm", convertHeight),
-          seriesTrace("cloud_base_m_nbm", "Cloud<br>Base (NBM)", c2[1], "nbm", convertHeight),
+          seriesTrace("cloud_ceiling_m_nbm", "Cloud<br>Ceiling (NBM)", c2[0], "nbm", maskedHeight),
+          seriesTrace("cloud_base_m_nbm", "Cloud<br>Base (NBM)", c2[1], "nbm", maskedHeight),
         ]);
       }
       renderOrHide("plot2", plot2Traces, layout2);
