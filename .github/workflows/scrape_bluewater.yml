@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Checkout website repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -32,13 +32,33 @@ jobs:
       # Only re-scrape the last year (through the present month) rather than all
       # of history — historical data is static, so this keeps the daily run light
       # on MIT's calendar server. The window is merged into the committed dataset.
+      # The MIT calendar server occasionally drops a request; the scraper retries
+      # internally, and this outer loop covers the rest (a whole-run failure
+      # leaves the dataset untouched, so retrying is always safe).
       - name: Scrape the last year (writes sailing_events.csv)
         working-directory: scraper_repo
         run: |
           export SCRAPE_START_YEAR=$(( $(date +%Y) - 1 ))
           export SCRAPE_START_MONTH=1
           echo "Scraping ${SCRAPE_START_YEAR}-01 through the present month"
-          python experienceScraper.py
+          for attempt in 1 2 3; do
+            python experienceScraper.py && exit 0
+            echo "attempt ${attempt} failed; retrying in 60s"
+            sleep 60
+          done
+          exit 1
+
+      # bluewater_merge.py replaces *every* committed event inside the --since
+      # window with what the scrape produced, so a partial scrape would silently
+      # delete a year of history. Refuse to merge an implausibly small window.
+      - name: Sanity-check the scraped window
+        run: |
+          ROWS=$(( $(wc -l < scraper_repo/sailing_events.csv) - 1 ))
+          echo "Scrape produced ${ROWS} event-participant rows"
+          if [ "$ROWS" -lt 100 ]; then
+            echo "::error::Only ${ROWS} rows for a one-year window (expected 100+); refusing to merge."
+            exit 1
+          fi
 
       - name: Merge the recent window into the existing dataset
         run: |
