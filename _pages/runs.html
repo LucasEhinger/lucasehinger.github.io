@@ -1,0 +1,488 @@
+---
+layout: archive
+title: "Lucas Loops"
+permalink: /runs/
+author_profile: true
+sitemap: false
+noindex: true
+hidden: true
+---
+
+<style>
+    .rn-panel {
+        border: 1px solid var(--global-border-color, #ccc);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 18px;
+    }
+
+    .rn-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 16px;
+    }
+
+    .rn-row + .rn-row {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--global-border-color, #ddd);
+    }
+
+    .rn-label {
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    /* A modifier on top of the date range rather than another range preset, so
+       it takes its own colour instead of the presets' blue — same distinction
+       the hikes page draws for its winter-only toggle. */
+    .rn-toggle {
+        border: 1px solid #bbb;
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.85em;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+    }
+
+    .rn-toggle:hover {
+        background-color: rgba(128, 128, 128, 0.15);
+    }
+
+    .rn-toggle[aria-pressed="true"] {
+        background-color: #00838f;
+        border-color: #00838f;
+        color: #fff;
+    }
+
+    .rn-info {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        margin-left: -10px;
+        padding: 0;
+        border: 1px solid var(--global-border-color, #bbb);
+        border-radius: 50%;
+        font-size: 0.75em;
+        font-style: italic;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color-light, #666);
+    }
+
+    .rn-info:hover,
+    .rn-info[aria-expanded="true"] {
+        background-color: rgba(128, 128, 128, 0.15);
+        color: var(--global-text-color, #333);
+    }
+
+    /* Full-basis so it wraps onto its own line inside the flex row. */
+    .rn-infobox {
+        flex: 1 0 100%;
+        margin-top: 2px;
+        border-left: 3px solid #00838f;
+        padding: 8px 10px;
+        border-radius: 0 6px 6px 0;
+        background-color: rgba(128, 128, 128, 0.08);
+        font-size: 0.8em;
+        line-height: 1.5;
+    }
+
+    .rn-infobox[hidden] {
+        display: none;
+    }
+
+    .rn-presets {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .rn-presets button {
+        border: 1px solid #bbb;
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 0.85em;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+    }
+
+    .rn-presets button:hover {
+        background-color: rgba(128, 128, 128, 0.15);
+    }
+
+    .rn-presets button.active {
+        background-color: #1f77b4;
+        border-color: #1f77b4;
+        color: #fff;
+    }
+
+    .rn-selects {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* The theme leaves <select> unstyled, which renders as white-on-white in
+       dark mode. Pin both colours to the theme variables. */
+    #rn-from,
+    #rn-to,
+    #rn-loop-sort {
+        background-color: var(--global-bg-color, #fff);
+        color: var(--global-text-color, #333);
+        border: 1px solid var(--global-border-color, #bbb);
+        border-radius: 6px;
+        padding: 3px 6px;
+        font-size: 0.85em;
+        width: auto;
+        margin: 0;
+    }
+
+    .rn-updated {
+        font-size: 0.8em;
+        color: var(--global-text-color-light, #666);
+        margin-left: auto;
+    }
+
+    .rn-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+
+    .rn-tile {
+        border: 1px solid var(--global-border-color, #ddd);
+        border-radius: 8px;
+        padding: 10px 12px;
+    }
+
+    .rn-tile-value {
+        font-size: 1.5em;
+        font-weight: 700;
+        line-height: 1.15;
+    }
+
+    .rn-tile-label {
+        font-size: 0.8em;
+        color: var(--global-text-color-light, #666);
+    }
+
+    .rn-charts {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+
+    @media (min-width: 900px) {
+        .rn-charts {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    .rn-chart {
+        width: 100%;
+        height: 340px;
+    }
+
+    .rn-chart-title {
+        font-size: 0.85em;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .rn-note {
+        font-size: 0.8em;
+        color: var(--global-text-color-light, #666);
+    }
+
+    /* ---- Lucas Loops ---- */
+
+    .rn-loops {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 12px;
+        align-items: start;
+    }
+
+    .rn-loop {
+        display: flex;
+        gap: 12px;
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--global-border-color, #ddd);
+        border-radius: 8px;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+        text-align: left;
+        font-size: 0.9em;
+    }
+
+    .rn-loop:hover {
+        background-color: rgba(128, 128, 128, 0.12);
+    }
+
+    .rn-loop.open {
+        background-color: rgba(128, 128, 128, 0.15);
+        border-color: var(--global-text-color-light, #888);
+    }
+
+    /* The route thumbnail is the only thing that reliably tells two 11.2-mile
+       river loops apart, so it gets fixed space at the head of every card. */
+    .rn-shape {
+        flex: 0 0 auto;
+        width: 62px;
+        height: 62px;
+        overflow: visible;
+    }
+
+    .rn-shape path {
+        fill: none;
+        stroke: #1f77b4;
+        stroke-width: 3;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+        vector-effect: non-scaling-stroke;
+    }
+
+    .rn-loop-body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .rn-loop-name {
+        display: block;
+        font-weight: 700;
+    }
+
+    .rn-loop-count {
+        float: right;
+        font-size: 0.85em;
+        font-weight: 700;
+        border: 1px solid var(--global-border-color, #ccc);
+        border-radius: 999px;
+        padding: 0 8px;
+        margin-left: 6px;
+    }
+
+    .rn-loop-meta {
+        display: block;
+        font-size: 0.85em;
+        opacity: 0.75;
+        margin-top: 2px;
+    }
+
+    /* Direction split. Colour never carries this alone — every chip states the
+       direction in words and the count in figures. */
+    .rn-dirs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 8px;
+        margin-top: 6px;
+        font-size: 0.8em;
+    }
+
+    .rn-dir {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+    }
+
+    .rn-dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background-color: var(--dir, #888);
+        flex: 0 0 auto;
+    }
+
+    /* Splices in as its own full-width row directly under the selected card. */
+    #rn-loop-detail {
+        grid-column: 1 / -1;
+        border: 1px solid var(--global-text-color-light, #888);
+        border-radius: 8px;
+        padding: 12px 14px;
+        background-color: rgba(128, 128, 128, 0.07);
+    }
+
+    .rn-detail-head {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        flex-wrap: wrap;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--global-border-color, #eee);
+    }
+
+    .rn-detail-cols {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+    }
+
+    .rn-detail-map {
+        flex: 0 0 auto;
+        width: 180px;
+        height: 180px;
+        overflow: visible;
+    }
+
+    .rn-detail-map path {
+        fill: none;
+        stroke: #1f77b4;
+        stroke-width: 2.5;
+        stroke-linejoin: round;
+        vector-effect: non-scaling-stroke;
+    }
+
+    /* The busiest loop has 250+ runs, which as a plain list is taller than the
+       rest of the page put together. A grid flows in rows rather than columns,
+       so unlike CSS multicol it can be capped and scrolled vertically without
+       spilling sideways. */
+    #rn-loop-detail ul {
+        list-style: none;
+        margin: 0;
+        padding: 0 2px 0 0;
+        font-size: 0.85em;
+        flex: 1;
+        min-width: 240px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 0 24px;
+        max-height: 320px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    @media (max-width: 700px) {
+        .rn-detail-map {
+            width: 120px;
+            height: 120px;
+        }
+    }
+
+    #rn-loop-detail li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 0;
+        break-inside: avoid;
+    }
+
+    #rn-loop-detail li .rn-li-meta {
+        opacity: 0.65;
+        white-space: nowrap;
+        margin-left: auto;
+    }
+
+    .rn-table-wrap {
+        overflow-x: auto;
+    }
+
+    table.rn-table {
+        font-size: 0.85em;
+        width: 100%;
+    }
+
+    table.rn-table td.num {
+        text-align: right;
+        white-space: nowrap;
+    }
+</style>
+
+<p class="rn-note">
+    See also: <a href="/hikes/">hikes &amp; mileage</a> for everything else.
+</p>
+
+<div id="rn-loading">Loading run data&hellip;</div>
+
+<div id="rn-content" style="display: none;">
+
+    <div class="rn-panel">
+        <div class="rn-row">
+            <span class="rn-label">Date range:</span>
+            <div class="rn-presets" id="rn-presets">
+                <button type="button" data-preset="all">All-time</button>
+                <button type="button" data-preset="60">Last 5 yr</button>
+                <button type="button" data-preset="12">Last 12 mo</button>
+                <button type="button" data-preset="ytd">Year to date</button>
+            </div>
+            <span class="rn-selects">
+                From <select id="rn-from"></select>
+                to <select id="rn-to"></select>
+            </span>
+            <span class="rn-updated" id="rn-updated"></span>
+        </div>
+        <div class="rn-row">
+            <span class="rn-label">Filter:</span>
+            <button type="button" id="rn-loops-only" class="rn-toggle" aria-pressed="false">
+                Lucas Loops only
+            </button>
+            <button type="button" id="rn-loops-info" class="rn-info"
+                    aria-expanded="false" aria-controls="rn-loops-infobox"
+                    aria-label="What counts as a Lucas Loop">i</button>
+            <div class="rn-infobox" id="rn-loops-infobox" role="note" hidden>
+                <b>Lucas Loops only</b> keeps runs between <b>10 and 12 miles</b> —
+                the 11-mile habit, give or take a mile — and drops everything else
+                from the stats, the charts, and the loop counts below.
+                <br>
+                Note that this is a filter on <i>distance</i>, not on route. A run in
+                that band counts here whether or not it matched one of the repeated
+                routes, and a repeated route outside the band (the 5.8-mile one, say)
+                disappears while the filter is on.
+            </div>
+        </div>
+    </div>
+
+    <div class="rn-grid" id="rn-summary"></div>
+
+    <h2>Mileage over time</h2>
+    <div class="rn-charts">
+        <div>
+            <div class="rn-chart-title">Miles per month, with a 3-month average</div>
+            <div class="rn-chart" id="rn-chart-monthly"></div>
+        </div>
+        <div>
+            <div class="rn-chart-title">Cumulative miles through the year</div>
+            <div class="rn-chart" id="rn-chart-cumulative"></div>
+        </div>
+    </div>
+    <details>
+        <summary class="rn-note" style="cursor: pointer;">Show the monthly figures as a table</summary>
+        <div class="rn-table-wrap">
+            <table class="rn-table" id="rn-monthly-table"></table>
+        </div>
+    </details>
+
+    <h2>Lucas Loops</h2>
+    <div class="rn-row" style="margin-bottom: 10px;">
+        <span class="rn-selects">
+            <label class="rn-label" for="rn-loop-sort">Sort:</label>
+            <select id="rn-loop-sort">
+                <option value="count">Times run</option>
+                <option value="recent">Most recent</option>
+                <option value="distance">Distance</option>
+                <option value="miles">Total miles</option>
+            </select>
+        </span>
+        <span class="rn-note" id="rn-loop-summary"></span>
+    </div>
+
+    <p class="rn-note" id="rn-loop-method"></p>
+
+    <div class="rn-loops" id="rn-loops"></div>
+    <div id="rn-loop-detail" style="display: none;"></div>
+
+</div>
+
+<script src="https://cdn.plot.ly/plotly-3.3.1.min.js"></script>
+<script src="/assets/js/runs.js?{{ site.time | date: '%s' }}"></script>

@@ -30,6 +30,7 @@ LOCAL = REPO / "local"
 # Committed so CI can rematch without the (gitignored) raw Strava cache.
 CACHE_DIR = REPO / "scripts" / "cache"
 TRACKS_FILE = CACHE_DIR / "tracks.json"
+SKI_TRACKS_FILE = CACHE_DIR / "ski_tracks.json"
 OSM_CACHE = CACHE_DIR / "osm_peaks.json"
 
 OUT_FILE = REPO / "files" / "strava" / "peaks.json"
@@ -194,8 +195,14 @@ def main():
     if not TRACKS_FILE.exists():
         sys.exit("No track cache. Run: python3 scripts/strava_sync.py")
 
+    # Ski tours count as summits too — earning a peak on skins is still earning
+    # it. They live in a separate cache so that route grouping doesn't see them.
+    tracks = json.loads(TRACKS_FILE.read_text())
+    if SKI_TRACKS_FILE.exists():
+        tracks.update(json.loads(SKI_TRACKS_FILE.read_text()))
+
     hikes = []
-    for activity_id, t in json.loads(TRACKS_FILE.read_text()).items():
+    for activity_id, t in tracks.items():
         hikes.append(
             {
                 "id": int(activity_id),
@@ -206,7 +213,7 @@ def main():
             }
         )
 
-    print(f"{len(hikes)} hikes with usable tracks.")
+    print(f"{len(hikes)} tracks to match (hikes, trail runs and ski tours).")
 
     all_tiles = set()
     for h in hikes:

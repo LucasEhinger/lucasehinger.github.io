@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Hand-drawn region polygons for the White Mountains, as [lat, lon] rings.",
+    "Boundaries follow the notches and highways the AMC guide's sections are",
+    "organised around, because those are what actually separate one range from",
+    "the next: Franconia Notch (I-93) at lon -71.685, Crawford Notch (Rt 302)",
+    "as the diagonal through -71.47/-71.28, Pinkham Notch (Rt 16) at -71.21,",
+    "the Wild River valley at -71.03, Evans Notch (Rt 113) further east, Rt 2",
+    "across the north at lat 44.37, and the Kancamagus across the south at",
+    "roughly lat 44.03.",
+    "These are approximations drawn by hand, not surveyed lines. A trail that",
+    "crosses a boundary belongs to both regions it touches, so a boundary being",
+    "a little off moves a trail into an extra region rather than out of its",
+    "real one."
+  ],
+  "regions": {
+    "Kilkenny & the North": [[44.37, -71.62], [44.37, -71.05], [44.66, -71.05], [44.66, -71.62]],
+    "Mahoosuc Range": [[44.34, -71.05], [44.34, -70.76], [44.66, -70.76], [44.66, -71.05]],
+    "Presidential Range": [[44.39, -71.5], [44.39, -71.21], [44.13, -71.21], [44.11, -71.34], [44.24, -71.47], [44.31, -71.5]],
+    "Carter & Wildcat": [[44.41, -71.21], [44.41, -71.06], [44.12, -71.06], [44.12, -71.21]],
+    "Baldface & Evans Notch": [[44.41, -71.06], [44.41, -70.76], [44, -70.76], [44, -71.06]],
+    "Zealand & Crawford Notch": [[44.33, -71.56], [44.33, -71.47], [44.24, -71.47], [44.11, -71.34], [44.02, -71.24], [43.99, -71.4], [44.12, -71.53]],
+    "Franconia Range": [[44.33, -71.72], [44.33, -71.52], [44.2, -71.52], [44.17, -71.58], [44.06, -71.66], [44.06, -71.72]],
+    "Pemigewasset & Bonds": [[44.2, -71.52], [44.17, -71.58], [44.06, -71.66], [44, -71.56], [44.01, -71.38], [44.12, -71.4], [44.18, -71.46]],
+    "Cannon & Kinsman": [[44.28, -71.86], [44.28, -71.685], [44.04, -71.685], [44.04, -71.86]],
+    "Moosilauke": [[43.74, -71.97], [43.74, -71.62], [44.06, -71.66], [44.2, -71.86], [44.2, -71.97]],
+    "Waterville Valley": [[44.06, -71.7], [44.06, -71.47], [43.78, -71.47], [43.78, -71.7]],
+    "Sandwich Range": [[44.02, -71.47], [44.02, -71.22], [43.76, -71.22], [43.76, -71.47]],
+    "Moats & Green Hills": [[44.2, -71.24], [44.2, -71.03], [43.88, -71.03], [43.88, -71.24]]
+  }
+}

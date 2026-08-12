@@ -39,6 +39,10 @@ jobs:
           STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+          # Home/office coordinates stripped from every committed track. Absent
+          # in a fork or a misconfigured repo, the sync warns loudly rather than
+          # silently publishing them.
+          STRAVA_PRIVACY_ZONES: ${{ secrets.STRAVA_PRIVACY_ZONES }}
         run: python scripts/strava_sync.py
 
       # Rematches summits from scripts/cache/tracks.json. Overpass is only
@@ -51,11 +55,36 @@ jobs:
         continue-on-error: true
         run: python scripts/strava_peaks.py
 
+      # Regroups repeated running routes from scripts/cache/run_tracks.json.
+      # Purely local computation — no network, no external service — so unlike
+      # the peak step this one is expected to succeed and is not allowed to fail
+      # quietly.
+      - name: Group run routes
+        run: python scripts/strava_runs.py
+
+      # Detailed GPS streams for any new hike/trail run/ski tour that reaches
+      # the White Mountains — usually zero or one activity, so usually zero or
+      # one API call. Summary polylines are too coarse to score trail coverage
+      # against; see the note at the top of strava_streams.py.
+      - name: Fetch White Mountain tracks
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+          STRAVA_PRIVACY_ZONES: ${{ secrets.STRAVA_PRIVACY_ZONES }}
+        run: python scripts/strava_streams.py
+
+      # Rescores trail coverage from the committed caches. Purely local — the
+      # trail network itself comes from scripts/wm_trails.py, which queries
+      # Overpass and is run by hand, not here.
+      - name: Score trail coverage
+        run: python scripts/wm_coverage.py
+
       - name: Commit and push if changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add files/strava/*.json scripts/cache/*.json
+          git add files/strava/*.json files/strava/*.geojson scripts/cache/*.json
           git diff --quiet && git diff --staged --quiet && { echo "No changes to commit."; exit 0; }
           git commit -m "Update Strava activity data"
           # A manual push (or another workflow) can land on master mid-run and

@@ -26,6 +26,15 @@ from pathlib import Path
 
 import requests
 
+from trackutil import (
+    crop_near_start,
+    crop_zones,
+    decode_polyline,
+    encode_polyline,
+    load_privacy_zones,
+    write_json_stable,
+)
+
 REPO = Path(__file__).resolve().parent.parent
 LOCAL = REPO / "local"
 TOKEN_FILE = LOCAL / "strava_tokens.json"
@@ -37,6 +46,8 @@ ACTIVITIES_FILE = OUT_DIR / "activities.json"
 # Excluded from the built site in _config.yml.
 CACHE_DIR = REPO / "scripts" / "cache"
 TRACKS_FILE = CACHE_DIR / "tracks.json"
+RUN_TRACKS_FILE = CACHE_DIR / "run_tracks.json"
+SKI_TRACKS_FILE = CACHE_DIR / "ski_tracks.json"
 
 API = "https://www.strava.com/api/v3"
 
@@ -70,6 +81,20 @@ SPORT_CATEGORY = {
 
 # Activities whose tracks get scanned for summits (see strava_peaks.py).
 HIKE_TYPES = CATEGORIES["hiking"] | CATEGORIES["trailrunning"]
+
+# Activities whose tracks get grouped into repeated routes (see strava_runs.py).
+# Trail runs are in both: they can summit a peak and they can be a Lucas Loop.
+RUN_TYPES = CATEGORIES["running"] | CATEGORIES["trailrunning"]
+
+# Ski tracks get their own cache rather than joining HIKE_TYPES: tracks.json
+# feeds strava_runs.py's route grouping too, and ski tours have no business
+# being clustered into Lucas Loops. Both strava_peaks.py (summits) and
+# wm_coverage.py (trail coverage) read this file alongside tracks.json.
+# Alpine skiing is deliberately excluded: a lift-served summit isn't one you
+# climbed, and including it added exactly one bogus ascent (Grubstake Peak, at
+# the top of a Crystal Mountain chairlift). Backcountry and nordic days stay —
+# those are earned under your own power.
+SKI_TYPES = CATEGORIES["backcountryski"] | CATEGORIES["nordicski"]
 
 METERS_PER_MILE = 1609.344
 FEET_PER_METER = 3.280839895
@@ -218,16 +243,33 @@ def main():
     token = get_access_token()
     cached = {} if args.full else load_cache()
 
+    privacy_zones = load_privacy_zones()
+    if privacy_zones:
+        print(f"{len(privacy_zones)} privacy zone(s) will be erased from run tracks.")
+    else:
+        print(
+            "WARNING: no privacy zones configured — run tracks will be published "
+            "with only the start-radius crop, which does not hide a home that "
+            "runs finish at. See load_privacy_zones() in scripts/trackutil.py.",
+            file=sys.stderr,
+        )
+
     # Previously published rows and tracks. On CI the raw cache doesn't exist,
     # so these committed files are what makes an incremental run possible.
     published = {}
     tracks = {}
+    run_tracks = {}
+    ski_tracks = {}
     if not args.full:
         if ACTIVITIES_FILE.exists():
             for e in json.loads(ACTIVITIES_FILE.read_text())["activities"]:
                 published[str(e["id"])] = e
         if TRACKS_FILE.exists():
             tracks = json.loads(TRACKS_FILE.read_text())
+        if RUN_TRACKS_FILE.exists():
+            run_tracks = json.loads(RUN_TRACKS_FILE.read_text())
+        if SKI_TRACKS_FILE.exists():
+            ski_tracks = json.loads(SKI_TRACKS_FILE.read_text())
 
     after_epoch = None
     if cached:
@@ -283,28 +325,85 @@ def main():
     # without needing the raw cache — which CI never has.
     source = cached.values() if args.full else fetched
     for a in source:
-        if a.get("sport_type", a.get("type")) not in HIKE_TYPES:
+        sport = a.get("sport_type", a.get("type"))
+        raw_polyline = (a.get("map") or {}).get("summary_polyline")
+        if not raw_polyline:
             continue
-        polyline = (a.get("map") or {}).get("summary_polyline")
-        if polyline:
+
+        # Every one of these caches is committed to a public repo, so the zones
+        # come off before anything is stored — the raw geometry never enters git
+        # history at all. Applied to all three rather than just runs: hikes are
+        # 60 km clear of any zone today, but that is a fact about this year's
+        # hiking, not a property of the pipeline. Four ski tracks already came
+        # within 190 m.
+        coords = crop_zones(decode_polyline(raw_polyline), privacy_zones)
+        if len(coords) < 2:
+            continue
+        polyline = encode_polyline(coords)
+
+        if sport in HIKE_TYPES:
             tracks[str(a["id"])] = {
                 "name": a["name"].strip(),
                 "date": a["start_date_local"][:10],
-                "sport": a.get("sport_type", a.get("type")),
+                "sport": sport,
+                "polyline": polyline,
+            }
+
+        if sport in SKI_TYPES:
+            ski_tracks[str(a["id"])] = {
+                "name": a["name"].strip(),
+                "date": a["start_date_local"][:10],
+                "sport": sport,
+                "polyline": polyline,
+            }
+
+        # Route grouping needs distance and time alongside the geometry, so
+        # this cache carries them rather than making strava_runs.py join back
+        # against activities.json.
+        if sport in RUN_TYPES:
+            # Runs additionally lose everything within PRIVACY_RADIUS_M of their
+            # own start, which covers the trailheads and doorways that aren't in
+            # the zone list.
+            cropped = crop_near_start(coords)
+            if len(cropped) < 2:
+                continue
+            polyline = encode_polyline(cropped)
+
+            run_tracks[str(a["id"])] = {
+                "name": a["name"].strip(),
+                "date": a["start_date_local"][:10],
+                "sport": sport,
+                "distance_mi": round(a["distance"] / METERS_PER_MILE, 2),
+                "gain_ft": round(a.get("total_elevation_gain", 0) * FEET_PER_METER),
+                "moving_time_s": a.get("moving_time", 0),
                 "polyline": polyline,
             }
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     TRACKS_FILE.write_text(json.dumps(tracks, separators=(",", ":"), sort_keys=True) + "\n")
+    SKI_TRACKS_FILE.write_text(
+        json.dumps(ski_tracks, separators=(",", ":"), sort_keys=True) + "\n"
+    )
+    # One run per line: the file is ~1 MB and gets rewritten daily, so keep the
+    # diffs (and the pack deltas) proportional to what actually changed.
+    RUN_TRACKS_FILE.write_text(
+        "{\n"
+        + ",\n".join(
+            f"{json.dumps(k)}:{json.dumps(v, separators=(',', ':'))}"
+            for k, v in sorted(run_tracks.items())
+        )
+        + "\n}\n"
+    )
 
     payload = {
-        "updated": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "updated": None,  # write_json_stable stamps this only on a real change
         "categories": {c: sorted(s) for c, s in CATEGORIES.items()},
         "activities": entries,
     }
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    ACTIVITIES_FILE.write_text(json.dumps(payload, separators=(",", ":")) + "\n")
+    if not write_json_stable(ACTIVITIES_FILE, payload):
+        print("No activity changes; left activities.json untouched.")
 
     by_category = collections.Counter(SPORT_CATEGORY[e["sport"]] for e in entries)
     print(f"\nWrote {len(entries)} activities to {ACTIVITIES_FILE.relative_to(REPO)}:")

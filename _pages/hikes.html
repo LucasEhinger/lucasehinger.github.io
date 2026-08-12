@@ -71,7 +71,8 @@ hidden: true
     #hk-from,
     #hk-to,
     #hk-metric,
-    #hk-peak-sort {
+    #hk-peak-sort,
+    #hm-region {
         background-color: var(--global-bg-color, #fff);
         color: var(--global-text-color, #333);
         border: 1px solid var(--global-border-color, #bbb);
@@ -424,11 +425,155 @@ hidden: true
     .hk-peak.unclimbed:hover {
         background-color: transparent;
     }
+
+    /* --- White Mountains coverage map --- */
+
+    #hm-map {
+        height: 520px;
+        border-radius: 8px;
+        border: 1px solid var(--global-border-color, #ccc);
+        /* Leaflet panes otherwise paint over the rounded corners. */
+        overflow: hidden;
+        z-index: 0;
+    }
+
+    @media (max-width: 600px) {
+        #hm-map {
+            height: 380px;
+        }
+    }
+
+    .hm-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 28px;
+        margin-bottom: 12px;
+    }
+
+    .hm-stat-value {
+        font-size: 1.5em;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+
+    .hm-stat-label {
+        font-size: 0.82em;
+        opacity: 0.7;
+    }
+
+    .hm-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 16px;
+        margin: 10px 0;
+        font-size: 0.85em;
+    }
+
+    .hm-key i {
+        display: inline-block;
+        width: 22px;
+        height: 4px;
+        border-radius: 2px;
+        margin-right: 6px;
+        vertical-align: middle;
+    }
+
+    /* Summits are points, not stretches, so the key reads as a dot. */
+    .hm-key i.hm-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        border: 1px solid #fff;
+    }
+
+    .hm-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.9em;
+        cursor: pointer;
+        margin-bottom: 0;
+    }
+
+    /* Region names sit on the map itself when every boundary is shown. They
+       label the lines, so they must not read as another thing drawn on top:
+       no box, no border, and never intercepting a click meant for a trail.
+       The translate centres the label on its marker's LatLng — a divIcon
+       anchors at its top-left corner otherwise. */
+    .hm-region-label {
+        background: none;
+        border: none;
+        box-shadow: none;
+        color: var(--global-text-color, #333);
+        opacity: 0.75;
+        font-size: 0.72em;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        width: auto !important;
+        height: auto !important;
+        padding: 0;
+        pointer-events: none;
+        white-space: nowrap;
+        text-shadow: 0 0 3px var(--global-bg-color, #fff);
+    }
+
+    .hm-region-label span {
+        display: inline-block;
+        transform: translate(-50%, -50%);
+    }
+
+    #hm-detail {
+        margin-top: 12px;
+        border: 1px solid var(--global-border-color, #ccc);
+        border-radius: 8px;
+        padding: 10px 14px;
+    }
+
+    .hm-detail-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px 14px;
+        margin-bottom: 6px;
+    }
+
+    .hm-meta {
+        font-size: 0.85em;
+        opacity: 0.75;
+    }
+
+    .hm-close {
+        margin-left: auto;
+        border: 1px solid #bbb;
+        border-radius: 999px;
+        padding: 1px 10px;
+        font-size: 0.8em;
+        cursor: pointer;
+        background-color: transparent;
+        color: var(--global-text-color, #333);
+    }
+
+    #hm-detail ul {
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    #hm-detail li {
+        display: flex;
+        gap: 12px;
+        align-items: baseline;
+    }
 </style>
 
 <p>
     Every activity below is pulled automatically from Strava. Use the date range and
     category toggles to scope everything on the page — stats, charts, table, and peaks.
+</p>
+
+<p class="hk-note">
+    See also: <a href="/runs/">Lucas Loops</a>, where the repeated running
+    routes are grouped into the loops I actually run.
 </p>
 
 <div id="hk-loading">Loading activity data&hellip;</div>
@@ -530,12 +675,53 @@ hidden: true
         <span id="hk-peak-count"></span> — click a peak to see the hikes it was climbed on.
         Summits are matched from GPS tracks against named peaks in OpenStreetMap, and count
         once per activity however many times the track crosses them. Peaks follow the date
-        range above; they come from hikes and trail runs regardless of the category toggles.
+        range above; they come from hikes, trail runs and ski tours regardless of the
+        category toggles. Resort skiing is excluded — a summit you rode a lift to isn't
+        one you climbed.
     </p>
     <div class="hk-peaks" id="hk-peaks"></div>
     <div id="hk-peak-detail" style="display: none;"></div>
 
 </div>
 
+<h2 id="hm-section">White Mountains trail coverage</h2>
+
+<p class="hk-note">
+    Every named trail inside the White Mountain National Forest, shaded by how many
+    separate hikes have crossed each stretch — so a loop walked twice by different
+    halves stays a single pass, not a double. Click a trail to see which hikes covered
+    it. Trails come from
+    OpenStreetMap and coverage is matched from GPS tracks, so the totals count what
+    OSM has mapped — including rail trails and forest roads the AMC guide wouldn't.
+    Unlike the rest of this page, the map ignores the date and category filters.
+</p>
+
+<div id="hm-loading">Loading trail map&hellip;</div>
+
+<div id="hm-content" style="display: none;">
+
+    <div class="hm-stats" id="hm-stats"></div>
+
+    <div class="hk-row" style="margin-bottom: 10px;">
+        <label class="hk-label" for="hm-region">Region:</label>
+        <select id="hm-region"></select>
+        <label class="hm-toggle">
+            <input type="checkbox" id="hm-peaks-toggle" checked> Show summits
+        </label>
+        <label class="hm-toggle">
+            <input type="checkbox" id="hm-bounds-toggle" checked> Show boundaries
+        </label>
+        <span class="hk-updated" id="hm-updated"></span>
+    </div>
+
+    <div id="hm-map"></div>
+
+    <div class="hm-legend" id="hm-legend"></div>
+
+    <div id="hm-detail" style="display: none;"></div>
+
+</div>
+
 <script src="https://cdn.plot.ly/plotly-3.3.1.min.js"></script>
 <script src="/assets/js/hikes.js?{{ site.time | date: '%s' }}"></script>
+<script src="/assets/js/hike-map.js?{{ site.time | date: '%s' }}"></script>
