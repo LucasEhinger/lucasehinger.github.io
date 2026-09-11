@@ -80,6 +80,75 @@ author_profile: true
 
     /* The three-step labeling method reads as a sequence, so give each step a
        visible container rather than letting the h3s float in body text. */
+    /* Annotated METAR: each token tinted, with a key below mapping tint to
+       meaning. Tints are deliberately pale so the monospace text stays readable
+       in both light and dark themes. */
+    .metar-annot {
+        margin: 12px 0 14px;
+    }
+
+    .metar-line {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.92em;
+        line-height: 2.1;
+        padding: 12px 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .mt {
+        border-radius: 3px;
+        padding: 3px 5px;
+        white-space: nowrap;
+    }
+
+    .t-id { background: #e8eaed; color: #3c4043; }
+    .t-time { background: #e8eaed; color: #3c4043; }
+    .t-wind { background: #e4f0e6; color: #2d6a38; }
+    .t-vis { background: #fde3e4; color: #9c2f36; font-weight: 700; }
+    .t-sky { background: #e2ebf8; color: #2a5490; }
+    .t-temp { background: #f1e8f7; color: #6b3d8f; }
+    .t-rmk { background: #e8eaed; color: #3c4043; font-style: italic; }
+    .t-tps { background: #fdeec2; color: #7a5608; font-weight: 700; }
+    .t-note { background: #f3f4f6; color: #5f6368; }
+
+    .metar-key {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 0.92em;
+    }
+
+    .metar-key td {
+        padding: 7px 8px;
+        border-bottom: 1px solid #eee;
+        vertical-align: top;
+    }
+
+    .metar-key td:first-child {
+        white-space: nowrap;
+        width: 1%;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.92em;
+    }
+
+    .record-fig {
+        width: 100%;
+        max-width: 860px;
+        height: auto;
+        display: block;
+        margin: 14px auto 6px;
+    }
+
+    .record-fig-cap {
+        font-size: 0.9em;
+        color: var(--global-fig-caption-color, #666);
+        max-width: 860px;
+        margin: 0 auto 18px;
+    }
+
     .method-step {
         border: 1px solid var(--global-border-color, #ccc);
         border-left: 4px solid #4C72B0;
@@ -176,11 +245,54 @@ author_profile: true
             coverage and the top height of any cloud deck sitting <em>below</em> the 6,288&nbsp;ft summit. Nobody else
             reports this, because almost nowhere else is there a person standing above the clouds to report it.</p>
         <p>A real report, from a day I scored undercast:</p>
-        <pre style="overflow-x:auto; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">KMWN 211559Z 06010KT <strong>70SM</strong> SCT/// <strong>OVC070</strong> 09/M06 RMK <strong>TPS LWR SCT040</strong> SUN DMLY VSBL BINOVC</pre>
-        <p>Read that as: visibility 70 statute miles, a solid layer 7,000&nbsp;ft above the station, and — in the
-            remarks — a scattered deck with tops at 4,000&nbsp;ft, which is 2,288&nbsp;ft <em>below</em> where the
-            observer is standing. Note the datum flips: heights in the body of a METAR are above the station, but
-            <code>TPS LWR</code> heights are above sea level.</p>
+        <div class="metar-annot">
+            <div class="metar-line"><span class="mt t-id">KMWN</span> <span class="mt t-time">211559Z</span>
+                <span class="mt t-wind">06010KT</span> <span class="mt t-vis">70SM</span>
+                <span class="mt t-sky">SCT///</span> <span class="mt t-sky">OVC070</span>
+                <span class="mt t-temp">09/M06</span> <span class="mt t-rmk">RMK</span>
+                <span class="mt t-tps">TPS LWR SCT040</span> <span class="mt t-note">SUN DMLY VSBL</span>
+                <span class="mt t-note">BINOVC</span></div>
+            <table class="metar-key">
+                <tbody>
+                    <tr><td><span class="mt t-id">KMWN</span></td>
+                        <td>Station. Mount Washington summit, 6,288&nbsp;ft.</td></tr>
+                    <tr><td><span class="mt t-time">211559Z</span></td>
+                        <td>Filed on the 21st at 15:59&nbsp;UTC — just before local noon.</td></tr>
+                    <tr><td><span class="mt t-wind">06010KT</span></td>
+                        <td>Wind from 060° at 10&nbsp;knots. A calm day up there.</td></tr>
+                    <tr><td><span class="mt t-vis">70SM</span></td>
+                        <td><strong>Visibility 70 statute miles.</strong> Eyeballed off distant landmarks, because
+                            someone is standing there. Automated stations stop at 10.</td></tr>
+                    <tr><td><span class="mt t-sky">SCT///</span></td>
+                        <td>Scattered layer, height unknown — the <code>///</code> means the observer could not
+                            assign one. Note this is <em>not</em> evidence the summit is in cloud.</td></tr>
+                    <tr><td><span class="mt t-sky">OVC070</span></td>
+                        <td>Overcast at 7,000&nbsp;ft <strong>above the station</strong> — so ~13,300&nbsp;ft above
+                            sea level. This is the lid overhead, and at 7,000&nbsp;ft it is high enough to leave the
+                            view intact.</td></tr>
+                    <tr><td><span class="mt t-temp">09/M06</span></td>
+                        <td>Temperature 9&nbsp;°C, dewpoint &minus;6&nbsp;°C. The gap means the air at the summit is
+                            nowhere near saturated.</td></tr>
+                    <tr><td><span class="mt t-rmk">RMK</span></td>
+                        <td>Everything after this is the observer&rsquo;s free text.</td></tr>
+                    <tr><td><span class="mt t-tps">TPS LWR SCT040</span></td>
+                        <td><strong>The group this whole project rests on.</strong> &ldquo;Tops lower&rdquo;: a
+                            scattered deck whose tops reach 4,000&nbsp;ft <strong>above sea level</strong> —
+                            2,288&nbsp;ft <em>below</em> the observer.</td></tr>
+                    <tr><td><span class="mt t-note">SUN DMLY VSBL</span></td>
+                        <td>Sun dimly visible through the layer above.</td></tr>
+                    <tr><td><span class="mt t-note">BINOVC</span></td>
+                        <td>&ldquo;Breaks in overcast&rdquo; — gaps in the lid.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p><strong>The datum flips halfway through.</strong> Heights in the body of a METAR
+            (<code>OVC070</code>) are measured <em>above the station</em>; heights after <code>TPS LWR</code> are
+            <em>above sea level</em>. Same report, two different zero points — get that backwards and a deck
+            2,288&nbsp;ft below you reads as a layer 4,000&nbsp;ft above you.</p>
+        <p>Seeing it once makes it click: the <a href="/weather/observations/">observation viewer</a> puts 42 of these
+            reports next to the webcam frames taken minutes earlier, so you can look at the photographs and the
+            observer&rsquo;s words together — including the days where my scoring and the automated screen disagree.</p>
         <p>So: take the 589 hand-labeled days, pull the observer&rsquo;s report nearest noon on each one, and ask which
             combination of conditions best separates the 24 undercast days from the other 565. That search produced five
             cuts:</p>
@@ -240,7 +352,7 @@ author_profile: true
     <div class="method-step">
         <h3>Step 3 &mdash; Run the screen over 29 years</h3>
         <p>The observer remarks are archived. Once the screen is fixed, it can be pointed at the entire back catalogue:
-            <strong>253,317 hourly observations from 1997 through 2026</strong>, of which <strong>6,843 pass as
+            <strong>253,317 hourly observations from 1997 through 2026</strong>, of which <strong>6,852 pass as
             undercast</strong>. That is roughly 285 times more positive examples than hand-labeling produced, from one
             year of squinting at webcam stills.</p>
         <p>1997 is not an arbitrary start. The remark format changes underneath you as you go back: before 1997 the
@@ -259,6 +371,13 @@ author_profile: true
                 quadruple in thirty years. What changed is the reporting: <code>TPS LWR</code> went from an occasional
                 note to something observers record routinely, so the later years are simply more thoroughly
                 documented.</p>
+            <img class="record-fig" src="/files/weather/examples/model_training_images/undercast_rate_drift.png"
+                alt="Two panels. Top: share of observations passing the undercast screen by year, rising from 1.2% in 1997 to 5.4% in 2024. Bottom: the two components, how often observers mention a deck at all and how often those mentions clear the screen.">
+            <p class="record-fig-cap">The rise splits into two factors, and both are about writing rather than
+                weather: observers mention a deck below the summit <strong>2.6&times;</strong> more often than in 1997,
+                and those mentions are <strong>1.7&times;</strong> more likely to be complete enough to clear the screen
+                (2.6 &times; 1.7 gives the 4.5&times; rise in the top panel). Note also that this is a noisy drift, not
+                a steady climb — 2025 and 2026 fall back toward the long-run level.</p>
             <p>Two consequences. First, this record cannot be read as a climate trend — it is a record of what was
                 written down, and the writing habits moved. Second, for training it is an outright trap: a model handed
                 the date alongside the weather could score respectably by learning &ldquo;recent years have more
@@ -275,37 +394,162 @@ author_profile: true
             remark text and the hand-coded METAR body. None of it is an instrument reading. That is the whole reason the
             dataset exists (no sensor reports &ldquo;there is a sea of cloud 2,000&nbsp;ft below me&rdquo;), and also its
             central limitation.</p>
-        <p>So the 6,843 undercast observations are a <em>proxy</em>, not truth. At precision 0.70, roughly three in ten
+        <p>So the 6,852 undercast observations are a <em>proxy</em>, not truth. At precision 0.70, roughly three in ten
             are something other than a clean undercast. And recall is capped near 0.79 by the remarks themselves: of the
             eight labeled undercast days the screen misses, five report a scattered deck (deliberately excluded) and two
             report the summit fogged in at 1/16&nbsp;SM — the observer could not see the deck that the webcam could.</p>
         <p>Because of that, the hand-labeled days are never used for training. They are held back as an independent
             test set, so that a model trained on the screen&rsquo;s labels can be scored against human judgement of
             actual photographs rather than against the screen that produced its training data.</p>
-        <p><em>Status:</em> the 29-year record is built, and the forecast parameters for it are being downloaded now —
-            at every observation&rsquo;s own valid time, at one-day and two-day lead as well as near-analysis. The
-            results further down this page still come from the earlier setup, which had only the 24 hand-labeled
-            undercast days to learn from and sampled its forecast fields at the wrong time of day. Expect those numbers
-            to move.</p>
+        <p><em>Status:</em> the 29-year record is built, the forecast parameters have been downloaded at every
+            observation&rsquo;s own valid time for three leads, and the models are retrained — the headline numbers are
+            in <a href="#results">Results</a>. The confusion matrices, feature-importance charts and per-source tables
+            further down have <em>not</em> been regenerated and still describe the first pass, which had only the 24
+            hand-labeled undercast days to learn from and sampled its forecast fields at the wrong time of day.</p>
     </details>
 
-    <h2>First Attempt</h2>
-    Scientific consensus is that undercast conditions are caused by temperature inversions. I figured it would be easy
-    to query a couple NOAA models, look for when temperatures inversions were predicted, and voila, I have an undercast
-    precictor.
+    <h3>What that buys</h3>
+    <img class="record-fig" src="/files/weather/examples/model_training_images/training_data_scale.png"
+        alt="Horizontal bar chart on a log scale. Hand-labeled webcam stills: 589 observations, 24 undercast. Observer remarks 1997-2026: 253,317 observations, 6,852 undercast.">
+    <p class="record-fig-cap">Hand-labeling a year of webcam frames produced 589 days carrying
+        <strong>24</strong> undercast examples. Reading the observer&rsquo;s own words over the same criteria produced
+        253,317 hourly observations carrying <strong>6,852</strong> — roughly <strong>286&times;</strong> more positive
+        examples, and enough that a classifier can see more than a handful of cases. From that pool a stratified
+        sample of 24,545 observations is drawn for training, which is where the next section starts.</p>
 
-    Turns out, predicting localized weather patterns in the mountains is hard. Not to mention, on the most prominent
-    peak for almost 1000 miles, which also renowned for its harsh weather.
+    <h2 id="first-attempt">First Attempt</h2>
+    <p>Scientific consensus is that undercast conditions are caused by temperature inversions. I figured it would be
+        easy to query a couple of NOAA models, look for when temperature inversions were predicted, and voila, I have
+        an undercast predictor. No machine learning required.</p>
+    <p>Turns out, predicting localized weather patterns in the mountains is hard — and more so on the most prominent
+        peak for almost 1,000 miles, one renowned for its harsh weather. But &ldquo;hard&rdquo; is not a number, so
+        here is the actual experiment. Four hand-written rules, each a statement about the atmosphere rather than a
+        fitted model, with their thresholds tuned on the training split only and then applied untouched to the same
+        holdouts the classifiers are scored on.</p>
+
+    <div style="margin-top:12px; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:640px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Rule</th>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">In words</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;"><strong>A</strong> inversion</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">Temperature at 850&nbsp;mb warmer than at
+                        925&nbsp;mb. That layer sits just below the summit, so a positive difference is a capping
+                        inversion exactly where an undercast&rsquo;s lid should be.</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;"><strong>B</strong> summit above the deck
+                    </td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">The model reports no cloud ceiling, or one
+                        above 1,917&nbsp;m — i.e. it does not think the summit itself is in the murk.</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;"><strong>C</strong> = A and B</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">An inversion, with the summit out of it.
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;"><strong>D</strong> = C and sees far</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">Plus modelled surface visibility above a
+                        threshold — you have to be able to see the deck for it to count.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h4>How they do</h4>
+    <p>Scored on the base-rate holdout — a full unsampled year, where undercast really is about 3% of hours, so
+        precision reads honestly:</p>
+    <div style="margin-top:12px; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:660px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Source</th>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Best rule</th>
+                    <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">Precision</th>
+                    <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">Recall</th>
+                    <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">False alarms</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">HRRR</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">D</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.09</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.60</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">1,651</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">NAM</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">D</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.07</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.53</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">1,879</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">RAP</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">D</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.07</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.48</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">1,743</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">ECMWF</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">A (no ceiling field published)</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.06</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.68</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">1,975</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p style="margin-top:12px;">So the physics-only approach <em>works</em>, in the narrow sense that it beats
+        guessing: at a 3% base rate, precision 0.09 is a threefold lift, and it catches 60% of real undercasts. It is
+        also unusable. Acting on HRRR&rsquo;s best rule means <strong>1,651 false alarms in a single year</strong> —
+        about four and a half wrong calls every day, to catch 154 real events.</p>
+
+    <details style="margin-top:14px;">
+        <summary style="cursor:pointer; font-weight:600;">Two rules that seemed obvious and were wrong (click to
+            expand)</summary>
+        <p style="margin-top:12px;"><strong>&ldquo;Modelled cloud top below the summit.&rdquo;</strong> This is the
+            most natural way to say &ldquo;the deck is beneath me,&rdquo; and it is backwards. Rows where HRRR puts the
+            cloud top below 1,917&nbsp;m have a <strong>9.2%</strong> undercast rate against a 16.8% base rate in that
+            sample, while rows where HRRR reports <em>no cloud at all</em> run at <strong>21.5%</strong>. The reason is
+            resolution: HRRR&rsquo;s 3&nbsp;km terrain flattens this grid cell to roughly 1,200&nbsp;m, some
+            700&nbsp;m below the real summit. The model has no atmosphere between its own ground and the place the
+            observer is standing, so it cannot represent &ldquo;the deck tops out below me&rdquo; — it can only say
+            whether its cell is in cloud. Which is why rule&nbsp;B ended up phrased as the <em>absence</em> of a
+            ceiling.</p>
+        <p><strong>&ldquo;And low cloud cover is high.&rdquo;</strong> Adding a low-cloud-fraction term makes every
+            combination worse — F1 on the training split drops from 0.41 to 0.09. Same cause: at this grid cell the
+            low-cloud field describes cloud around the model&rsquo;s own ground, which is not the deck below the peak.
+        </p>
+        <p>Both failures point the same way. The pressure-level temperatures are trustworthy here because a pressure
+            surface does not care what the model thinks the terrain is doing; anything keyed to <em>height above the
+            model&rsquo;s ground</em> is measuring a mountain 700&nbsp;m shorter than the real one.</p>
+    </details>
+
+    <p style="margin-top:14px;">For what it is worth, the machine-learning models below roughly double that precision
+        from the same HRRR fields, and the combined model does about five times better — which is the honest argument
+        for bothering with any of it. The rules are not a strawman: they are re-derived, tuned and scored by
+        <code>scripts/baseline_undercast_rules.py</code> on every run, so the comparison stays current.</p>
 
 
     <h2>The Model</h2>
-    <p>You can play around with a couple different examples of undercast, clear, and cloudy days in the region below
-        (link), but no obvious relation jumps out. Notably, when conditions are undercast, forecast models do not
-        predict inversions. That’s not to say that inversions don’t exist; just that global weather models fail to
-        predict them, or that they are small enough (in vertical extent) to not be visible.</p>
-
-    <p>With no obvious correlation between undercast conditions and model predictions, I figured this would be a good
-        tool for machine learning.</p>
+    <p>You can play around with a couple of different examples of undercast, clear, and cloudy days in the region
+        below (link), and no obvious relation jumps out by eye. For a long time I took that further than the evidence
+        warranted and wrote here that the models simply <em>do not</em> predict the inversions — that they were too
+        shallow to show up. Measuring it properly over 29 years says otherwise: the 850&nbsp;mb&ndash;925&nbsp;mb
+        temperature difference, which is exactly the capping inversion just below the summit, is on its own the single
+        most informative number in the entire dataset. The signal is there. It is just weak enough, and tangled enough
+        with everything else, that no single threshold gets at it — which is what the
+        <a href="#first-attempt">rule-based attempt above</a> demonstrates and what makes this a reasonable machine
+        learning problem rather than an arithmetic one.</p>
     <details>
         <summary style="cursor:pointer; font-weight:600;">Input parameters (click to expand)</summary>
         <p style="margin-top:12px;">Weather models such as HRRR, RAP, NAM, GFS, ECMWF, and NBM expose hundreds of
@@ -588,7 +832,116 @@ author_profile: true
         925&nbsp;mb temperature, boundary-layer mixing height, cloud-top height, and the freezing level. See <a
             href="/scripts/plot_undercast_models.py">plot_undercast_models.py</a> for generation details.</p>
 
-    <h3>Results</h3>
+    <h3 id="results">Results &mdash; retrained on the 29-year record</h3>
+    <p>These are the numbers from the rebuilt pipeline: one row per observation at its own valid time, ~2,900 undercast
+        examples instead of 24, and three forecast leads. Thresholds come from the true-base-rate holdout; the
+        <strong>ROC-AUC is on that same unsampled year</strong>, broken out by how far ahead the forecast was made.
+        Everything below this table — the confusion matrices, feature importances and per-source tables — still comes
+        from the <em>earlier</em> setup and has not been regenerated yet.</p>
+
+    <div style="margin-top:12px; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:680px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Source</th>
+                    <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">AUC @&nbsp;1&nbsp;h</th>
+                    <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">AUC @&nbsp;24&nbsp;h</th>
+                    <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">AUC @&nbsp;48&nbsp;h</th>
+                    <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">Precision</th>
+                    <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">Recall</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="background:#f7f8f9;">
+                    <td style="padding:8px; border-bottom:1px solid #eee;"><strong>All parameters</strong>
+                        <span style="color:#8a6116;">&nbsp;provisional</span></td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;"><strong>0.947</strong>
+                    </td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;"><strong>0.930</strong>
+                    </td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;"><strong>0.877</strong>
+                    </td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;"><strong>0.45</strong></td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;"><strong>0.42</strong></td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">HRRR</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.894</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.872</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.832</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.19</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.38</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">NBM</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.878</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.817</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.820</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.18</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.40</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">ECMWF</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.874</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.865</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.810</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.22</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.44</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">RAP</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.870</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.836</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.783</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.15</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.49</td>
+                </tr>
+                <tr>
+                    <td style="padding:8px; border-bottom:1px solid #eee;">NAM</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.845</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.820</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.805</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.20</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.29</td>
+                </tr>
+                <tr style="color:#8a6116;">
+                    <td style="padding:8px; border-bottom:1px solid #eee;">GFS&nbsp;<em>&mdash; being refetched</em>
+                    </td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">&mdash;</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">&mdash;</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">&mdash;</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">&mdash;</td>
+                    <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">&mdash;</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p style="margin-top:12px;"><strong>Two results worth pulling out.</strong> First, skill barely decays with lead —
+        0.947 at one hour against 0.877 at two days. The models are not merely <em>recognising</em> an inversion that
+        has already formed; they genuinely forecast it. Second, combining all six sources beats the best single one by
+        a wide margin (precision 0.45 against HRRR&rsquo;s 0.19) despite training on a quarter as much data, because
+        the models are wrong in different ways and the disagreement is itself informative.</p>
+
+    <p>Precision around 0.45 is still the weak spot: roughly half of the alerts are wrong. Some of that is the ceiling
+        built into the training labels — the screen that generates them is itself only ~70% precise, so about three in
+        ten training positives are not undercast.</p>
+
+    <div class="proxy-note" style="border-left:3px solid #d9a441; padding:10px 14px; margin:16px 0;">
+        <p style="margin:0;"><strong>Why two rows say &ldquo;provisional&rdquo;.</strong> While writing this up I
+            found that every GFS value in the dataset had been sampled at 44.25°N,&nbsp;0°E — in southwestern France,
+            about 5,400&nbsp;km from the mountain. GFS publishes longitude on a 0–360 grid, and asking for
+            &minus;71.30 does not raise an error; it quietly snaps to the nearest value in range, which is 0. The bug
+            is fixed and GFS is being re-downloaded now. Until that finishes, the GFS row is blank rather than wrong,
+            and the combined row is marked provisional because it was trained with those columns present. Removing
+            them outright slightly <em>improves</em> the combined model, so its numbers should hold up or get better.
+        </p>
+    </div>
+
+    <h3>Earlier results (first pass)</h3>
+    <p>Everything from here down describes the first version of the model — trained on the 24 hand-labeled undercast
+        days, with forecast fields sampled at a fixed time of day rather than at each observation&rsquo;s own valid
+        time. It is kept for comparison until the figures are regenerated.</p>
     <p>No single model is used on its own. The deployed prediction is a majority vote — a day is called undercast only
         when at least two of the three algorithms agree at their chosen thresholds. Requiring agreement trims false
         alarms at the cost of some recall, which is the right trade for a page you'd check before driving to a
@@ -826,12 +1179,20 @@ author_profile: true
 
 
     <h3>Next Steps</h3>
-    <p>The model performance is adequate at best. While there are a number of fancy ML techniques that can be used to
-        squeeze a few percent of accuracy, the main limitation for the model is the quality and quantity of the
-        available data. From the Mt. Washington webcam, there are only a handful of days with clear-cut undercast
-        conditions, and with a single image per day spanning just two years, the labeled dataset is both small and
-        coarse. As such, the highest-leverage next step isn't a fancier algorithm — it's better data: more years of
-        observations, several images per day to pin down timing, and a few additional summit webcams to widen the net.
-        While (some of) these exist, I haven’t taken the time to manually analyze each image, and thus the model remains
-        sub-par for the time being. If you want to know if it’s undercast, you’ll have to hike up yourself. </p>
+    <p>The original version of this section argued that the binding constraint was data quantity — 24 undercast days
+        from a single image per day is not much to learn from — and that the highest-leverage next step was more
+        labels, not a fancier algorithm. That turned out to be right, and reading the summit observer&rsquo;s remarks
+        instead of hand-scoring photographs supplied roughly 286&times; more positive examples. Discrimination improved
+        a lot: the combined model now separates undercast from not at ROC-AUC 0.95 an hour ahead and 0.88 two days
+        ahead.</p>
+    <p>What did <em>not</em> improve as much is precision, which sits near 0.45 — about half the alerts are still
+        wrong. The constraint has moved rather than gone away. It is now the <em>labels themselves</em>: the screen
+        that reads the remarks is only about 70% precise, so roughly three in ten training positives are not really
+        undercast, and no classifier can be cleanly better than the thing defining its target. The useful next steps
+        are consequently about truth, not architecture — more hand-scored days to enlarge the honest test set, several
+        images per day to pin down timing, and observed vertical temperature profiles from the Auto Road, which would
+        measure the inversion directly instead of inferring it from a model that thinks this mountain is 700&nbsp;m
+        shorter than it is.</p>
+    <p>So it is better than it was, and still not something to plan a sunrise around. If you want to know whether
+        it&rsquo;s undercast, you&rsquo;ll have to hike up yourself.</p>
 </div>
