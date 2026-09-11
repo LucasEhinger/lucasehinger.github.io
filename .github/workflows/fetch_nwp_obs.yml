@@ -122,11 +122,25 @@ jobs:
             --limit ${{ github.event.inputs.limit }} \
             --resume
 
+      - name: Stage only this shard's own output
+        # The output directory also holds every OTHER shard's file, because the
+        # checkout carries whatever a previous run committed. Uploading the glob
+        # put all 20 files in all 20 artifacts, and `merge-multiple` then had 20
+        # jobs racing to write the same 20 paths -- which produced files with
+        # valid content followed by thousands of NUL bytes. Copy just this
+        # shard's file to a clean directory so each artifact holds exactly one.
+        run: |
+          mkdir -p upload
+          f="files/weather/csv/obs/nwp_obs_shard_$(printf '%03d' ${{ matrix.shard }}).csv"
+          test -f "$f" || { echo "::error::$f was not produced"; exit 1; }
+          cp "$f" upload/
+          ls -l upload/
+
       - uses: actions/upload-artifact@v7
         with:
           name: nwp-obs-shard-${{ matrix.shard }}
-          path: files/weather/csv/obs/*.csv
-          if-no-files-found: warn
+          path: upload/*.csv
+          if-no-files-found: error
           retention-days: 14
 
   collect:
@@ -147,6 +161,37 @@ jobs:
           pattern: nwp-obs-shard-*
           merge-multiple: true
           path: files/weather/csv/obs
+
+      - name: Verify shard integrity
+        # Fail loudly rather than committing data that parses but is wrong. The
+        # concurrent-write bug above produced exactly that: plausible line
+        # counts, correct header, NUL padding in the tail.
+        run: |
+          python - <<'PY'
+          import csv, glob, sys
+          bad = []
+          for p in sorted(glob.glob("files/weather/csv/obs/*.csv")):
+              raw = open(p, "rb").read()
+              if b"\x00" in raw:
+                  bad.append(f"{p}: {raw.count(bytes([0]))} NUL bytes (concurrent write)")
+                  continue
+              with open(p, newline="") as fh:
+                  rows = list(csv.DictReader(fh))
+              for i, r in enumerate(rows):
+                  if not (r.get("valid_utc") or "").startswith("20"):
+                      bad.append(f"{p} row {i}: bad valid_utc {r.get('valid_utc')!r}"); break
+                  if r.get("is_undercast") not in ("0", "1"):
+                      bad.append(f"{p} row {i}: is_undercast={r.get('is_undercast')!r} "
+                                 f"-- columns are shifted"); break
+              seen = {(r["valid_utc"], r["target_lead_h"]) for r in rows}
+              if len(seen) != len(rows):
+                  bad.append(f"{p}: {len(rows)-len(seen)} duplicate (obs, lead) rows")
+          if bad:
+              print("::error::shard integrity check FAILED")
+              for b in bad: print("  " + b)
+              sys.exit(1)
+          print(f"integrity OK across {len(glob.glob('files/weather/csv/obs/*.csv'))} shard files")
+          PY
 
       - name: Report coverage and fill rates
         # A throttled fetch and a genuinely missing field both leave an empty

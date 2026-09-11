@@ -380,11 +380,22 @@ def main():
     resume_from = next((p for p in (out_path, out_path + ".gz")
                         if os.path.exists(p)), None)
     if a.resume and resume_from:
-        with _open_read(resume_from) as fh:
-            for r in csv.DictReader(fh):
-                done.add((r["valid_utc"], r["target_lead_h"]))
-                existing.append(r)
-        print(f"resume: {len(done)} rows already present")
+        # Validate before trusting. A partially-written or concurrently-clobbered
+        # file parses as CSV but carries NUL padding and shifted columns; treating
+        # those rows as "done" would bake the corruption in permanently.
+        if b"\x00" in open(resume_from, "rb").read():
+            print(f"resume: {resume_from} contains NUL bytes -- discarding it and "
+                  f"refetching this shard from scratch")
+        else:
+            with _open_read(resume_from) as fh:
+                for r in csv.DictReader(fh):
+                    if not (r.get("valid_utc") or "").startswith("20"):
+                        continue
+                    if r.get("is_undercast") not in ("0", "1"):
+                        continue
+                    done.add((r["valid_utc"], r["target_lead_h"]))
+                    existing.append(r)
+            print(f"resume: {len(done)} valid rows already present")
 
     tasks = []
     for o in obs:
