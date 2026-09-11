@@ -72,7 +72,6 @@ author_profile: true
 
 <div style="margin-bottom: 16px; display: flex; gap: 16px;">
     <a href="/weather/details/">Model Details</a>
-    <a href="/weather/historical-conditions/">Historical Weather</a>
 </div>
 
 <div style="margin-bottom: 20px; width: 100%; display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;"
@@ -107,7 +106,7 @@ author_profile: true
                     Toggle which models' traces appear; plots with no data for the selected models are
                     hidden automatically. HRRR, NAM, GFS and RAP cover every field; ECMWF and NBM only
                     publish some (e.g. temperature, ceiling, visibility), so they populate just the
-                    relevant plots. "All" is the combined-parameters undercast model.
+                    relevant plots. "Combined" is the all-parameters undercast model.
                 </div>
             </div>
             <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
@@ -129,7 +128,7 @@ author_profile: true
                 <input type="checkbox" name="model-toggle" value="nbm" aria-label="NBM" /> NBM
             </label>
             <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
-                <input type="checkbox" name="model-toggle" value="all" aria-label="All" checked /> All
+                <input type="checkbox" name="model-toggle" value="all" aria-label="Combined" checked /> Combined
             </label>
         </div>
         <div id="units-toggle"
@@ -306,8 +305,8 @@ Some weather modeling I've done to determine whether it'll be undercast in the m
 on Mt. Washington.
 
 <details style="margin-bottom: 20px;">
-    <summary style="cursor: pointer; font-weight: 600; color: var(color, #333); user-select: none;">Model
-        Explanations & Details
+    <summary style="cursor: pointer; font-weight: 600; color: var(color, #333); user-select: none;">Quick
+        Overview
     </summary>
     <div
         style="margin-top: 12px; padding: 12px; background-color: var(background-color, #f9f9f9); border-left: 3px solid var(border-color, #ccc); color: var(color, #666);">
