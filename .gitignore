@@ -54,3 +54,9 @@ files/weather/models/obs/*
 # Narrow shards from a partial re-fetch (fetch_nwp_at_obs.py --models ...).
 # Spliced into files/weather/csv/obs by merge_nwp_columns.py; never committed.
 files/weather/csv/obs_partial/
+
+# OneDrive sync conflict copies. This repo lives in a OneDrive folder, so a
+# write that races the sync client leaves a byte-identical duplicate named
+# "<file>-<Device Name>.<ext>" next to the original. They are never wanted.
+*-*’s MacBook Pro.*
+*-*'s MacBook Pro.*
