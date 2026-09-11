@@ -1,0 +1,171 @@
+name: Fetch NWP at Observation Times
+
+# Downloads forecast fields valid AT each summit observation time, for three
+# leads (~1 h, ~24 h, ~48 h), from every model whose archive covers that date.
+#
+# This replaces the date-based sampling the old regen_weather_csv.yml job used,
+# which pinned the Herbie init to 00Z and took fxx 1-8 -- fields valid 8pm-3am
+# local, the night before the noon image each row was labeled against.
+#
+# Inputs are committed, so a run needs no setup:
+#   files/weather/obs/nwp_sample.csv    which observation times to fetch
+# Build it first if it is stale:
+#   python3 scripts/fetch_iem_metar.py --cache <dir>
+#   python3 scripts/build_undercast_record.py --cache <dir> --validate
+#   python3 scripts/sample_undercast_obs.py --neg-per-pos 5
+#
+# Shards are independent and resumable: re-running with the same shard count
+# skips (observation, lead) pairs already present in that shard's output, so a
+# throttled or timed-out shard can simply be re-run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: "Number of parallel shards (must match across re-runs)"
+        # Measured ~26 s per (observation, lead) at 6 workers, so 73,635 tasks is
+        # ~540 single-machine hours. 120 shards puts each job near 4.5 h, under
+        # the 6 h cap with margin. Capped at 20 concurrent, that is ~6 waves.
+        # Runners may well beat a laptop's S3 throughput; if a shard does time
+        # out, re-run the workflow with the SAME shard count and --resume skips
+        # everything already fetched.
+        default: "120"
+      workers:
+        description: "Worker processes per shard. Downloads are network-bound, but the NOAA S3 buckets throttle -- going much above 6 mostly buys 503s."
+        default: "6"
+      leads:
+        description: "Target forecast leads in hours, space separated"
+        default: "1 24 48"
+
+concurrency:
+  group: fetch-nwp-obs
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    # Turn the shard-count input into a matrix. GitHub has no native way to
+    # build a dynamic matrix from a number, so emit the index list as JSON.
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.mk.outputs.matrix }}
+    steps:
+      - id: mk
+        run: |
+          python3 -c "
+          import json, os
+          n = int('${{ github.event.inputs.shards }}')
+          print('matrix=' + json.dumps(list(range(n))))
+          " >> "$GITHUB_OUTPUT"
+
+  fetch:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350 # safety margin under the 360-minute job cap
+    strategy:
+      fail-fast: false # one throttled shard must not kill the rest
+      max-parallel: 20
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        # herbie-data is deliberately unpinned: 2024.8.0 cannot read the current
+        # ECMWF open-data index and silently returns 3 of 23 fields for IFS.
+        # Anything from 2026.3.0 on is fine. The version is logged so a bad run
+        # can be traced to it.
+        run: |
+          python -m pip install --upgrade pip
+          pip install herbie-data numpy xarray
+          python -c "import herbie; print('herbie', herbie.__version__)"
+
+      - name: Fetch this shard
+        run: |
+          python scripts/fetch_nwp_at_obs.py \
+            --sample files/weather/obs/nwp_sample.csv \
+            --output-dir files/weather/csv/obs \
+            --num-shards ${{ github.event.inputs.shards }} \
+            --shard ${{ matrix.shard }} \
+            --workers ${{ github.event.inputs.workers }} \
+            --leads ${{ github.event.inputs.leads }} \
+            --resume
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nwp-obs-shard-${{ matrix.shard }}
+          path: files/weather/csv/obs/*.csv.gz
+          if-no-files-found: warn
+          retention-days: 14
+
+  collect:
+    needs: fetch
+    if: always() # commit whatever shards finished
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: nwp-obs-shard-*
+          merge-multiple: true
+          path: files/weather/csv/obs
+
+      - name: Report coverage and fill rates
+        # A throttled fetch and a genuinely missing field both leave an empty
+        # cell, so check this before trusting the data. A model far below its
+        # neighbours within its own date range means throttling, not a short
+        # archive.
+        run: |
+          pip install pandas
+          python - <<'PY'
+          import glob, gzip, pandas as pd
+          paths = sorted(glob.glob("files/weather/csv/obs/*.csv.gz"))
+          print(f"{len(paths)} shard files")
+          if not paths:
+              raise SystemExit("no shard output collected")
+          df = pd.concat([pd.read_csv(p) for p in paths], ignore_index=True)
+          print(f"{len(df):,} rows, {df.shape[1]} columns")
+          print(f"observations: {df.valid_utc.nunique():,}   "
+                f"positives: {int(df.is_undercast.sum()):,}")
+          print("\nrows per split:")
+          print(df.groupby(["split", "target_lead_h"]).size().to_string())
+          print("\nfill rate by model (within its own archive window):")
+          for m in ("hrrr", "nam", "nbm", "gfs", "rap", "ecmwf"):
+              cols = [c for c in df.columns
+                      if c.endswith(f"_{m}") and not c.startswith(("lead_", "meta_"))]
+              have = df[df[f"lead_{m}"].notna()]
+              if not len(have):
+                  print(f"  {m:6s} no rows"); continue
+              pct = 100 * have[cols].notna().to_numpy().mean()
+              print(f"  {m:6s} {len(have):7,} rows covered   {pct:5.1f}% of cells filled")
+          PY
+
+      - name: Commit and push
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add -f files/weather/csv/obs/*.csv.gz
+          git diff --staged --quiet && { echo "No changes to commit."; exit 0; }
+          git commit -m "Fetch NWP fields at summit observation times (3 leads)"
+          # The 6-hourly weather workflow can land on master mid-run, so rebase
+          # onto the latest remote and retry rather than failing the job.
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "Pushed on attempt $attempt."
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt); rebasing onto latest master..."
+            git pull --rebase origin master
+          done
+          echo "Failed to push after multiple attempts." >&2
+          exit 1

@@ -30,3 +30,11 @@ __pycache__/
 
 # Ignore Claude Code local settings
 .claude/
+# Webcam timelapse frames (~1 GB) - labelled locally, too big to commit
+files/weather/webcam/
+
+# *.csv above is a blanket ignore, but these two are pipeline INPUTS that the
+# NWP workflow reads out of the checkout, plus the 29-year undercast record
+# itself. They have to be tracked or the Action has nothing to run against.
+!files/weather/obs/nwp_sample.csv
+!files/weather/obs/undercast_record.csv.gz

@@ -77,6 +77,34 @@ author_profile: true
     .leakage-note>summary {
         color: #C44E52;
     }
+
+    /* The three-step labeling method reads as a sequence, so give each step a
+       visible container rather than letting the h3s float in body text. */
+    .method-step {
+        border: 1px solid var(--global-border-color, #ccc);
+        border-left: 4px solid #4C72B0;
+        border-radius: 6px;
+        padding: 4px 16px 12px 16px;
+        margin: 14px 0;
+    }
+
+    .method-step>h3 {
+        margin-top: 12px;
+    }
+
+    /* Caveat about the proxy labels -- same "read this aside" treatment as the
+       leakage note, different colour so they don't read as the same warning. */
+    .proxy-note {
+        border: 1px solid var(--global-border-color, #ccc);
+        border-left: 4px solid #DD8452;
+        border-radius: 6px;
+        background: rgba(221, 132, 82, 0.06);
+        padding: 12px 16px;
+    }
+
+    .proxy-note>summary {
+        color: #C0652C;
+    }
 </style>
 
 <div style="margin-bottom: 16px;">
@@ -92,10 +120,11 @@ author_profile: true
         <a href="https://www.windy.com/-Menu/menu?cbase,42.365,-71.099" target="_blank" rel="noopener">Windy</a>), and
         use that to forecast undercast conditions. When that failed to have the desired predictive power, I
         queried weather forecast data from a variety of sources, specifically looking for inversions. I quickly
-        discovered that undercast conditions are far more complex than a simple temperature inversion. As a result, I
+        discovered that undercast conditions are far more complex than a simple temperature inversion; or at minimum,
+        global models have a hard time predicting local inversions. As a result, I
         arrived at the models described below: an ensemble of three machine-learning algorithms, trained on forecasts
-        from six weather models (HRRR, RAP, NAM, GFS, ECMWF, and NBM) along with undercast conditions labeled from the
-        Mt. Washington webcam. While it works better than the previous methods, more data is needed for training.
+        from six weather models (HRRR, RAP, NAM, GFS, ECMWF, and NBM) against a record of when it was actually
+        undercast. Building that record turned out to be most of the work, and is described next.
     </p>
 
     <h2>About Undercasts</h2>
@@ -121,12 +150,154 @@ author_profile: true
     </ul>
 
     <h2>Determining if it’s undercast</h2>
-    <p>To validate any model (ML or otherwise), we need to know if it was undercast. While hiking every day in the White
-        Mountains is the optimal way to empirically determine undercast conditions; I also need to finish my PhD at some
-        point. As such, we use the Mt. Washington Observatory webcam timelapse to determine whether each day had
-        undercast conditions. Labeling timelapse photos was done manually, and not fun.</p>
+    <p>To validate any model (ML or otherwise), we need to know if it was actually undercast. Hiking up every day is the
+        ideal way to find out; I also need to finish my PhD at some point. What follows is the compromise — three steps
+        that turn one year of hand-labeled webcam images into a 29-year record.</p>
 
-    <p>Note that the webcam timelapse has data from the past 2 years, with one image per day (more on this later).</p>
+    <div class="method-step">
+        <h3>Step 1 &mdash; Label a year of webcam footage by hand</h3>
+        <p>The Mt.&nbsp;Washington Observatory publishes timelapse video from two cameras: one on the tower and one
+            looking out from the observatory itself. Both hold roughly one usable frame per day around local noon. I
+            pulled the frames, OCR&rsquo;d the burned-in timestamps to date them, and then sat down and scored every
+            single one by eye — tower and observatory views judged separately, then averaged, with anything at or above
+            0.5 counted as undercast.</p>
+        <p>That gives <strong>589 labeled days</strong> spanning 25&nbsp;May&nbsp;2024 to 3&nbsp;January&nbsp;2026, of
+            which <strong>24 are undercast</strong>. It was manual, and it was not fun.</p>
+        <p>It is also, on its own, nowhere near enough. Twenty-four positive examples cannot train a classifier on a
+            hundred-odd weather parameters. So the hand labels are not used as the training set — they are used as the
+            <em>answer key</em> for working out what an undercast looks like in a data source that goes back decades.</p>
+    </div>
+
+    <div class="method-step">
+        <h3>Step 2 &mdash; Work out what the summit observer writes down when it&rsquo;s undercast</h3>
+        <p>Mount Washington is one of the few remaining <em>staffed</em> weather stations in the country. Every hour, a
+            human being on the summit looks out the window and augments the station&rsquo;s METAR report with plain-text
+            remarks. The group that matters here is <code>TPS LWR</code> — &ldquo;tops lower&rdquo; — which gives the
+            coverage and the top height of any cloud deck sitting <em>below</em> the 6,288&nbsp;ft summit. Nobody else
+            reports this, because almost nowhere else is there a person standing above the clouds to report it.</p>
+        <p>A real report, from a day I scored undercast:</p>
+        <pre style="overflow-x:auto; padding:10px; border:1px solid #ddd; border-radius:4px; font-size:0.9em;">KMWN 211559Z 06010KT <strong>70SM</strong> SCT/// <strong>OVC070</strong> 09/M06 RMK <strong>TPS LWR SCT040</strong> SUN DMLY VSBL BINOVC</pre>
+        <p>Read that as: visibility 70 statute miles, a solid layer 7,000&nbsp;ft above the station, and — in the
+            remarks — a scattered deck with tops at 4,000&nbsp;ft, which is 2,288&nbsp;ft <em>below</em> where the
+            observer is standing. Note the datum flips: heights in the body of a METAR are above the station, but
+            <code>TPS LWR</code> heights are above sea level.</p>
+        <p>So: take the 589 hand-labeled days, pull the observer&rsquo;s report nearest noon on each one, and ask which
+            combination of conditions best separates the 24 undercast days from the other 565. That search produced five
+            cuts:</p>
+        <div style="margin-top:12px; overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; min-width:620px;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Condition</th>
+                        <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Why</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;"><code>TPS LWR</code> coverage is broken or
+                            overcast</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">At least 5/8 of the sky below you. A
+                            <em>scattered</em> deck is a broken-up deck — including it cost more in false alarms than
+                            the extra catches were worth.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">visibility &gt; 40&nbsp;SM</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">You have to be able to <em>see</em> the
+                            deck. Because the station is staffed, visibility is eyeballed off distant landmarks and
+                            routinely reported out to 130&nbsp;SM — automated stations cap out at 10.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">no ceiling overhead, or one at or above
+                            5,000&nbsp;ft</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">A low lid overhead makes it a sandwich,
+                            not an undercast.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">deck top at least 500&nbsp;ft below the
+                            summit</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">A deck 200&nbsp;ft down is not a sea of
+                            clouds, it&rsquo;s weather happening at your feet.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">lowest layer of <em>any</em> coverage
+                            overhead at or above 1,000&nbsp;ft</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">The ceiling test only looks at broken and
+                            overcast layers, so it happily passes a report carrying <code>FEW002</code> — cloud
+                            touching the summit. You cannot look down on a deck from inside the muck.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p style="margin-top:12px;">That last cut was the single best addition: it throws out nine of sixteen false
+            alarms and costs not one real undercast day. It is also stable — anywhere between 500 and 1,000&nbsp;ft
+            scores the same — which is reassuring, because a threshold that only works at one exact value is usually
+            a threshold fitted to noise.</p>
+        <p>Scored against the full 589 hand-labeled days, the finished screen gets
+            <strong>precision 0.70</strong> and <strong>recall 0.67</strong>: when it says undercast it&rsquo;s right
+            about seven times in ten, and it catches about two thirds of the real ones.</p>
+    </div>
+
+    <div class="method-step">
+        <h3>Step 3 &mdash; Run the screen over 29 years</h3>
+        <p>The observer remarks are archived. Once the screen is fixed, it can be pointed at the entire back catalogue:
+            <strong>253,317 hourly observations from 1997 through 2026</strong>, of which <strong>6,843 pass as
+            undercast</strong>. That is roughly 285 times more positive examples than hand-labeling produced, from one
+            year of squinting at webcam stills.</p>
+        <p>1997 is not an arbitrary start. The remark format changes underneath you as you go back: before 1997 the
+            observers used a spaced variant that frequently omits the height altogether (<code>TPS LWR SCT NE-SW</code>),
+            and the deck-depth cut needs that height. 1997 is the first year the canonical
+            <code>TPS LWR SCT035</code> form is used consistently, so that is where the record starts.</p>
+        <p>Each observation is labeled on its own, not rolled up into a daily verdict. A deck that exists at 6&nbsp;am
+            and has burned off by 2&nbsp;pm is two different atmospheric states, and the forecast parameters are sampled
+            at each observation&rsquo;s own valid time to match.</p>
+
+        <details style="margin-top:14px;">
+            <summary style="cursor:pointer; font-weight:600;">One wrinkle: the reported rate drifts upward (click to
+                expand)</summary>
+            <p style="margin-top:12px;">The fraction of observations passing the screen climbs steadily through the
+                record — about 1.2% in 1997 against 5.4% in 2024. Undercast conditions on Mount Washington did not
+                quadruple in thirty years. What changed is the reporting: <code>TPS LWR</code> went from an occasional
+                note to something observers record routinely, so the later years are simply more thoroughly
+                documented.</p>
+            <p>Two consequences. First, this record cannot be read as a climate trend — it is a record of what was
+                written down, and the writing habits moved. Second, for training it is an outright trap: a model handed
+                the date alongside the weather could score respectably by learning &ldquo;recent years have more
+                undercast&rdquo; while learning nothing about the atmosphere. The fix is in how the comparison cases are
+                chosen — every undercast observation is matched against non-undercast observations drawn from the
+                <em>same year, same month, and same hour of day</em>, so the calendar and the clock carry no signal and
+                the weather parameters have to do the work.</p>
+        </details>
+    </div>
+
+    <details class="proxy-note" style="margin-top:18px;">
+        <summary style="cursor:pointer; font-weight:600;">What this record is not (click to expand)</summary>
+        <p style="margin-top:12px;">Every field above comes out of a human being&rsquo;s written observation — the
+            remark text and the hand-coded METAR body. None of it is an instrument reading. That is the whole reason the
+            dataset exists (no sensor reports &ldquo;there is a sea of cloud 2,000&nbsp;ft below me&rdquo;), and also its
+            central limitation.</p>
+        <p>So the 6,843 undercast observations are a <em>proxy</em>, not truth. At precision 0.70, roughly three in ten
+            are something other than a clean undercast. And recall is capped near 0.79 by the remarks themselves: of the
+            eight labeled undercast days the screen misses, five report a scattered deck (deliberately excluded) and two
+            report the summit fogged in at 1/16&nbsp;SM — the observer could not see the deck that the webcam could.</p>
+        <p>Because of that, the hand-labeled days are never used for training. They are held back as an independent
+            test set, so that a model trained on the screen&rsquo;s labels can be scored against human judgement of
+            actual photographs rather than against the screen that produced its training data.</p>
+        <p><em>Status:</em> the 29-year record is built, and the forecast parameters for it are being downloaded now —
+            at every observation&rsquo;s own valid time, at one-day and two-day lead as well as near-analysis. The
+            results further down this page still come from the earlier setup, which had only the 24 hand-labeled
+            undercast days to learn from and sampled its forecast fields at the wrong time of day. Expect those numbers
+            to move.</p>
+    </details>
+
+    <h2>First Attempt</h2>
+    Scientific consensus is that undercast conditions are caused by temperature inversions. I figured it would be easy
+    to query a couple NOAA models, look for when temperatures inversions were predicted, and voila, I have an undercast
+    precictor.
+
+    Turns out, predicting localized weather patterns in the mountains is hard. Not to mention, on the most prominent
+    peak for almost 1000 miles, which also renowned for its harsh weather.
+
+
     <h2>The Model</h2>
     <p>You can play around with a couple different examples of undercast, clear, and cloudy days in the region below
         (link), but no obvious relation jumps out. Notably, when conditions are undercast, forecast models do not
@@ -338,12 +509,15 @@ author_profile: true
         Logistic Regression performed significantly worse, so the other three are kept and studied further. This trio is
         trained independently for each of the seven models above.</p>
     <p>Undercast days are rare, so the classes are heavily imbalanced. Rather than synthesizing samples, each model
-        handles this with class weights (Random Forest's balanced class weights, XGBoost's <code>scale_pos_weight</code>,
-        and balanced sample weights for Gradient Boosting), which suits tree ensembles and keeps the pipeline clean.</p>
+        handles this with class weights (Random Forest's balanced class weights, XGBoost's
+        <code>scale_pos_weight</code>,
+        and balanced sample weights for Gradient Boosting), which suits tree ensembles and keeps the pipeline clean.
+    </p>
     <p>Because each date contributes many forecast-hour rows, every cross-validation fold is grouped by date, so no
         single day's rows land in both training and scoring — otherwise the model would "see the answer" for a day it is
         being tested on. (An earlier version split rows randomly and looked far more accurate than it really was.)
-        Performance is measured with five-fold grouped cross-validation, and each model's decision threshold is chosen on
+        Performance is measured with five-fold grouped cross-validation, and each model's decision threshold is chosen
+        on
         the pooled out-of-fold predictions rather than a single split: undercast is so rare that any one validation fold
         holds only a day or two of it. The threshold targets the most recall it can while holding precision above a
         floor, so the deployed model leans toward staying quiet unless the signal is reasonably strong.</p>
@@ -354,8 +528,10 @@ author_profile: true
         undercast it's right maybe one time in five, and it catches only a minority of real undercast days.</p>
 
     <details class="leakage-note" style="margin:16px 0;">
-        <summary style="cursor:pointer; font-weight:600;">What the row-leakage bug was hiding (click to expand)</summary>
-        <p style="margin-top:12px;">An earlier writeup here implied ~0.8 precision. That number came from the row-leakage
+        <summary style="cursor:pointer; font-weight:600;">What the row-leakage bug was hiding (click to expand)
+        </summary>
+        <p style="margin-top:12px;">An earlier writeup here implied ~0.8 precision. That number came from the
+            row-leakage
             bug mentioned above: folds were split by row rather than by date, so when a given forecast-hour row was
             scored, the other ~22 rows from the same day were sitting in the training set. The model didn't have to
             forecast an undercast — it only had to recognize a day it had already memorized.</p>
@@ -380,7 +556,8 @@ author_profile: true
         <img src="/files/weather/examples/model_training_images/per_source_performance.png"
             alt="ROC-AUC and PR-AUC per data source"
             style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Discrimination for each data
+        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Discrimination
+            for each data
             source (best of the three algorithms), from grouped out-of-fold cross-validation. Every source ranks well
             above chance (ROC-AUC), but precision–recall area stays low because undercast is so rare (dashed line = base
             rate).</figcaption>
@@ -390,8 +567,10 @@ author_profile: true
         <img src="/files/weather/examples/model_training_images/roc_pr_curves.png"
             alt="ROC and precision-recall curves for the all-parameters model"
             style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">ROC and precision–recall
-            curves for the combined all-parameters model (out-of-fold). The ROC curves sit well above the diagonal, while
+        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">ROC and
+            precision–recall
+            curves for the combined all-parameters model (out-of-fold). The ROC curves sit well above the diagonal,
+            while
             the precision–recall curves show precision plateauing around 0.2–0.25 — the practical ceiling for this
             signal.</figcaption>
     </figure>
@@ -433,20 +612,20 @@ author_profile: true
     <div id="results-model-toggle"
         style="display: inline-flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 12px; margin: 4px 0 16px 0; border: 1px solid var(--global-border-color, #ccc); border-radius: 6px;">
         <span style="font-weight: 600;">Show results for:</span>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="all" checked /> All parameters</label>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="hrrr" /> HRRR</label>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="nam" /> NAM</label>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="gfs" /> GFS</label>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="rap" /> RAP</label>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="ecmwf" /> ECMWF</label>
-        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox"
-                name="results-model" value="nbm" /> NBM</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox" name="results-model"
+                value="all" checked /> All parameters</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox" name="results-model"
+                value="hrrr" /> HRRR</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox" name="results-model"
+                value="nam" /> NAM</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox" name="results-model"
+                value="gfs" /> GFS</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox" name="results-model"
+                value="rap" /> RAP</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox" name="results-model"
+                value="ecmwf" /> ECMWF</label>
+        <label style="display: inline-flex; align-items: center; gap: 4px;"><input type="checkbox" name="results-model"
+                value="nbm" /> NBM</label>
     </div>
 
     <div id="results-tables"></div>
