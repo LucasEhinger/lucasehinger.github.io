@@ -44,3 +44,7 @@ files/weather/webcam/
 # RandomForest artifacts are large. Committing them is a CUTOVER decision --
 # see scripts/README_undercast_pipeline.md -- not something to do incidentally.
 files/weather/models/obs/
+
+# Narrow shards from a partial re-fetch (fetch_nwp_at_obs.py --models ...).
+# Spliced into files/weather/csv/obs by merge_nwp_columns.py; never committed.
+files/weather/csv/obs_partial/

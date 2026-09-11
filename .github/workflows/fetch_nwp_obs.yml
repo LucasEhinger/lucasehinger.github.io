@@ -48,6 +48,9 @@ on:
       only:
         description: "Run just these matrix entries, e.g. 0-19. Blank = all. Use WITH the same `shards` value as the real run so the sharding math is identical and the rows stay resume-compatible."
         default: ""
+      models:
+        description: "Re-fetch ONLY these models, e.g. `gfs`. Blank = all six. A partial run writes narrow shards to files/weather/csv/obs_partial and then splices just those columns into the committed shards, so the other five models' data is never re-downloaded or touched. Keep `shards` identical to the original run so the same observations land in the same shard."
+        default: ""
 
 concurrency:
   group: fetch-nwp-obs
@@ -111,15 +114,30 @@ jobs:
           python -c "import herbie; print('herbie', herbie.__version__)"
 
       - name: Fetch this shard
+        env:
+          MODELS: ${{ github.event.inputs.models }}
         run: |
+          # A partial run must never write into files/weather/csv/obs: the narrow
+          # header would replace a complete shard with one holding only the
+          # re-fetched model, destroying the other five. The script refuses that
+          # combination outright, and this picks the separate directory for it.
+          if [ -n "$MODELS" ]; then
+            OUT=files/weather/csv/obs_partial
+            EXTRA="--models $MODELS"
+          else
+            OUT=files/weather/csv/obs
+            EXTRA=""
+          fi
+          echo "OUT=$OUT" >> "$GITHUB_ENV"
           python scripts/fetch_nwp_at_obs.py \
             --sample files/weather/obs/nwp_sample.csv \
-            --output-dir files/weather/csv/obs \
+            --output-dir "$OUT" \
             --num-shards ${{ github.event.inputs.shards }} \
             --shard ${{ matrix.shard }} \
             --workers ${{ github.event.inputs.workers }} \
             --leads ${{ github.event.inputs.leads }} \
             --limit ${{ github.event.inputs.limit }} \
+            $EXTRA \
             --resume
 
       - name: Stage only this shard's own output
@@ -131,7 +149,7 @@ jobs:
         # shard's file to a clean directory so each artifact holds exactly one.
         run: |
           mkdir -p upload
-          f="files/weather/csv/obs/nwp_obs_shard_$(printf '%03d' ${{ matrix.shard }}).csv"
+          f="$OUT/nwp_obs_shard_$(printf '%03d' ${{ matrix.shard }}).csv"
           test -f "$f" || { echo "::error::$f was not produced"; exit 1; }
           cp "$f" upload/
           ls -l upload/
@@ -160,7 +178,23 @@ jobs:
         with:
           pattern: nwp-obs-shard-*
           merge-multiple: true
-          path: files/weather/csv/obs
+          # Partial runs must land somewhere else -- downloading narrow shards
+          # over the committed complete ones would destroy them before the merge
+          # ever got a chance to run.
+          path: ${{ github.event.inputs.models != '' && 'files/weather/csv/obs_partial' || 'files/weather/csv/obs' }}
+
+      - name: Splice re-fetched columns into the committed shards
+        if: ${{ github.event.inputs.models != '' }}
+        run: |
+          python scripts/merge_nwp_columns.py \
+            --models ${{ github.event.inputs.models }} \
+            --source-dir files/weather/csv/obs_partial \
+            --target-dir files/weather/csv/obs \
+            --dry-run
+          python scripts/merge_nwp_columns.py \
+            --models ${{ github.event.inputs.models }} \
+            --source-dir files/weather/csv/obs_partial \
+            --target-dir files/weather/csv/obs
 
       - name: Verify shard integrity
         # Fail loudly rather than committing data that parses but is wrong. The
@@ -229,7 +263,11 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add -f files/weather/csv/obs/*.csv
           git diff --staged --quiet && { echo "No changes to commit."; exit 0; }
-          git commit -m "Fetch NWP fields at summit observation times (3 leads)"
+          if [ -n "${{ github.event.inputs.models }}" ]; then
+            git commit -m "Re-fetch ${{ github.event.inputs.models }} at summit observation times"
+          else
+            git commit -m "Fetch NWP fields at summit observation times (3 leads)"
+          fi
           # The 6-hourly weather workflow can land on master mid-run, so rebase
           # onto the latest remote and retry rather than failing the job.
           for attempt in 1 2 3 4 5; do

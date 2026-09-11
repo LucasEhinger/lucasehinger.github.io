@@ -220,7 +220,7 @@ def open_herbie(model, valid, target_lead, save_dir):
 
 
 def _impl(task):
-    valid_utc, target_lead, meta = task
+    valid_utc, target_lead, meta, models = task
     valid = datetime.strptime(valid_utc, "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
     # Observations land at :45-:59; model fields are valid on the hour. Round to
     # the nearest hour -- within ~9 minutes of the observation either way.
@@ -232,7 +232,8 @@ def _impl(task):
     row["target_lead_h"] = target_lead
 
     with tempfile.TemporaryDirectory() as tmp:
-        for model, labels in MODEL_VARS.items():
+        for model in models:
+            labels = MODEL_VARS[model]
             row[f"lead_{model}"] = ""
             row[f"meta_init_{model}"] = ""
             for lab in labels:
@@ -320,12 +321,16 @@ META_COLS = ["valid_utc", "model_valid_utc", "target_lead_h", "split",
              "is_undercast", "year", "month", "hour_utc"]
 
 
-def fieldnames():
+def fieldnames(models=None):
+    """Header for a shard. With `models` restricted, only those models' columns
+    appear -- so a partial re-fetch writes a narrow file that
+    merge_nwp_columns.py can splice back in without touching anything else."""
+    models = list(models or MODEL_VARS)
     cols = list(META_COLS)
-    for model in MODEL_VARS:
+    for model in models:
         cols += [f"lead_{model}", f"meta_init_{model}"]
-    for model, labels in MODEL_VARS.items():
-        cols += labels
+    for model in models:
+        cols += MODEL_VARS[model]
     return cols
 
 
@@ -344,7 +349,19 @@ def main():
                         "archive era gets exercised. 0 = no cap.")
     p.add_argument("--resume", action="store_true",
                    help="skip (obs, lead) pairs already present in this shard's output")
+    p.add_argument("--models", nargs="+", default=list(MODEL_VARS),
+                   choices=list(MODEL_VARS),
+                   help="fetch only these models. Writes a narrow shard carrying "
+                        "just their columns, for splicing back into the full "
+                        "shards with merge_nwp_columns.py. Requires a different "
+                        "--output-dir.")
     a = p.parse_args()
+    if set(a.models) != set(MODEL_VARS) and \
+            os.path.abspath(a.output_dir) == os.path.abspath("files/weather/csv/obs"):
+        p.error("--models with the default --output-dir would overwrite the "
+                "complete shards with a narrow file, destroying every other "
+                "model's data. Point --output-dir elsewhere "
+                "(e.g. files/weather/csv/obs_partial).")
     if not (0 <= a.shard < a.num_shards):
         p.error("--shard must satisfy 0 <= shard < num-shards")
 
@@ -408,14 +425,14 @@ def main():
         for lead in a.leads:
             if (o["valid_utc"], str(lead)) in done:
                 continue
-            tasks.append((o["valid_utc"], lead, meta))
+            tasks.append((o["valid_utc"], lead, meta, list(a.models)))
     print(f"shard {a.shard}/{a.num_shards}: {len(obs)} observations, "
           f"{len(tasks)} (obs, lead) tasks to fetch -> {out_path}")
     if not tasks:
         print("nothing to do")
         return
 
-    cols = fieldnames()
+    cols = fieldnames(a.models)
     n_ok = 0
     with open(out_path, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
@@ -443,12 +460,13 @@ def main():
     with open(out_path) as fh:
         rows = list(csv.DictReader(fh))
     print("\nfill rate by model and lead (share of requested cells populated):")
-    hdr = "  " + "lead".ljust(6) + "".join(m.rjust(9) for m in MODEL_VARS)
+    hdr = "  " + "lead".ljust(6) + "".join(m.rjust(9) for m in a.models)
     print(hdr)
     for lead in sorted({r["target_lead_h"] for r in rows}, key=int):
         sub = [r for r in rows if r["target_lead_h"] == lead]
         cells = []
-        for model, labels in MODEL_VARS.items():
+        for model in a.models:
+            labels = MODEL_VARS[model]
             want = [r for r in sub
                     if r["model_valid_utc"] >= MODEL_START[model].strftime("%Y-%m-%dT%H:%M")]
             if not want:
