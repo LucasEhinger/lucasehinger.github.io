@@ -98,9 +98,25 @@ CLOUD_GEOMETRY = re.compile(
     r"^(cloud_ceiling|cloud_base|cloud_top|cdcb_)", re.I
 )
 
-# Never features: identifiers, audit trail, and the raw label/split bookkeeping.
+# Never features: identifiers, audit trail, label/split bookkeeping -- and the
+# lead columns, for two independent reasons.
+#
+# Leakage: a model's maximum forecast hour grew with its versions, so lead_hrrr
+# is {1, 2, 15} for 2014-2016 rows and {1, 23, 47} for 2021+ rows. That makes it
+# a near-proxy for the year, which would smuggle back the observer-drift confound
+# the (year, month, hour) stratified sampling exists to remove.
+#
+# Deployability: target_lead_h only ever takes the values 1, 24 and 48 in
+# training, but the live page forecasts every valid time out to 48 h. Feeding
+# lead=14 to trees whose splits were learned on {1,24,48} is out-of-distribution
+# for no benefit. Skill-versus-lead is still measured -- by GROUPING the holdouts
+# on target_lead_h, which needs the column but not the feature.
 DROP_ALWAYS = {TARGET, "valid_utc", "model_valid_utc", "split", "date", "week",
-               "year", "hand_label"}
+               "year", "hand_label", "target_lead_h"}
+
+
+def _is_lead_col(c):
+    return c.startswith("lead_")
 
 
 def load_obs_data(csv_dir, labels_path=None):
@@ -136,6 +152,7 @@ def load_obs_data(csv_dir, labels_path=None):
     df["month_cos"] = np.cos(2 * np.pi * month / 12)
     df["hour_sin"] = np.sin(2 * np.pi * hour / 24)
     df["hour_cos"] = np.cos(2 * np.pi * hour / 24)
+    # Kept for grouping and reporting, explicitly NOT a feature (see DROP_ALWAYS).
     df["target_lead_h"] = pd.to_numeric(raw["target_lead_h"], errors="coerce")
 
     # Weather columns: everything except bookkeeping and the meta_ audit trail.
@@ -185,8 +202,9 @@ def rows_for_source(df, source):
 
 
 def select_features(df, source):
-    cols = [c for c in df.columns if c not in DROP_ALWAYS]
-    time_cols = ["month_sin", "month_cos", "hour_sin", "hour_cos", "target_lead_h"]
+    cols = [c for c in df.columns
+            if c not in DROP_ALWAYS and not _is_lead_col(c)]
+    time_cols = ["month_sin", "month_cos", "hour_sin", "hour_cos"]
     if source != "all":
         keep = [c for c in cols
                 if c.endswith(f"_{source}")
@@ -364,21 +382,31 @@ def train_source(df, source, out_dir, report_only=False):
                 m["webcam_human_by_lead"] = by
         meta[name] = m
 
-    # by-lead on the base-rate holdout too -- more positives, so more stable
+    # by-lead on the base-rate holdout too -- more positives, so more stable.
+    # Also tune a SEPARATE threshold per lead: the model is deliberately
+    # lead-agnostic (lead is not a feature), but its calibration is not -- a
+    # 48 h forecast is less sharp than a 1 h one, so one global cut either
+    # over-fires at long lead or under-fires at short. The live page knows which
+    # horizon each point is and can pick the matching threshold.
     if len(base):
         for name in MODEL_NAMES:
-            by = {}
+            by, thr_by = {}, {}
             for lead, g in base.groupby("target_lead_h"):
                 if g[TARGET].nunique() < 2:
                     continue
                 pg = final[name].predict_proba(
                     pre_final.transform(select_features(g, source)))[:, 1]
+                yg = g[TARGET].to_numpy()
+                t = best_f1_threshold(yg, pg)
+                thr_by[int(lead)] = t
                 by[int(lead)] = {
-                    **scores(g[TARGET].to_numpy(), pg, meta[name]["threshold"]),
-                    "roc_auc": float(roc_auc_score(g[TARGET], pg)),
-                    "pr_auc": float(average_precision_score(g[TARGET], pg)),
+                    **scores(yg, pg, t),
+                    "threshold": t,
+                    "roc_auc": float(roc_auc_score(yg, pg)),
+                    "pr_auc": float(average_precision_score(yg, pg)),
                 }
             meta[name]["baserate_by_lead"] = by
+            meta[name]["threshold_by_lead"] = thr_by
 
     for name in MODEL_NAMES:
         m = meta[name]
@@ -393,7 +421,8 @@ def train_source(df, source, out_dir, report_only=False):
         bl = m.get("baserate_by_lead", {})
         if bl:
             print("             by lead: " + "  ".join(
-                f"{k}h AUC={v['roc_auc']:.3f} P={v['precision']:.2f} R={v['recall']:.2f}"
+                f"{k}h thr={v['threshold']:.2f} AUC={v['roc_auc']:.3f} "
+                f"P={v['precision']:.2f} R={v['recall']:.2f}"
                 for k, v in sorted(bl.items())))
 
     if report_only:
