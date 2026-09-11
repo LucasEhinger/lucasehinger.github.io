@@ -42,6 +42,9 @@ on:
       leads:
         description: "Target forecast leads in hours, space separated"
         default: "1 24 48"
+      limit:
+        description: "Max (observation, lead) tasks per shard. 0 = no cap. Set a small number (e.g. 6) to rehearse the whole pipeline at full concurrency in ~30 min before committing to the long run -- the rows it fetches are real and --resume picks up from them, so the rehearsal IS the first slice of the real job."
+        default: "0"
 
 concurrency:
   group: fetch-nwp-obs
@@ -98,6 +101,7 @@ jobs:
             --shard ${{ matrix.shard }} \
             --workers ${{ github.event.inputs.workers }} \
             --leads ${{ github.event.inputs.leads }} \
+            --limit ${{ github.event.inputs.limit }} \
             --resume
 
       - uses: actions/upload-artifact@v7
