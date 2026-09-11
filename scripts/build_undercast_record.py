@@ -130,17 +130,28 @@ def iter_reports(cache_dir, start, end):
                 yield t.replace(tzinfo=UTC), m
 
 
+# KMWN's routine hourly observation lands at :50-:55. Anything else in the hour
+# is a special report, issued precisely BECAUSE conditions changed -- so taking
+# whichever came first in the hour systematically preferred the unsettled
+# observation over the routine one. Affects 1,156 of 253,317 hours (0.46%), and
+# in 184 of those the first report sits at :00. Small, but biased in the one
+# direction that matters for a screen about whether a deck is present.
+ROUTINE_MINUTE = 53
+
+
 def build(cache_dir, start, end, out_path, keep_text=False):
-    rows = []
-    seen = set()
     per_year = defaultdict(Counter)
+    # One report per clock hour: the one closest to the routine minute.
+    best = {}
     for t, metar in iter_reports(cache_dir, start, end):
-        # KMWN transmits roughly hourly; a special report in the same clock hour
-        # would otherwise double-count that hour in the sample.
         key = t.strftime("%Y-%m-%dT%H")
-        if key in seen:
-            continue
-        seen.add(key)
+        d = abs(t.minute - ROUTINE_MINUTE)
+        if key not in best or d < best[key][0]:
+            best[key] = (d, t, metar)
+
+    rows = []
+    for key in sorted(best):
+        _, t, metar = best[key]
         local = t.astimezone(ET)
         f = extract(metar, local, require_layers=False)
         if f is None:
@@ -234,7 +245,9 @@ def main():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--cache", required=True, help="dir of IEM metar_YYYY.csv files")
     p.add_argument("--start", type=int, default=1997)
-    p.add_argument("--end", type=int, default=2026)
+    p.add_argument("--end", type=int, default=datetime.now().year,
+                   help="last year to include (defaults to the current year, so "
+                        "the record does not silently stop updating next January)")
     p.add_argument("--out", default="files/weather/obs/undercast_record.csv")
     p.add_argument("--keep-text", action="store_true",
                    help="also write the raw remark and METAR body columns. Useful "

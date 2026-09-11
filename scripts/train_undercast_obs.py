@@ -73,13 +73,12 @@ import glob
 import json
 import os
 import re
-import sys
 
 import numpy as np
 import pandas as pd
 from sklearn.compose import make_column_transformer
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.impute import SimpleImputer
+from sklearn.impute import MissingIndicator, SimpleImputer
 from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
@@ -129,14 +128,15 @@ CLOUD_GEOMETRY = re.compile(
 # for no benefit. Skill-versus-lead is still measured -- by GROUPING the holdouts
 # on target_lead_h, which needs the column but not the feature.
 DROP_ALWAYS = {TARGET, "valid_utc", "model_valid_utc", "split", "split_eff",
-               "date", "week", "year", "hand_label", "target_lead_h"}
+               "date", "week", "year", "hand_label", "target_lead_h",
+               "screen_ambiguous"}
 
 
 def _is_lead_col(c):
     return c.startswith("lead_")
 
 
-def load_obs_data(csv_dir, labels_path=None):
+def load_obs_data(csv_dir, labels_path=None, record_path=None):
     """Concatenate shard CSVs; add time features and the hand labels."""
     paths = sorted(glob.glob(os.path.join(csv_dir, "*.csv")))
     if not paths:
@@ -188,6 +188,38 @@ def load_obs_data(csv_dir, labels_path=None):
             built[f"{c}_no_cloud"] = (col.str.lower() == "nan").astype(int)
     df = pd.concat([df, pd.DataFrame(built, index=raw.index)], axis=1)
 
+    if record_path and os.path.exists(record_path):
+        # Re-derive the label from the undercast record instead of trusting the
+        # is_undercast column the fetch job baked into each shard. The screen is
+        # the thing most likely to be revised, and re-running the 12-hour GRIB
+        # download just to change a label would be absurd -- the forecast fields
+        # do not depend on the label at all. This also picks up the rare case
+        # where a different report now represents an hour.
+        rec = pd.read_csv(record_path, usecols=["valid_utc", "label"])
+        lab = dict(zip(rec["valid_utc"], rec["label"]))
+        mapped = df["valid_utc"].map(lab)
+        missing = int(mapped.isna().sum())
+        relabeled = pd.Series(
+            np.where(mapped.isna(), df[TARGET], (mapped == "undercast").astype(int)),
+            index=df.index,
+        ).astype(int)
+        changed = int((relabeled != df[TARGET]).sum())
+        df[TARGET] = relabeled
+        # Flag, do not drop. Ambiguous observations (scattered decks, narrow
+        # near-misses) must leave TRAINING -- calling them negative puts the
+        # worst label noise right on the decision boundary. But they have to stay
+        # in the holdouts: the webcam holdout is scored against HUMAN labels,
+        # where the screen's uncertainty is irrelevant and dropping rows would
+        # discard real evaluation days; and the base-rate holdout needs the honest
+        # population, since an observation the screen could not call is still one
+        # the deployed model will be handed.
+        df["screen_ambiguous"] = (mapped == "ambiguous").fillna(False).astype(bool)
+        print(f"labels re-derived from {record_path}: {changed:,} changed, "
+              f"{missing:,} not found (kept the shard value), "
+              f"{int(df['screen_ambiguous'].sum()):,} flagged ambiguous")
+    else:
+        df["screen_ambiguous"] = False
+
     if labels_path and os.path.exists(labels_path):
         hand = {}
         for r in pd.read_csv(labels_path).to_dict("records"):
@@ -213,7 +245,6 @@ def assign_splits(df, buffer_days=1):
     never trained on. See point 3 of the module docstring for why per-observation
     splitting was not enough.
     """
-    d = pd.to_datetime(df["date"])
     hold = set()
     for sp in ("holdout_webcam", "holdout_baserate"):
         days = pd.to_datetime(df.loc[df["split"] == sp, "date"].unique())
@@ -285,11 +316,18 @@ def make_preprocessor(X):
             ),
             cat_cols,
         ),
-        (
-            SimpleImputer(strategy="constant", fill_value=FILL_VALUE,
-                          add_indicator=True),
-            num_cols,
-        ),
+        (SimpleImputer(strategy="constant", fill_value=FILL_VALUE), num_cols),
+        # features="all" is the point, and SimpleImputer(add_indicator=True)
+        # cannot do it: that defaults to "missing-only", emitting indicators only
+        # for columns that had a gap AT FIT TIME. The holdouts are different eras
+        # from the training window, so a column that is complete in training and
+        # missing in a holdout row (a throttled cell, a field retired or added)
+        # would arrive with no indicator at all -- filled with FILL_VALUE and
+        # indistinguishable from a real reading of -9999. A tree split at
+        # "ceiling < 1000" then sends it down the LOW-CEILING branch and predicts
+        # cloud where there is none. Emitting an indicator for every numeric makes
+        # the column set identical across every split, always.
+        (MissingIndicator(features="all"), num_cols),
     )
     return pre, cat_cols, num_cols
 
@@ -334,12 +372,19 @@ def scores(y_true, proba, thr):
 
 
 def best_f1_threshold(y_true, proba):
+    """F1-maximizing threshold, or 0.5 if no threshold separates anything.
+
+    Without the guard a model with zero skill returns the lowest threshold tried
+    (every candidate scores F1=0, and the first one wins the > comparison), which
+    is the "predict undercast always" cut -- the worst possible default dressed up
+    as a tuned parameter.
+    """
     best = (0.5, -1.0)
     for thr in np.linspace(0.02, 0.98, 193):
         f1 = f1_score(y_true, (np.asarray(proba) >= thr).astype(int), zero_division=0)
         if f1 > best[1]:
             best = (float(thr), float(f1))
-    return best[0]
+    return best[0] if best[1] > 0 else 0.5
 
 
 def main():
@@ -348,6 +393,9 @@ def main():
     ap.add_argument("--csv-dir", default="files/weather/csv/obs")
     ap.add_argument("--out-dir", default="files/weather/models/obs")
     ap.add_argument("--labels", default="files/weather/csv/MtWashington_undercast_orig.csv")
+    ap.add_argument("--record", default="files/weather/obs/undercast_record.csv",
+                    help="authoritative labels, re-joined on valid_utc so a change "
+                         "to the screen never requires re-downloading GRIB")
     ap.add_argument("--sources", nargs="+", default=SOURCES, choices=SOURCES)
     ap.add_argument("--buffer-days", type=int, default=1,
                     help="also exclude this many days either side of every "
@@ -356,7 +404,7 @@ def main():
                     help="evaluate without writing model artifacts")
     args = ap.parse_args()
 
-    df = load_obs_data(args.csv_dir, args.labels)
+    df = load_obs_data(args.csv_dir, args.labels, args.record)
     df = assign_splits(df, buffer_days=args.buffer_days)
     print()
     for source in args.sources:
@@ -368,7 +416,8 @@ def main():
 
 def train_source(df, source, out_dir, report_only=False):
     sub = rows_for_source(df, source)
-    tr = sub[sub["split_eff"] == "train"]
+    # Ambiguous rows are excluded from training only -- see load_obs_data.
+    tr = sub[(sub["split_eff"] == "train") & ~sub["screen_ambiguous"]]
     base = sub[sub["split_eff"] == "holdout_baserate"]
     web = sub[(sub["split_eff"] == "holdout_webcam") & sub["hand_label"].notna()]
     if len(tr) < 50 or int(tr[TARGET].sum()) < 10:
@@ -412,7 +461,11 @@ def train_source(df, source, out_dir, report_only=False):
             thr = best_f1_threshold(base[TARGET].to_numpy(), pb)
             m["threshold"] = thr
             m["threshold_tuned_on"] = "holdout_baserate"
+            # NB: the threshold was fitted on this same set, so these numbers are
+            # optimistic. The clean comparison is webcam_human below, which uses
+            # this threshold on data that had no say in choosing it.
             m["baserate"] = scores(base[TARGET].to_numpy(), pb, thr)
+            m["baserate"]["note"] = "threshold fitted on this set -- optimistic"
             m["baserate"]["roc_auc"] = float(roc_auc_score(base[TARGET], pb))
             m["baserate"]["pr_auc"] = float(average_precision_score(base[TARGET], pb))
         else:

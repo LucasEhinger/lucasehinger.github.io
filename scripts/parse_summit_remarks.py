@@ -122,9 +122,16 @@ def parse_layers(rmk):
 
 
 def era_of(year):
-    if year >= 1996:
+    """Remark-format era.
+
+    1997 is where ``TPS LWR SCT035`` becomes the consistent form. 1995-96 use a
+    spaced variant that frequently omits the height entirely (``TPS LWR SCT
+    NE-SW``), which the deck-depth cut needs -- which is why the undercast record
+    starts at 1997 and not at the 1996 METAR switchover.
+    """
+    if year >= 1997:
         return "canonical"
-    if year >= 1994:
+    if year >= 1995:
         return "spaced"
     return "terse"
 

@@ -23,7 +23,7 @@ Usage:
 """
 import argparse
 import os
-import sys
+from datetime import datetime
 import time
 import urllib.parse
 import urllib.request
@@ -72,7 +72,9 @@ def main():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--cache", required=True)
     p.add_argument("--start", type=int, default=1997)
-    p.add_argument("--end", type=int, default=2026)
+    p.add_argument("--end", type=int, default=datetime.now().year,
+                   help="last year to include (defaults to the current year, so "
+                        "the record does not silently stop updating next January)")
     p.add_argument("--force", action="store_true", help="refetch even if cached")
     a = p.parse_args()
     for y in range(a.start, a.end + 1):
