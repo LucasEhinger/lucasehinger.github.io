@@ -43,8 +43,11 @@ on:
         description: "Target forecast leads in hours, space separated"
         default: "1 24 48"
       limit:
-        description: "Max (observation, lead) tasks per shard. 0 = no cap. Set a small number (e.g. 6) to rehearse the whole pipeline at full concurrency in ~30 min before committing to the long run -- the rows it fetches are real and --resume picks up from them, so the rehearsal IS the first slice of the real job."
+        description: "Max (observation, lead) tasks per shard. 0 = no cap."
         default: "0"
+      only:
+        description: "Run just these matrix entries, e.g. 0-19. Blank = all. Use WITH the same `shards` value as the real run so the sharding math is identical and the rows stay resume-compatible."
+        default: ""
 
 concurrency:
   group: fetch-nwp-obs
@@ -59,12 +62,27 @@ jobs:
       matrix: ${{ steps.mk.outputs.matrix }}
     steps:
       - id: mk
+        env:
+          SHARDS: ${{ github.event.inputs.shards }}
+          ONLY: ${{ github.event.inputs.only }}
         run: |
-          python3 -c "
+          python3 - >> "$GITHUB_OUTPUT" <<'PY'
           import json, os
-          n = int('${{ github.event.inputs.shards }}')
-          print('matrix=' + json.dumps(list(range(n))))
-          " >> "$GITHUB_OUTPUT"
+          n = int(os.environ["SHARDS"])
+          only = (os.environ.get("ONLY") or "").strip()
+          if only:
+              # A subset of the SAME n-way split. Running 0-19 of a 120-shard
+              # plan rehearses the pipeline in one 20-job wave while keeping the
+              # index % n == shard arithmetic identical to the full run, so the
+              # rows it writes land in the files the full run will resume from.
+              lo, _, hi = only.partition("-")
+              shards = list(range(int(lo), int(hi or lo) + 1))
+              if not shards or max(shards) >= n:
+                  raise SystemExit(f"`only` ({only}) out of range for shards={n}")
+          else:
+              shards = list(range(n))
+          print("matrix=" + json.dumps(shards))
+          PY
 
   fetch:
     needs: plan
