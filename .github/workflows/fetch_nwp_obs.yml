@@ -17,6 +17,12 @@ name: Fetch NWP at Observation Times
 # Shards are independent and resumable: re-running with the same shard count
 # skips (observation, lead) pairs already present in that shard's output, so a
 # throttled or timed-out shard can simply be re-run.
+#
+# Output is plain CSV on purpose. git zlib-compresses blobs already, so .gz is
+# the same size on first commit but costs a full new copy on every re-run
+# (+33 MB) where raw CSV deltas to +0.8 MB. Since this job is BUILT to be
+# re-run, that difference compounds. The files are excluded from the Jekyll
+# build in _config.yml so ~80 MB of training data is not served on the site.
 
 on:
   workflow_dispatch:
@@ -97,7 +103,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: nwp-obs-shard-${{ matrix.shard }}
-          path: files/weather/csv/obs/*.csv.gz
+          path: files/weather/csv/obs/*.csv
           if-no-files-found: warn
           retention-days: 14
 
@@ -128,8 +134,8 @@ jobs:
         run: |
           pip install pandas
           python - <<'PY'
-          import glob, gzip, pandas as pd
-          paths = sorted(glob.glob("files/weather/csv/obs/*.csv.gz"))
+          import glob, pandas as pd
+          paths = sorted(glob.glob("files/weather/csv/obs/*.csv"))
           print(f"{len(paths)} shard files")
           if not paths:
               raise SystemExit("no shard output collected")
@@ -154,7 +160,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add -f files/weather/csv/obs/*.csv.gz
+          git add -f files/weather/csv/obs/*.csv
           git diff --staged --quiet && { echo "No changes to commit."; exit 0; }
           git commit -m "Fetch NWP fields at summit observation times (3 leads)"
           # The 6-hourly weather workflow can land on master mid-run, so rebase

@@ -37,4 +37,5 @@ files/weather/webcam/
 # NWP workflow reads out of the checkout, plus the 29-year undercast record
 # itself. They have to be tracked or the Action has nothing to run against.
 !files/weather/obs/nwp_sample.csv
-!files/weather/obs/undercast_record.csv.gz
+!files/weather/obs/undercast_record.csv
+!files/weather/csv/obs/*.csv

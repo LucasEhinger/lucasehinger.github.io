@@ -32,8 +32,11 @@ quirks, candidates are ranked by how close they land to the target lead and
 tried in order until one is actually present in the archive. The lead that was
 really used is written to the row, so nothing downstream has to assume.
 
-Output is one gzipped CSV per shard, one row per (observation, lead), with every
+Output is one plain CSV per shard, one row per (observation, lead), with every
 model's columns side by side -- the shape ``train_undercast_models.py`` expects.
+Deliberately uncompressed: git zlib-compresses blobs anyway, so .gz saves nothing
+on the first commit but makes every re-run store a whole new copy instead of a
+delta (measured: +33 MB per re-run as .gz vs +0.8 MB as raw CSV).
 
 Usage:
     python3 scripts/fetch_nwp_at_obs.py --sample files/weather/obs/nwp_sample.csv \\
@@ -343,16 +346,23 @@ def main():
         p.error("--shard must satisfy 0 <= shard < num-shards")
 
     os.makedirs(a.output_dir, exist_ok=True)
-    out_path = os.path.join(a.output_dir, f"nwp_obs_shard_{a.shard:03d}.csv.gz")
+    out_path = os.path.join(a.output_dir, f"nwp_obs_shard_{a.shard:03d}.csv")
 
     with open(a.sample) as fh:
         obs = list(csv.DictReader(fh))
     obs = [o for i, o in enumerate(obs) if i % a.num_shards == a.shard]
 
+    def _open_read(path):
+        return gzip.open(path, "rt") if path.endswith(".gz") else open(path)
+
     done = set()
     existing = []
-    if a.resume and os.path.exists(out_path):
-        with gzip.open(out_path, "rt") as fh:
+    # Tolerate a .gz left by an earlier run so --resume still works across the
+    # format change rather than silently re-downloading everything.
+    resume_from = next((p for p in (out_path, out_path + ".gz")
+                        if os.path.exists(p)), None)
+    if a.resume and resume_from:
+        with _open_read(resume_from) as fh:
             for r in csv.DictReader(fh):
                 done.add((r["valid_utc"], r["target_lead_h"]))
                 existing.append(r)
@@ -380,7 +390,7 @@ def main():
 
     cols = fieldnames()
     n_ok = 0
-    with gzip.open(out_path, "wt", newline="") as fh:
+    with open(out_path, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols, extrasaction="ignore")
         w.writeheader()
         for r in existing:
@@ -403,7 +413,7 @@ def main():
     # field both look like an empty cell, so this is the only signal that a
     # shard came back plausibly-shaped but hollow. Anything far below its
     # neighbours means the run was rate-limited, not that the archive is short.
-    with gzip.open(out_path, "rt") as fh:
+    with open(out_path) as fh:
         rows = list(csv.DictReader(fh))
     print("\nfill rate by model and lead (share of requested cells populated):")
     hdr = "  " + "lead".ljust(6) + "".join(m.rjust(9) for m in MODEL_VARS)

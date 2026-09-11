@@ -130,7 +130,7 @@ def iter_reports(cache_dir, start, end):
                 yield t.replace(tzinfo=UTC), m
 
 
-def build(cache_dir, start, end, out_path):
+def build(cache_dir, start, end, out_path, keep_text=False):
     rows = []
     seen = set()
     per_year = defaultdict(Counter)
@@ -159,11 +159,17 @@ def build(cache_dir, start, end, out_path):
         rows.append(row)
 
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-    # 253k rows of METAR text is 42 MB raw and 7 MB gzipped; this lives in a
-    # GitHub Pages repo, so write it compressed. pandas and csv both read .gz.
+    # Write UNCOMPRESSED even though this is 26 MB. Committing .gz to git is a
+    # trap: git already zlib-compresses every blob, so the initial repo size is
+    # identical either way, but gzip scrambles the bytes so git cannot delta a
+    # regenerated file against its predecessor. Measured on 120 shard files with
+    # 2% of rows changed: +0.8 MB to re-commit as raw CSV, +33 MB as .gz. Raw
+    # also stays greppable, which is how the ISD truncation bug got found.
+    fields = OUT_FIELDS if keep_text else [c for c in OUT_FIELDS
+                                           if c not in ("remark", "metar_body")]
     opener = gzip.open if out_path.endswith(".gz") else open
     with opener(out_path, "wt", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=OUT_FIELDS, extrasaction="ignore")
+        w = csv.DictWriter(fh, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
 
@@ -229,11 +235,15 @@ def main():
     p.add_argument("--cache", required=True, help="dir of IEM metar_YYYY.csv files")
     p.add_argument("--start", type=int, default=1997)
     p.add_argument("--end", type=int, default=2026)
-    p.add_argument("--out", default="files/weather/obs/undercast_record.csv.gz")
+    p.add_argument("--out", default="files/weather/obs/undercast_record.csv")
+    p.add_argument("--keep-text", action="store_true",
+                   help="also write the raw remark and METAR body columns. Useful "
+                        "for auditing a disagreement, but they are 40%% of the file "
+                        "and regenerable in ~3 min, so they stay out of git.")
     p.add_argument("--validate", action="store_true")
     p.add_argument("--labels", default="files/weather/csv/MtWashington_undercast_orig.csv")
     a = p.parse_args()
-    rows = build(a.cache, a.start, a.end, a.out)
+    rows = build(a.cache, a.start, a.end, a.out, keep_text=a.keep_text)
     if a.validate:
         validate(rows, a.labels)
 

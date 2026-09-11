@@ -176,6 +176,11 @@ include:
   - _pages
   - files
 exclude:
+  # Training data for the undercast models: ~80 MB of per-observation forecast
+  # parameters. Tracked in git (the training script reads it from a checkout)
+  # but there is no reason to serve it from the site or count it against the
+  # GitHub Pages 1 GB budget.
+  - files/weather/csv/obs
   - "*.sublime-project"
   - "*.sublime-workspace"
   - .asset-cache

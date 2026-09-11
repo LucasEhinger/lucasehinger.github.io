@@ -65,7 +65,7 @@ def load(path):
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--record", default="files/weather/obs/undercast_record.csv.gz")
+    p.add_argument("--record", default="files/weather/obs/undercast_record.csv")
     p.add_argument("--labels", default="files/weather/csv/MtWashington_undercast_orig.csv")
     p.add_argument("--out", default="files/weather/obs/nwp_sample.csv")
     p.add_argument("--neg-per-pos", type=int, default=5)
