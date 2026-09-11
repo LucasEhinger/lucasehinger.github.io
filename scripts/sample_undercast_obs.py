@@ -33,6 +33,11 @@ TWO HOLDOUTS THE SAMPLE DOES NOT TOUCH.
       baserate every observation at 3-hourly UTC steps through one recent full
                year -- true 2.7% base rate, so precision/recall read honestly.
 
+WARNING: do not regenerate this file while a fetch workflow is in flight. Shards
+read the sample from their own checkout, so a sample that changes mid-run gives
+different shards different observation sets -- duplicated and missing rows after
+the merge.
+
 Writes a CSV of observation times with a `split` column. Usage:
     python3 scripts/sample_undercast_obs.py --neg-per-pos 5
 """
@@ -42,7 +47,7 @@ import gzip
 import os
 import random
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -103,8 +108,22 @@ def main():
         if int(r["year"]) == BASERATE_YEAR and int(r["hour_utc"]) in BASERATE_HOURS
     }
 
+    # Hold out by DATE, not by observation. Each observation is one hour and a day
+    # holds ~24 of them, so excluding 03:50 while keeping 02:50 of the same day
+    # excludes nothing: measured on the previous version, 535 of the 589
+    # webcam-holdout dates still carried training observations and every webcam
+    # holdout week overlapped a training week. A one-day buffer either side
+    # covers multi-day inversions, which correlate neighbouring days.
+    held_dates = set()
+    for vid in webcam_ids | base_ids:
+        d = datetime.strptime(vid[:10], "%Y-%m-%d").date()
+        for off in (-1, 0, 1):
+            held_dates.add((d + timedelta(days=off)).isoformat())
     held = webcam_ids | base_ids
-    pool = [r for r in rows if r["valid_utc"] not in held]
+    pool = [r for r in rows
+            if r["valid_utc"] not in held and r["valid_utc"][:10] not in held_dates]
+    print(f"excluded {len(rows) - len(pool) - len(held):,} pool observations that "
+          f"shared a date with a holdout")
 
     # --- stratified training sample ----------------------------------------
     pos = [r for r in pool if r["label"] == "undercast"]

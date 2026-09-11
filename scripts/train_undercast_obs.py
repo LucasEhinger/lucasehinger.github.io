@@ -29,14 +29,26 @@ Four things are done differently, each because the old way was actively wrong.
    column is populated. The combined "all" source keeps only rows where every
    source is present, which is also the only situation it can be applied in.
 
-3. THE TWO HOLDOUTS ARE NAMED, NOT RANDOM.
+3. THE TWO HOLDOUTS ARE NAMED, AND SEPARATED BY DATE -- NOT BY OBSERVATION.
    Negatives were subsampled 5:1, so precision measured on the training sample is
    meaningless -- it is computed against a ~17% base rate where reality is 2.7%.
    The threshold is therefore tuned on `holdout_baserate` (a full year at 3-hourly
    steps, unsampled, true base rate) and the headline numbers come from
    `holdout_webcam` (the hand-labeled days, scored against HUMAN webcam labels
-   rather than the remark screen that generated the training labels). Neither
-   holdout contributes a single training row.
+   rather than the remark screen that generated the training labels).
+
+   The sampler assigns those splits per OBSERVATION, and that is not sufficient.
+   Each observation is one hour, and a day holds ~24 of them, so holding out
+   03:50 while training on 02:50 of the same day holds out nothing: 535 of the
+   589 webcam-holdout dates also carried training observations, and every single
+   webcam holdout week overlapped a training week. A model could learn a day's
+   synoptic pattern from one hour and be "tested" on the next.
+
+   assign_splits() therefore drops any training row whose DATE falls in a holdout
+   (plus a one-day buffer, since multi-day inversions correlate neighbours). It
+   costs ~17% of training observations and leaves the holdouts as contiguous
+   TEMPORAL blocks, which is a stronger test anyway -- a forward test rather than
+   interpolation between training hours.
 
 4. FOLDS GROUP BY WEEK, NOT BY DATE.
    A multi-day inversion makes consecutive days highly correlated, so
@@ -91,6 +103,11 @@ CV_SPLITS = 5
 MODEL_NAMES = ("XGBoost", "Random Forest", "Gradient Boosting")
 SHORT_NAME = {"XGBoost": "XGB", "Random Forest": "RF", "Gradient Boosting": "GB"}
 FILL_VALUE = -9999.0
+# A lead group needs at least this many positives before its own F1-optimal
+# threshold is preferred over the global one. The base-rate holdout carries ~86
+# positives total, so ~29 per lead -- enough to see a trend, not enough to pin a
+# threshold to two decimal places.
+MIN_POS_FOR_LEAD_THRESHOLD = 25
 
 # Columns whose emptiness is a physical statement ("no cloud") rather than a gap.
 # GRIB only defines cloud geometry where cloud exists.
@@ -111,8 +128,8 @@ CLOUD_GEOMETRY = re.compile(
 # lead=14 to trees whose splits were learned on {1,24,48} is out-of-distribution
 # for no benefit. Skill-versus-lead is still measured -- by GROUPING the holdouts
 # on target_lead_h, which needs the column but not the feature.
-DROP_ALWAYS = {TARGET, "valid_utc", "model_valid_utc", "split", "date", "week",
-               "year", "hand_label", "target_lead_h"}
+DROP_ALWAYS = {TARGET, "valid_utc", "model_valid_utc", "split", "split_eff",
+               "date", "week", "year", "hand_label", "target_lead_h"}
 
 
 def _is_lead_col(c):
@@ -159,14 +176,17 @@ def load_obs_data(csv_dir, labels_path=None):
     skip = {"valid_utc", "model_valid_utc", "target_lead_h", "split", TARGET,
             "year", "month", "hour_utc"}
     wcols = [c for c in raw.columns if c not in skip and not c.startswith("meta_")]
+    # Build every weather column up front and concat ONCE. Inserting ~160 columns
+    # one at a time fragments the frame and pandas rightly complains.
+    built = {}
     for c in wcols:
-        s = raw[c]
-        num = pd.to_numeric(s.replace("", np.nan), errors="coerce")
-        df[c] = num
+        col = raw[c]
+        built[c] = pd.to_numeric(col.replace("", np.nan), errors="coerce")
         if CLOUD_GEOMETRY.search(c):
             # "nan" in the file = the model ran and reported no cloud. "" = the
             # field was never retrieved. Only the first is evidence of clear sky.
-            df[f"{c}_no_cloud"] = (s.str.lower() == "nan").astype(int)
+            built[f"{c}_no_cloud"] = (col.str.lower() == "nan").astype(int)
+    df = pd.concat([df, pd.DataFrame(built, index=raw.index)], axis=1)
 
     if labels_path and os.path.exists(labels_path):
         hand = {}
@@ -182,6 +202,37 @@ def load_obs_data(csv_dir, labels_path=None):
               f"({int((df['hand_label'] >= 0.5).sum()):,} human-scored undercast)")
     else:
         df["hand_label"] = np.nan
+    return df
+
+
+def assign_splits(df, buffer_days=1):
+    """Enforce date-level separation between train and the holdouts.
+
+    Returns df with a `split_eff` column: the sampler's split, except training
+    rows that collide with a holdout date are relabeled "dropped_overlap" and
+    never trained on. See point 3 of the module docstring for why per-observation
+    splitting was not enough.
+    """
+    d = pd.to_datetime(df["date"])
+    hold = set()
+    for sp in ("holdout_webcam", "holdout_baserate"):
+        days = pd.to_datetime(df.loc[df["split"] == sp, "date"].unique())
+        for off in range(-buffer_days, buffer_days + 1):
+            hold.update((days + pd.Timedelta(days=off)).strftime("%Y-%m-%d"))
+    collide = (df["split"] == "train") & df["date"].isin(hold)
+    df = df.copy()
+    df["split_eff"] = df["split"].where(~collide, "dropped_overlap")
+
+    n_tr = int((df["split_eff"] == "train").sum())
+    n_drop = int(collide.sum())
+    print(f"date-level separation: dropped {n_drop:,} training rows that shared a "
+          f"date with a holdout ({100*n_drop/max(n_tr+n_drop,1):.0f}% of train)")
+    # Prove it worked rather than trusting it.
+    tr_d = set(df.loc[df["split_eff"] == "train", "date"])
+    for sp in ("holdout_webcam", "holdout_baserate"):
+        hd = set(df.loc[df["split"] == sp, "date"])
+        assert not (tr_d & hd), f"{len(tr_d & hd)} dates still shared with {sp}"
+    print(f"  verified: 0 dates shared between train and either holdout")
     return df
 
 
@@ -298,11 +349,15 @@ def main():
     ap.add_argument("--out-dir", default="files/weather/models/obs")
     ap.add_argument("--labels", default="files/weather/csv/MtWashington_undercast_orig.csv")
     ap.add_argument("--sources", nargs="+", default=SOURCES, choices=SOURCES)
+    ap.add_argument("--buffer-days", type=int, default=1,
+                    help="also exclude this many days either side of every "
+                         "holdout date, since consecutive days correlate")
     ap.add_argument("--report-only", action="store_true",
                     help="evaluate without writing model artifacts")
     args = ap.parse_args()
 
     df = load_obs_data(args.csv_dir, args.labels)
+    df = assign_splits(df, buffer_days=args.buffer_days)
     print()
     for source in args.sources:
         try:
@@ -313,9 +368,9 @@ def main():
 
 def train_source(df, source, out_dir, report_only=False):
     sub = rows_for_source(df, source)
-    tr = sub[sub["split"] == "train"]
-    base = sub[sub["split"] == "holdout_baserate"]
-    web = sub[(sub["split"] == "holdout_webcam") & sub["hand_label"].notna()]
+    tr = sub[sub["split_eff"] == "train"]
+    base = sub[sub["split_eff"] == "holdout_baserate"]
+    web = sub[(sub["split_eff"] == "holdout_webcam") & sub["hand_label"].notna()]
     if len(tr) < 50 or int(tr[TARGET].sum()) < 10:
         print(f"[{source:>5}] skipped: only {len(tr)} train rows / "
               f"{int(tr[TARGET].sum())} positives")
@@ -397,11 +452,19 @@ def train_source(df, source, out_dir, report_only=False):
                 pg = final[name].predict_proba(
                     pre_final.transform(select_features(g, source)))[:, 1]
                 yg = g[TARGET].to_numpy()
-                t = best_f1_threshold(yg, pg)
+                npos = int(yg.sum())
+                if npos >= MIN_POS_FOR_LEAD_THRESHOLD:
+                    t, src = best_f1_threshold(yg, pg), "own lead"
+                else:
+                    # Too few positives to fit a threshold here; a per-lead cut
+                    # fitted to ~15 events is noise dressed as precision.
+                    t, src = meta[name]["threshold"], "global (too few positives)"
                 thr_by[int(lead)] = t
                 by[int(lead)] = {
                     **scores(yg, pg, t),
                     "threshold": t,
+                    "threshold_source": src,
+                    "n_positives": npos,
                     "roc_auc": float(roc_auc_score(yg, pg)),
                     "pr_auc": float(average_precision_score(yg, pg)),
                 }
@@ -421,8 +484,9 @@ def train_source(df, source, out_dir, report_only=False):
         bl = m.get("baserate_by_lead", {})
         if bl:
             print("             by lead: " + "  ".join(
-                f"{k}h thr={v['threshold']:.2f} AUC={v['roc_auc']:.3f} "
-                f"P={v['precision']:.2f} R={v['recall']:.2f}"
+                f"{k}h thr={v['threshold']:.2f}{'*' if 'global' in v['threshold_source'] else ''} "
+                f"AUC={v['roc_auc']:.3f} P={v['precision']:.2f} R={v['recall']:.2f} "
+                f"(n+={v['n_positives']})"
                 for k, v in sorted(bl.items())))
 
     if report_only:
@@ -448,6 +512,7 @@ def train_source(df, source, out_dir, report_only=False):
         "imputation": f"constant fill {FILL_VALUE} + missingness indicators; "
                       "cloud-geometry columns carry an explicit _no_cloud flag "
                       "(nan in source = model reports no cloud = clear)",
+        "split_separation": "by DATE with a 1-day buffer, not by observation",
         "evaluation": "trained on split=train only; threshold tuned on "
                       "holdout_baserate (true 2.7% base rate); headline metrics on "
                       "holdout_webcam scored against HUMAN webcam labels; "

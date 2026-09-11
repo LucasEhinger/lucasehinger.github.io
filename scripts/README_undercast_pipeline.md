@@ -67,11 +67,46 @@ Why each piece is the way it is, where it is not obvious:
 | split | what it is | used for |
 |---|---|---|
 | `train` | stratified sample, ~17% positive | fitting |
-| `holdout_baserate` | one full year, 3-hourly, unsampled, true 2.7% rate | threshold tuning (global and per-lead) |
+| `holdout_baserate` | one full year (2022), 3-hourly, unsampled, true 2.7% rate | threshold tuning (global and per-lead) |
 | `holdout_webcam` | the hand-labeled noon days | **headline metrics, scored against HUMAN labels** |
 
 Precision measured on `train` is meaningless — negatives were subsampled 5:1, so
 it is computed against a base rate that does not exist in the world.
+
+**Splits separate by DATE, not by observation.** Each observation is one hour and
+a day holds ~24 of them, so the original per-observation split held out nothing:
+535 of the 589 webcam dates still carried training observations and every webcam
+holdout week overlapped a training week, meaning a model could learn a day's
+pattern from 02:50 and be "tested" on 03:50. `assign_splits()` drops any training
+row sharing a date with a holdout, plus a one-day buffer for multi-day inversions.
+Costs 17% of training observations; in exchange the holdouts become contiguous
+temporal blocks, so the webcam numbers are a genuine forward test.
+
+Training rows per source after separation (x3 for the lead rows):
+
+| source | train obs | positives | window |
+|---|---|---|---|
+| hrrr | 17,511 | 2,945 | 2014-08 → 2026-09 |
+| nam | 7,607 | 1,343 | 2020-05 → |
+| nbm | 7,204 | 1,276 | 2020-10 → |
+| gfs | 5,665 | 994 | 2021-03 → |
+| rap | 5,569 | 978 | 2021-06 → |
+| ecmwf / all | 4,436 | 797 | 2023-01 → |
+
+### Known weakness: the base-rate holdout is thin
+
+2,896 observations carrying only **86 positives**, so ~29 per lead. Enough to see
+a skill-versus-lead trend, not enough to pin a per-lead threshold precisely — the
+trainer falls back to the global threshold below 25 positives in a lead group and
+marks it with `*`.
+
+It is also why `ecmwf`/`all` start in 2023: holding out calendar 2022 costs ECMWF
+the 10 months between its archive start (2022-03) and the end of that year.
+The better design is a base-rate holdout made of weeks spread across the whole
+record — more positives, every model's window represented, less cost to any one
+source. That needs a second download pass, because an unbiased holdout requires
+every observation in the held-out weeks and the current sample only has the
+unsampled 3-hourly series for 2022.
 
 ## Cutover checklist
 
