@@ -165,10 +165,83 @@ author_profile: true
         max-height: 92vh;
     }
 
-    @media (prefers-color-scheme: dark) {
-        .obs-card {
-            background: transparent;
-        }
+    /* Dark mode. The site applies it as html[data-theme="dark"] (the toggle can
+       override the OS setting), so a bare prefers-color-scheme query would both
+       miss the toggle and fire when the reader has explicitly chosen light.
+
+       Every rule here exists because the light value breaks: panels with a pale
+       background inherit the theme's LIGHT text in dark mode, which is invisible,
+       and the muted greys used for captions disappear against a black page. */
+    :root {
+        --obs-dash: #d7dce3;
+    }
+
+    html[data-theme="dark"] {
+        --obs-dash: #3f4650;
+    }
+
+    html[data-theme="dark"] .obs-card {
+        background: transparent;
+        border-color: #3a4046;
+    }
+
+    html[data-theme="dark"] .obs-metar {
+        background: #15181b;
+        border-color: #3a4046;
+        color: #e6e8ea;
+    }
+
+    html[data-theme="dark"] .obs-metar .hl {
+        background: #5c4a12;
+        color: #ffe89a;
+    }
+
+    html[data-theme="dark"] .obs-facts {
+        color: #c2c7cc;
+    }
+
+    html[data-theme="dark"] .obs-imgs figcaption,
+    html[data-theme="dark"] .obs-count {
+        color: #a8aeb4;
+    }
+
+    html[data-theme="dark"] .obs-imgs img {
+        background: #22262a;
+    }
+
+    html[data-theme="dark"] .obs-filter button {
+        background: #1c2024;
+        border-color: #454b52;
+        color: #e6e8ea;
+    }
+
+    html[data-theme="dark"] .obs-filter button[aria-pressed="true"] {
+        background: #e6e8ea;
+        border-color: #e6e8ea;
+        color: #16191c;
+    }
+
+    /* Pills set both colours, so they survive the theme flip -- but the pale
+       light-mode tints glare against a black page. These are the same hues at
+       dark-appropriate lightness. */
+    html[data-theme="dark"] .pill-und {
+        background: #4a1f22;
+        color: #ffb3b8;
+    }
+
+    html[data-theme="dark"] .pill-clear {
+        background: #1e3352;
+        color: #a9c9f2;
+    }
+
+    html[data-theme="dark"] .pill-part {
+        background: #4d3a10;
+        color: #f5d284;
+    }
+
+    html[data-theme="dark"] .pill-miss {
+        background: #2c3136;
+        color: #c2c7cc;
     }
 </style>
 
@@ -254,7 +327,7 @@ author_profile: true
             [['tower', 'Tower camera'], ['observatory', 'Observatory camera']].forEach(function (p) {
                 if (!e[p[0]]) {
                     imgs += '<figure><div style="padding:28px 10px;text-align:center;color:#8b9096;'
-                        + 'border:1px dashed #d7dce3;border-radius:4px;font-size:.82em;">'
+                        + 'border:1px dashed var(--obs-dash,#d7dce3);border-radius:4px;font-size:.82em;">'
                         + 'no ' + p[1].toLowerCase() + ' frame this day</div></figure>';
                     return;
                 }

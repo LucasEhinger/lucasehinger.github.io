@@ -1,6 +1,6 @@
 ---
 layout: archive
-title: "Historical Conditions"
+title: "What the Models Actually Show"
 permalink: /weather/historical-conditions/
 author_profile: true
 ---
@@ -82,19 +82,92 @@ author_profile: true
     }
 </style>
 
-<div style="margin-bottom: 16px;">
-    <a href="/weather/">&#8249; Back to NH Weather</a>
+<div style="margin-bottom: 16px; display:flex; gap:16px; flex-wrap:wrap;">
+    <a href="/weather/details/">&#8249; Back to Model Details</a>
+    <a href="/weather/">NH Weather</a>
 </div>
 
-Undercasts are caused by temperature inversions, right??!
+<style>
+    .ie-fig {
+        width: 100%;
+        max-width: 900px;
+        height: auto;
+        display: block;
+        margin: 14px auto 6px;
+    }
+
+    .ie-cap {
+        font-size: 0.9em;
+        color: var(--global-fig-caption-color, #666);
+        max-width: 900px;
+        margin: 0 auto 20px;
+    }
+
+    .ie-note {
+        border-left: 3px solid #d9a441;
+        padding: 10px 14px;
+        margin: 18px 0;
+        max-width: 900px;
+    }
+</style>
+
+<h2>Undercasts are caused by temperature inversions, right?</h2>
+
+<p style="max-width:900px;">Yes — and for a long time this page argued the opposite of what the data says. It used to
+    claim, from a handful of hand-picked dates, that the forecast models simply <em>do not</em> predict inversions
+    during undercasts, and that we therefore could not use modelled inversions to predict them. The first half of that
+    was wrong.</p>
+
+<p style="max-width:900px;">With 29 years of summit observations joined to the forecasts, the question is now
+    answerable properly rather than by eye. The 850&nbsp;mb&nbsp;&minus;&nbsp;925&nbsp;mb temperature difference — the
+    capping inversion in the layer just below the summit — turns out to be the <strong>single most informative
+    number in the entire dataset</strong>, more so than any cloud field. The models see it.</p>
+
+<p style="max-width:900px;">What they cannot do is separate it cleanly. Here is every HRRR near-analysis hour in the
+    sample, undercast against everything else:</p>
+
+<img class="ie-fig" src="/files/weather/examples/model_training_images/inversion_evidence.png"
+    alt="Four histograms comparing undercast hours with all other hours: inversion strength, modelled cloud ceiling, surface visibility, and boundary layer depth. Each shows the undercast distribution shifted but heavily overlapping.">
+<p class="ie-cap">24,315 observations, 3,597 of them undercast. Every panel shows a real shift and none shows a clean
+    split. Undercast hours run about 1.5&nbsp;K more stable in that layer, but 36% of them sit on the
+    &ldquo;no inversion&rdquo; side of the best threshold, and plenty of ordinary hours sit on the inversion side.</p>
+
+<p style="max-width:900px;">Read panel by panel:</p>
+<ul style="max-width:900px;">
+    <li><strong>Inversion strength</strong> — the clearest of the four, and still two broadly overlapping humps. This
+        is what a genuine but weak predictor looks like.</li>
+    <li><strong>Cloud ceiling</strong> — the most useful shape here is the long right tail: undercast hours are the
+        ones where the model puts the ceiling <em>well above</em> the summit, or reports none at all. Note that this is
+        the opposite of the intuitive test. Asking for a modelled cloud top <em>below</em> the summit actively selects
+        against undercast, because HRRR&rsquo;s 3&nbsp;km terrain flattens this cell to roughly 1,200&nbsp;m and it has
+        no atmosphere between its own ground and where the observer stands.</li>
+    <li><strong>Surface visibility</strong> — the tall spike at zero is the summit sitting inside cloud, which is the
+        single most common non-undercast state up there.</li>
+    <li><strong>Boundary layer depth</strong> — undercast hours cluster in a shallow, capped boundary layer, exactly as
+        the physics would suggest. Also overlapping.</li>
+</ul>
+
+<div class="ie-note">
+    <p style="margin:0;"><strong>So the conclusion changed, but not the practical upshot.</strong> The original claim
+        — no inversion signal — was wrong. The revised one is that the signal is there, it is the best single thing
+        available, and it is still far too weak to threshold: the best hand-written rule built on it reaches precision
+        0.09 against a 3% base rate. That is why the
+        <a href="/weather/details/#first-attempt">rule-based attempt</a> failed and why this became a machine-learning
+        problem — not because the models are blind, but because the thing they see is not separable by any single
+        line.</p>
+</div>
+
+<h3>Individual days</h3>
+<p style="max-width:900px;">Below you can still walk through specific dates and compare what each model predicted. It
+    is worth doing for a few undercast days and a few clear ones — the overlap in the histograms above is much easier
+    to believe once you have seen two days that look nearly identical in the profiles and completely different out the
+    window.</p>
 
 <div class="wx-top weather-main-container">
     <div class="wx-controls weather-controls">
         <p style="margin-bottom:12px; font-size:1rem; color:var(--global-text-color,#222); max-width:420px;">
-            Here you can view model parameters for select dates with different weather conditions. Clearly, weather
-            models do not predict temperature inversions during undercasts. While this may be a limitation of the
-            models, we clearly can't use model inversions to predict undercasts.
-
+            Model parameters for selected dates with different conditions. Pick an undercast day and a clear one and
+            flip between them: the profiles are often far more similar than the view from the summit was.
         </p>
         <div style="display: inline-flex; align-items: center; gap: 8px;" class="weather-location-control">
             <label for="details-date-select">Select Date:</label>

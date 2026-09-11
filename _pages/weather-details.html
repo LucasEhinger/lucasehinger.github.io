@@ -114,6 +114,54 @@ author_profile: true
     .t-tps { background: #fdeec2; color: #7a5608; font-weight: 700; }
     .t-note { background: #f3f4f6; color: #5f6368; }
 
+    .mt[data-mk] {
+        cursor: help;
+        outline-offset: 2px;
+    }
+
+    .mt[data-mk]:hover,
+    .mt[data-mk]:focus-visible,
+    .mt.mt-on {
+        box-shadow: 0 0 0 2px rgba(47, 51, 55, .55);
+    }
+
+    .metar-key tr.row-on td {
+        background: rgba(217, 164, 65, .16);
+    }
+
+    .metar-hint {
+        font-size: 0.85em;
+        color: var(--global-fig-caption-color, #666);
+        margin: 6px 0 0;
+    }
+
+    #metar-tip {
+        position: fixed;
+        z-index: 999;
+        max-width: 340px;
+        padding: 8px 11px;
+        border-radius: 5px;
+        background: #2f3337;
+        color: #f4f5f6;
+        font-size: 0.86em;
+        line-height: 1.45;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity .12s;
+    }
+
+    #metar-tip.on {
+        opacity: 1;
+    }
+
+    #metar-tip code {
+        background: rgba(255, 255, 255, .14);
+        color: inherit;
+        padding: 0 3px;
+        border-radius: 2px;
+    }
+
     .metar-key {
         width: 100%;
         border-collapse: collapse;
@@ -246,46 +294,113 @@ author_profile: true
             reports this, because almost nowhere else is there a person standing above the clouds to report it.</p>
         <p>A real report, from a day I scored undercast:</p>
         <div class="metar-annot">
-            <div class="metar-line"><span class="mt t-id">KMWN</span> <span class="mt t-time">211559Z</span>
-                <span class="mt t-wind">06010KT</span> <span class="mt t-vis">70SM</span>
-                <span class="mt t-sky">SCT///</span> <span class="mt t-sky">OVC070</span>
-                <span class="mt t-temp">09/M06</span> <span class="mt t-rmk">RMK</span>
-                <span class="mt t-tps">TPS LWR SCT040</span> <span class="mt t-note">SUN DMLY VSBL</span>
-                <span class="mt t-note">BINOVC</span></div>
+            <div class="metar-line" id="metar-line"><span class="mt t-id" data-mk="id"
+                    tabindex="0">KMWN</span> <span class="mt t-time" data-mk="time" tabindex="0">211559Z</span>
+                <span class="mt t-wind" data-mk="wind" tabindex="0">06010KT</span> <span class="mt t-vis"
+                    data-mk="vis" tabindex="0">70SM</span>
+                <span class="mt t-sky" data-mk="sky1" tabindex="0">SCT///</span> <span class="mt t-sky" data-mk="sky2"
+                    tabindex="0">OVC070</span>
+                <span class="mt t-temp" data-mk="temp" tabindex="0">09/M06</span> <span class="mt t-rmk" data-mk="rmk"
+                    tabindex="0">RMK</span>
+                <span class="mt t-tps" data-mk="tps" tabindex="0">TPS LWR SCT040</span> <span class="mt t-note"
+                    data-mk="note1" tabindex="0">SUN DMLY VSBL</span>
+                <span class="mt t-note" data-mk="note2" tabindex="0">BINOVC</span></div>
+            <p class="metar-hint">Hover or tab through any piece above to see what it means.</p>
             <table class="metar-key">
                 <tbody>
-                    <tr><td><span class="mt t-id">KMWN</span></td>
+                    <tr data-mk="id"><td><span class="mt t-id">KMWN</span></td>
                         <td>Station. Mount Washington summit, 6,288&nbsp;ft.</td></tr>
-                    <tr><td><span class="mt t-time">211559Z</span></td>
+                    <tr data-mk="time"><td><span class="mt t-time">211559Z</span></td>
                         <td>Filed on the 21st at 15:59&nbsp;UTC — just before local noon.</td></tr>
-                    <tr><td><span class="mt t-wind">06010KT</span></td>
+                    <tr data-mk="wind"><td><span class="mt t-wind">06010KT</span></td>
                         <td>Wind from 060° at 10&nbsp;knots. A calm day up there.</td></tr>
-                    <tr><td><span class="mt t-vis">70SM</span></td>
+                    <tr data-mk="vis"><td><span class="mt t-vis">70SM</span></td>
                         <td><strong>Visibility 70 statute miles.</strong> Eyeballed off distant landmarks, because
                             someone is standing there. Automated stations stop at 10.</td></tr>
-                    <tr><td><span class="mt t-sky">SCT///</span></td>
+                    <tr data-mk="sky1"><td><span class="mt t-sky">SCT///</span></td>
                         <td>Scattered layer, height unknown — the <code>///</code> means the observer could not
                             assign one. Note this is <em>not</em> evidence the summit is in cloud.</td></tr>
-                    <tr><td><span class="mt t-sky">OVC070</span></td>
+                    <tr data-mk="sky2"><td><span class="mt t-sky">OVC070</span></td>
                         <td>Overcast at 7,000&nbsp;ft <strong>above the station</strong> — so ~13,300&nbsp;ft above
                             sea level. This is the lid overhead, and at 7,000&nbsp;ft it is high enough to leave the
                             view intact.</td></tr>
-                    <tr><td><span class="mt t-temp">09/M06</span></td>
+                    <tr data-mk="temp"><td><span class="mt t-temp">09/M06</span></td>
                         <td>Temperature 9&nbsp;°C, dewpoint &minus;6&nbsp;°C. The gap means the air at the summit is
                             nowhere near saturated.</td></tr>
-                    <tr><td><span class="mt t-rmk">RMK</span></td>
+                    <tr data-mk="rmk"><td><span class="mt t-rmk">RMK</span></td>
                         <td>Everything after this is the observer&rsquo;s free text.</td></tr>
-                    <tr><td><span class="mt t-tps">TPS LWR SCT040</span></td>
+                    <tr data-mk="tps"><td><span class="mt t-tps">TPS LWR SCT040</span></td>
                         <td><strong>The group this whole project rests on.</strong> &ldquo;Tops lower&rdquo;: a
                             scattered deck whose tops reach 4,000&nbsp;ft <strong>above sea level</strong> —
                             2,288&nbsp;ft <em>below</em> the observer.</td></tr>
-                    <tr><td><span class="mt t-note">SUN DMLY VSBL</span></td>
+                    <tr data-mk="note1"><td><span class="mt t-note">SUN DMLY VSBL</span></td>
                         <td>Sun dimly visible through the layer above.</td></tr>
-                    <tr><td><span class="mt t-note">BINOVC</span></td>
+                    <tr data-mk="note2"><td><span class="mt t-note">BINOVC</span></td>
                         <td>&ldquo;Breaks in overcast&rdquo; — gaps in the lid.</td></tr>
                 </tbody>
             </table>
         </div>
+        <div id="metar-tip" role="tooltip"></div>
+        <script>
+            (function () {
+                var line = document.getElementById('metar-line');
+                var tip = document.getElementById('metar-tip');
+                if (!line || !tip) return;
+                // Text comes from the key table rather than a second copy in JS,
+                // so editing an explanation updates the tooltip automatically.
+                var rows = {};
+                document.querySelectorAll('.metar-key tr[data-mk]').forEach(function (tr) {
+                    rows[tr.getAttribute('data-mk')] = tr;
+                });
+
+                function show(el) {
+                    var row = rows[el.getAttribute('data-mk')];
+                    if (!row) return;
+                    tip.innerHTML = row.cells[1].innerHTML;
+                    tip.classList.add('on');
+                    row.classList.add('row-on');
+                    el.classList.add('mt-on');
+                    var r = el.getBoundingClientRect();
+                    var t = tip.getBoundingClientRect();
+                    var left = Math.min(Math.max(8, r.left + r.width / 2 - t.width / 2),
+                        window.innerWidth - t.width - 8);
+                    // Above the token normally; below it when there is no room.
+                    var top = r.top - t.height - 10;
+                    if (top < 8) top = r.bottom + 10;
+                    tip.style.left = left + 'px';
+                    tip.style.top = top + 'px';
+                }
+
+                function hide() {
+                    tip.classList.remove('on');
+                    document.querySelectorAll('.row-on').forEach(function (n) {
+                        n.classList.remove('row-on');
+                    });
+                    document.querySelectorAll('.mt-on').forEach(function (n) {
+                        n.classList.remove('mt-on');
+                    });
+                }
+
+                line.querySelectorAll('.mt[data-mk]').forEach(function (el) {
+                    el.addEventListener('mouseenter', function () { show(el); });
+                    el.addEventListener('mouseleave', hide);
+                    el.addEventListener('focus', function () { show(el); });
+                    el.addEventListener('blur', hide);
+                });
+                // Hovering a key row lights up its token too -- the pairing reads
+                // in both directions.
+                Object.keys(rows).forEach(function (k) {
+                    var tok = line.querySelector('.mt[data-mk="' + k + '"]');
+                    if (!tok) return;
+                    rows[k].addEventListener('mouseenter', function () {
+                        rows[k].classList.add('row-on');
+                        tok.classList.add('mt-on');
+                    });
+                    rows[k].addEventListener('mouseleave', hide);
+                });
+                window.addEventListener('scroll', hide, { passive: true });
+            })();
+        </script>
         <p><strong>The datum flips halfway through.</strong> Heights in the body of a METAR
             (<code>OVC070</code>) are measured <em>above the station</em>; heights after <code>TPS LWR</code> are
             <em>above sea level</em>. Same report, two different zero points — get that backwards and a deck
@@ -340,10 +455,81 @@ author_profile: true
                 </tbody>
             </table>
         </div>
-        <p style="margin-top:12px;">That last cut was the single best addition: it throws out nine of sixteen false
-            alarms and costs not one real undercast day. It is also stable — anywhere between 500 and 1,000&nbsp;ft
-            scores the same — which is reassuring, because a threshold that only works at one exact value is usually
-            a threshold fitted to noise.</p>
+        <h4 style="margin-top:18px;">What each cut is actually worth</h4>
+        <p>Rather than take the list on faith, here is every cut measured against the 589 hand-labeled days — the only
+            place the screen can be scored against human judgement of actual photographs.</p>
+        <img class="record-fig" src="/files/weather/examples/model_training_images/screen_cut_ablation.png"
+            alt="Left: stacked bars showing real undercasts caught against false alarms as each cut is added, from 22 right / 91 wrong down to 16 right / 7 wrong. Right: the same six stages plotted as precision against recall.">
+        <p class="record-fig-cap">Starting from &ldquo;the observer mentioned a deck below the summit&rdquo; and adding
+            one condition at a time. Almost all of the recall is present at the start; the job of the cuts is to strip
+            out false alarms without taking real days with them.</p>
+
+        <p>Adding cuts one after another understates the last ones, though, because an earlier cut may already have
+            removed the same days. The fairer question is what each cut is worth <em>given the other four</em> — take
+            the finished screen and drop just that one:</p>
+        <div style="margin-top:12px; overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; min-width:640px;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Drop this one cut…</th>
+                        <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">Extra false alarms
+                        </th>
+                        <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">Extra real days
+                            caught</th>
+                        <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">Precision</th>
+                        <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">Verdict</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">broken or overcast coverage</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">+24</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">+5</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.40</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">Does the heavy lifting, but it is the
+                            one real trade — it costs five genuine undercast days.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">lowest layer overhead &ge; 1,000&nbsp;ft
+                        </td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">+9</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.50</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;"><strong>The best cut in the set.</strong>
+                            Removes nine false alarms and does not cost a single real day.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">deck &ge; 500&nbsp;ft below summit</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">+3</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.62</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">Modest but free.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">visibility &gt; 40&nbsp;SM</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">+1</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.67</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">Nearly redundant here — the other cuts
+                            have already removed almost everything it would catch.</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">no low lid overhead</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">+1</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee; text-align:right;">0.67</td>
+                        <td style="padding:8px; border-bottom:1px solid #eee;">Earns almost nothing on this sample. It
+                            stays because the sandwich case it guards against is real and these are only 24 days.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p style="margin-top:12px;">So the last cut is indeed the single best addition — nine of sixteen remaining
+            false alarms thrown out at no cost in real days. It is also stable: anywhere between 500 and 1,000&nbsp;ft
+            scores the same, which is reassuring, because a threshold that only works at one exact value is usually a
+            threshold fitted to noise. The visibility and lid cuts, on the other hand, turn out to earn one false alarm
+            each once the others are in place. On 24 positive days that difference is well inside the noise, so I have
+            left them in rather than tune the screen to this particular sample.</p>
         <p>Scored against the full 589 hand-labeled days, the finished screen gets
             <strong>precision 0.70</strong> and <strong>recall 0.67</strong>: when it says undercast it&rsquo;s right
             about seven times in ten, and it catches about two thirds of the real ones.</p>
@@ -533,6 +719,17 @@ author_profile: true
             surface does not care what the model thinks the terrain is doing; anything keyed to <em>height above the
             model&rsquo;s ground</em> is measuring a mountain 700&nbsp;m shorter than the real one.</p>
     </details>
+
+    <h4>What that looks like in the data</h4>
+    <p>Rules fail here for a specific and visible reason, and it is worth seeing rather than taking on trust:
+        <a href="/weather/historical-conditions/">what the models actually show</a> plots the inversion strength, ceiling, visibility and boundary-layer depth for undercast
+        hours against everything else, and lets you step through individual days model by model. The short version is
+        that every one of those fields is genuinely shifted on undercast days and every one of them overlaps far too
+        much to threshold — undercast hours run about 1.5&nbsp;K more stable in the layer below the summit, but a third
+        of them sit on the wrong side of any line you draw.</p>
+    <p>That page used to argue something stronger and wrong: that the models do not predict these inversions at all. On
+        29 years of data they clearly do. The signal is simply weak, which is a different problem and needs a different
+        tool.</p>
 
     <p style="margin-top:14px;">For what it is worth, the machine-learning models below roughly double that precision
         from the same HRRR fields, and the combined model does about five times better — which is the honest argument
