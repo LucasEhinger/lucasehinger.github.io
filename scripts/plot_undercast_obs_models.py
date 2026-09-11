@@ -223,6 +223,58 @@ def confusion_panels(df, source, out_dir, models_dir):
     print(f"  {p}")
 
 
+# The model the site actually serves. Kept in step with weather_to_json.py.
+HEADLINE_SOURCE, HEADLINE_ALGO = "all", "Gradient Boosting"
+
+
+def headline_confusion(df, out_dir, models_dir):
+    """The served model, at the thresholds it is served with, by forecast lead.
+
+    Split by lead because the page publishes a call for every hour out to 48, and
+    a single pooled matrix would hide the thing a reader most needs to know: the
+    same model is far more trustworthy about tonight than about the day after
+    tomorrow. Thresholds are the per-lead ones the live page uses, not a global
+    cut, so these matrices are what the site does.
+
+    The last panel is the honest one -- hand-labeled days, scored against a person
+    looking at a photograph, using a threshold those days had no part in choosing.
+    """
+    base = ue.score_split(df, HEADLINE_SOURCE, "holdout_baserate", models_dir)
+    web = ue.score_split(df, HEADLINE_SOURCE, "holdout_webcam", models_dir)
+    meta = base["meta"][HEADLINE_ALGO]
+    by_lead = meta["threshold_by_lead"]
+
+    panels = []
+    for lead in (1, 24, 48):
+        m = base["rows"]["target_lead_h"].to_numpy() == lead
+        thr = float(by_lead[str(lead)])
+        panels.append((f"{lead} h ahead", base["y"][m],
+                       (base["proba"][HEADLINE_ALGO][m] >= thr).astype(int), thr))
+    wl = web["rows"]["target_lead_h"].to_numpy()
+    wthr = np.array([float(by_lead[str(int(l))]) for l in wl])
+    panels.append(("hand-labeled webcam days", web["y"],
+                   (web["proba"][HEADLINE_ALGO] >= wthr).astype(int), None))
+
+    fig, axes = plt.subplots(1, 4, figsize=(14.6, 4.3), dpi=160)
+    for ax, (title, y, pred, thr) in zip(axes, panels):
+        p = precision_score(y, pred, zero_division=0)
+        r = recall_score(y, pred)
+        head = f"{title}" + (f"   (cut {thr:.2f})" if thr is not None else "")
+        draw_cm(ax, y, pred, f"{head}\nP {p:.2f}  ·  R {r:.2f}")
+    fig.suptitle("The forecast the site publishes — combined model, Gradient Boosting",
+                 fontsize=12.5, color=INK, x=0.005, ha="left")
+    fig.text(0.995, -0.04,
+             "First three panels: the held-out year at its true 2.4% base rate, "
+             "at the per-lead thresholds the live page uses. Last panel: every "
+             "hand-labeled day, scored against human webcam labels.",
+             ha="right", fontsize=8.5, color=GREY)
+    fig.tight_layout()
+    out = os.path.join(out_dir, "headline_model_confusion.png")
+    fig.savefig(out, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    print(f"  {out}")
+
+
 def top_features(source, out_dir, models_dir, n=15):
     pre, models, _ = ue.load_artifacts(source, models_dir)
     names = tidy(pre.get_feature_names_out())
@@ -256,6 +308,7 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
     df = ue.load_frame(cache=args.cache)
     print("figures:")
+    headline_confusion(df, args.out_dir, args.models_dir)
     per_source_performance(df, args.sources, args.out_dir, args.models_dir)
     for s in args.sources:
         confusion_panels(df, s, args.out_dir, args.models_dir)

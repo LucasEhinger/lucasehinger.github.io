@@ -52,6 +52,14 @@ files/weather/models/obs/*
 !files/weather/models/obs/baseline_rules.json
 !files/weather/models/obs/ensemble_comparison.json
 
+# ...and the two artifacts the LIVE page actually loads. weather_to_json.py runs
+# in CI from a fresh checkout, so the model it serves has to be in the repo. Only
+# the combined Gradient Boosting pair is needed (0.6 MB together): that is the
+# model the page serves, picked on measured skill. The RandomForests (9.6 MB for
+# "all" alone) and the other sources stay ignored -- nothing serves them.
+!files/weather/models/obs/preprocessor_all.pkl
+!files/weather/models/obs/gradient_boosting_best_f1_all.pkl
+
 # Narrow shards from a partial re-fetch (fetch_nwp_at_obs.py --models ...).
 # Spliced into files/weather/csv/obs by merge_nwp_columns.py; never committed.
 files/weather/csv/obs_partial/

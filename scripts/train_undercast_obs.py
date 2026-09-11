@@ -210,6 +210,74 @@ def add_profile_features(df):
     return pd.DataFrame(built, index=df.index)
 
 
+def time_features(dt):
+    """Cyclical month/hour from a tz-aware datetime Series.
+
+    Raw month/day impose a false ordering (December is adjacent to January, and
+    day-of-month means nothing at all). Because the negatives were matched to
+    each positive's own (year, month, hour) cell, these carry no marginal signal
+    by construction -- they are here only for interactions with the atmospheric
+    fields.
+
+    Note these come from the VALID time, not the model run time. At inference a
+    48 h forecast is valid two days after its run, and feeding the run's hour
+    would put the whole forecast in the wrong part of the diurnal cycle.
+    """
+    month, hour = dt.dt.month, dt.dt.hour
+    return {
+        "month_sin": np.sin(2 * np.pi * month / 12),
+        "month_cos": np.cos(2 * np.pi * month / 12),
+        "hour_sin": np.sin(2 * np.pi * hour / 24),
+        "hour_cos": np.cos(2 * np.pi * hour / 24),
+    }
+
+
+def normalize_weather_columns(raw, wcols):
+    """Numeric coercion plus the clear-sky bookkeeping, for one frame of columns.
+
+    Shared by training (which reads shard CSVs as strings) and by live inference
+    (which gets floats straight out of Herbie). The two differ in exactly one
+    respect, and it is handled here rather than duplicated:
+
+      From a CSV, "" means the field was never fetched and "nan" means the model
+      ran and reported nothing. Only the second is evidence of clear sky.
+      From a live fetch there is no "never fetched" state -- the field was
+      requested for this run -- so an empty value IS the model declining to
+      report cloud.
+
+    Everything else is identical, and must stay that way: a model trained on
+    these columns and served different ones is not the model that was measured.
+    """
+    built = {}
+    for c in wcols:
+        col = raw[c]
+        if col.dtype == object:
+            v = pd.to_numeric(col.replace("", np.nan), errors="coerce")
+            reported_nothing = col.astype(str).str.lower() == "nan"
+        else:
+            v = pd.to_numeric(col, errors="coerce")
+            reported_nothing = v.isna()
+        if CLOUD_GEOMETRY.search(c):
+            # HRRR and RAP say "no cloud" with a nan. NAM, GFS and NBM instead
+            # emit a sentinel far above the tropopause -- ~20000 m for NAM/GFS,
+            # 88892 m for NBM -- which is the same statement in a different
+            # dialect. Verified against the observations rather than assumed:
+            # median OBSERVED visibility in the sentinel group is 96.6 km (NAM)
+            # and 128.7 km (NBM), against 99.8 m for rows carrying a real
+            # ceiling. Left as a raw number it is merely a value a tree may
+            # split on, and it distorts the scale of the genuine ceilings around
+            # it; folded into the flag it means the same thing in every model.
+            # ...but only for columns measured in METRES. cloud_*_pres_* is in
+            # pascals, where 88,800 is an ordinary near-surface reading, and a
+            # blanket height rule would mask almost every real pressure value.
+            sentinel = (v > SENTINEL_CEILING_M) & (not CLOUD_PRESSURE.search(c))
+            no_cloud = reported_nothing | sentinel
+            v = v.mask(sentinel)
+            built[f"{c}_no_cloud"] = no_cloud.astype(int)
+        built[c] = v
+    return built
+
+
 def load_obs_data(csv_dir, labels_path=None, record_path=None):
     """Concatenate shard CSVs; add time features and the hand labels."""
     paths = sorted(glob.glob(os.path.join(csv_dir, "*.csv")))
@@ -233,16 +301,8 @@ def load_obs_data(csv_dir, labels_path=None, record_path=None):
     df["week"] = iso.year.astype(str) + "-W" + iso.week.astype(str).str.zfill(2)
     df["year"] = dt.dt.year
 
-    # Cyclical time features. Raw month/day impose a false ordering (December is
-    # adjacent to January, day-of-month means nothing at all), and because the
-    # negatives were matched to each positive's own (year, month, hour) cell,
-    # these carry no marginal signal by construction -- they are here only for
-    # interactions with the atmospheric fields.
-    month, hour = dt.dt.month, dt.dt.hour
-    df["month_sin"] = np.sin(2 * np.pi * month / 12)
-    df["month_cos"] = np.cos(2 * np.pi * month / 12)
-    df["hour_sin"] = np.sin(2 * np.pi * hour / 24)
-    df["hour_cos"] = np.cos(2 * np.pi * hour / 24)
+    for k, v in time_features(dt).items():
+        df[k] = v
     # Kept for grouping and reporting, explicitly NOT a feature (see DROP_ALWAYS).
     df["target_lead_h"] = pd.to_numeric(raw["target_lead_h"], errors="coerce")
 
@@ -252,31 +312,7 @@ def load_obs_data(csv_dir, labels_path=None, record_path=None):
     wcols = [c for c in raw.columns if c not in skip and not c.startswith("meta_")]
     # Build every weather column up front and concat ONCE. Inserting ~160 columns
     # one at a time fragments the frame and pandas rightly complains.
-    built = {}
-    for c in wcols:
-        col = raw[c]
-        v = pd.to_numeric(col.replace("", np.nan), errors="coerce")
-        if CLOUD_GEOMETRY.search(c):
-            # "nan" in the file = the model ran and reported no cloud. "" = the
-            # field was never retrieved. Only the first is evidence of clear sky.
-            no_cloud = (col.str.lower() == "nan")
-            # HRRR and RAP say "no cloud" with a nan. NAM, GFS and NBM instead
-            # emit a sentinel far above the tropopause -- ~20000 m for NAM/GFS,
-            # 88892 m for NBM -- which is the same statement in a different
-            # dialect. Verified against the observations rather than assumed:
-            # median OBSERVED visibility in the sentinel group is 96.6 km (NAM)
-            # and 128.7 km (NBM), against 99.8 m for rows carrying a real
-            # ceiling. Left as a raw number it is merely a value a tree may
-            # split on, and it distorts the scale of the genuine ceilings around
-            # it; folded into the flag it means the same thing in every model.
-            # ...but only for columns measured in METRES. cloud_*_pres_* is in
-            # pascals, where 88,800 is an ordinary near-surface reading, and a
-            # blanket height rule would mask almost every real pressure value.
-            sentinel = (v > SENTINEL_CEILING_M) & (not CLOUD_PRESSURE.search(c))
-            no_cloud = no_cloud | sentinel
-            v = v.mask(sentinel)
-            built[f"{c}_no_cloud"] = no_cloud.astype(int)
-        built[c] = v
+    built = normalize_weather_columns(raw, wcols)
     df = pd.concat([df, pd.DataFrame(built, index=raw.index)], axis=1)
 
     # Derived vertical-structure features. An undercast IS a temperature
