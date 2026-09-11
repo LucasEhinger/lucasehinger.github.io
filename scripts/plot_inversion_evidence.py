@@ -38,13 +38,16 @@ INK, RED, BLUE, GREY = "#2f3337", "#C44E52", "#4C72B0", "#9aa0a6"
 SUMMIT_M = 1917.2
 
 PANELS = [
-    ("dT_925_850_hrrr", "Inversion strength  T(850 mb) − T(925 mb)", "K",
-     (-12, 8), -2.5, "warmer aloft →  inversion"),
-    ("cloud_ceiling_m_hrrr", "Modelled cloud ceiling", "m above sea level",
+    # A DIFFERENCE in kelvin equals a difference in degrees Celsius, so the
+    # familiar unit is used -- "K" reads as an absolute temperature to most
+    # people and makes a -3 look nonsensical.
+    ("dT_925_850_hrrr", "Inversion strength  T(850 mb) − T(925 mb)",
+     "temperature difference (°C)", (-12, 8), -2.5, "warmer aloft →  inversion"),
+    ("cloud_ceiling_m_hrrr", "Modelled cloud ceiling", "height above sea level (m)",
      (0, 8000), SUMMIT_M, "summit height"),
-    ("vis_surface_hrrr", "Modelled surface visibility", "m",
+    ("vis_surface_hrrr", "Modelled surface visibility", "visibility (m)",
      (0, 40000), 10000, "rule threshold"),
-    ("hpbl_surface_hrrr", "Boundary layer depth", "m",
+    ("hpbl_surface_hrrr", "Boundary layer depth", "depth (m)",
      (0, 2500), None, None),
 ]
 
