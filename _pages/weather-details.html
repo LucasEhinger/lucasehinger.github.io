@@ -197,6 +197,74 @@ author_profile: true
         margin: 0 auto 18px;
     }
 
+    /* Contents. Built from the headings at load rather than hand-listed, so it
+       cannot drift out of step with the page. */
+    #toc {
+        border: 1px solid var(--global-border-color, #ddd);
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin: 22px 0 26px;
+        font-size: 0.94em;
+    }
+
+    #toc h2 {
+        font-size: 1em;
+        margin: 0 0 8px;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--global-text-color-light, #666);
+    }
+
+    #toc ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        counter-reset: toc;
+    }
+
+    #toc > ol > li {
+        counter-increment: toc;
+        margin: 5px 0;
+    }
+
+    #toc > ol > li > a::before {
+        content: counter(toc) ".";
+        color: var(--global-text-color-light, #888);
+        margin-right: 7px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    #toc ol ol {
+        margin: 3px 0 7px 22px;
+    }
+
+    #toc ol ol li {
+        margin: 2px 0;
+    }
+
+    #toc ol ol a {
+        font-size: 0.94em;
+        color: var(--global-text-color-light, #555);
+    }
+
+    #toc a {
+        text-decoration: none;
+    }
+
+    #toc a:hover {
+        text-decoration: underline;
+    }
+
+    #toc a.toc-on {
+        font-weight: 700;
+    }
+
+    /* Anchors land under the site header without this. */
+    h2[id],
+    h3[id] {
+        scroll-margin-top: 70px;
+    }
+
     .method-step {
         border: 1px solid var(--global-border-color, #ccc);
         border-left: 4px solid #4C72B0;
@@ -243,6 +311,11 @@ author_profile: true
         from six weather models (HRRR, RAP, NAM, GFS, ECMWF, and NBM) against a record of when it was actually
         undercast. Building that record turned out to be most of the work, and is described next.
     </p>
+
+    <nav id="toc" aria-label="Contents">
+        <h2>Contents</h2>
+        <ol id="toc-list"></ol>
+    </nav>
 
     <h2>About Undercasts</h2>
     <p>While academic literature about undercast skies is sparse (it’s almost like climate scientists have something
@@ -727,10 +800,6 @@ author_profile: true
         that every one of those fields is genuinely shifted on undercast days and every one of them overlaps far too
         much to threshold — undercast hours run about 1.5&nbsp;K more stable in the layer below the summit, but a third
         of them sit on the wrong side of any line you draw.</p>
-    <p>That page used to argue something stronger and wrong: that the models do not predict these inversions at all. On
-        29 years of data they clearly do. The signal is simply weak, which is a different problem and needs a different
-        tool.</p>
-
     <p style="margin-top:14px;">For what it is worth, the machine-learning models below roughly double that precision
         from the same HRRR fields, and the combined model does about five times better — which is the honest argument
         for bothering with any of it. The rules are not a strawman: they are re-derived, tuned and scored by
@@ -738,15 +807,12 @@ author_profile: true
 
 
     <h2>The Model</h2>
-    <p>You can play around with a couple of different examples of undercast, clear, and cloudy days in the region
-        below (link), and no obvious relation jumps out by eye. For a long time I took that further than the evidence
-        warranted and wrote here that the models simply <em>do not</em> predict the inversions — that they were too
-        shallow to show up. Measuring it properly over 29 years says otherwise: the 850&nbsp;mb&ndash;925&nbsp;mb
-        temperature difference, which is exactly the capping inversion just below the summit, is on its own the single
-        most informative number in the entire dataset. The signal is there. It is just weak enough, and tangled enough
-        with everything else, that no single threshold gets at it — which is what the
-        <a href="#first-attempt">rule-based attempt above</a> demonstrates and what makes this a reasonable machine
-        learning problem rather than an arithmetic one.</p>
+    <p>Flipping between example days of undercast, clear and cloudy conditions, no obvious relation jumps out by eye.
+        Measured over 29 years, though, there is one: the 850&nbsp;mb&ndash;925&nbsp;mb temperature difference — the
+        capping inversion just below the summit — is on its own the single most informative number in the dataset. The
+        signal is there. It is simply weak enough, and tangled enough with everything else, that no single threshold
+        gets at it, which is what the <a href="#first-attempt">rule-based attempt above</a> shows and what makes this a
+        machine-learning problem rather than an arithmetic one.</p>
     <details>
         <summary style="cursor:pointer; font-weight:600;">Input parameters (click to expand)</summary>
         <p style="margin-top:12px;">Weather models such as HRRR, RAP, NAM, GFS, ECMWF, and NBM expose hundreds of
@@ -1376,20 +1442,82 @@ author_profile: true
 
 
     <h3>Next Steps</h3>
-    <p>The original version of this section argued that the binding constraint was data quantity — 24 undercast days
-        from a single image per day is not much to learn from — and that the highest-leverage next step was more
-        labels, not a fancier algorithm. That turned out to be right, and reading the summit observer&rsquo;s remarks
-        instead of hand-scoring photographs supplied roughly 286&times; more positive examples. Discrimination improved
-        a lot: the combined model now separates undercast from not at ROC-AUC 0.95 an hour ahead and 0.88 two days
-        ahead.</p>
-    <p>What did <em>not</em> improve as much is precision, which sits near 0.45 — about half the alerts are still
-        wrong. The constraint has moved rather than gone away. It is now the <em>labels themselves</em>: the screen
-        that reads the remarks is only about 70% precise, so roughly three in ten training positives are not really
-        undercast, and no classifier can be cleanly better than the thing defining its target. The useful next steps
-        are consequently about truth, not architecture — more hand-scored days to enlarge the honest test set, several
-        images per day to pin down timing, and observed vertical temperature profiles from the Auto Road, which would
-        measure the inversion directly instead of inferring it from a model that thinks this mountain is 700&nbsp;m
-        shorter than it is.</p>
-    <p>So it is better than it was, and still not something to plan a sunrise around. If you want to know whether
-        it&rsquo;s undercast, you&rsquo;ll have to hike up yourself.</p>
+    <p>Reading the summit observer&rsquo;s remarks instead of hand-scoring photographs supplies roughly 286&times;
+        more positive examples, and discrimination is decent on the back of it: the combined model separates undercast
+        from not at ROC-AUC 0.95 an hour ahead and 0.88 two days ahead.</p>
+    <p>Precision is the weak spot, sitting near 0.45 — about half the alerts are wrong. The binding constraint is the
+        <em>labels themselves</em>: the screen that reads the remarks is only about 70% precise, so roughly three in
+        ten training positives are not really undercast, and no classifier can be cleanly better than the thing
+        defining its target. The useful next steps are therefore about truth rather than architecture — more
+        hand-scored days to enlarge the honest test set, several images per day to pin down timing, and observed
+        vertical temperature profiles from the Auto Road, which would measure the inversion directly instead of
+        inferring it from a model that thinks this mountain is 700&nbsp;m shorter than it is.</p>
+    <p>It is not something to plan a sunrise around. If you want to know whether it&rsquo;s undercast, you&rsquo;ll
+        have to hike up yourself.</p>
 </div>
+
+<script>
+    (function () {
+        var list = document.getElementById('toc-list');
+        var nav = document.getElementById('toc');
+        if (!list || !nav) return;
+
+        function slug(t) {
+            return t.toLowerCase().replace(/[^\w\s-]/g, '').trim()
+                .replace(/\s+/g, '-').slice(0, 60);
+        }
+
+        // Every h2/h3 on the page except the TOC's own heading.
+        var heads = [].slice.call(document.querySelectorAll('h2, h3'))
+            .filter(function (h) { return !nav.contains(h); });
+        var seen = {}, top = null, links = [];
+
+        heads.forEach(function (h) {
+            if (!h.id) {
+                var base = slug(h.textContent) || 'section';
+                var id = base, n = 2;
+                while (seen[id] || document.getElementById(id)) { id = base + '-' + n++; }
+                h.id = id;
+            }
+            seen[h.id] = true;
+
+            var li = document.createElement('li');
+            var a = document.createElement('a');
+            a.href = '#' + h.id;
+            // Strip the trailing "(click to expand)" style hints that read as
+            // noise in a contents list.
+            a.textContent = h.textContent.replace(/\s*\(click to expand\)\s*$/i, '').trim();
+            li.appendChild(a);
+            links.push({ a: a, h: h });
+
+            if (h.tagName === 'H2') {
+                list.appendChild(li);
+                top = li;
+            } else if (top) {
+                var sub = top.querySelector('ol');
+                if (!sub) { sub = document.createElement('ol'); top.appendChild(sub); }
+                sub.appendChild(li);
+            } else {
+                list.appendChild(li);
+            }
+        });
+
+        // Mark the section currently in view. Bottom margin keeps only headings
+        // in the upper part of the viewport eligible, so the highlight tracks
+        // what you are reading rather than whatever is last on screen.
+        if ('IntersectionObserver' in window) {
+            var active = null;
+            var io = new IntersectionObserver(function (entries) {
+                entries.forEach(function (e) {
+                    if (!e.isIntersecting) return;
+                    var hit = links.find(function (l) { return l.h === e.target; });
+                    if (!hit) return;
+                    if (active) active.classList.remove('toc-on');
+                    hit.a.classList.add('toc-on');
+                    active = hit.a;
+                });
+            }, { rootMargin: '-60px 0px -75% 0px' });
+            links.forEach(function (l) { io.observe(l.h); });
+        }
+    })();
+</script>

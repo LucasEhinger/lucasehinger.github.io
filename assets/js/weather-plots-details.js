@@ -94,7 +94,7 @@ function d_convertTimeToDateTime(timeValues, dateStr) {
 
 function attachSimpleTooltips() {
   // Small info icons similar to main site; simplified
-  const map = { plot1: 'Cloud Coverage (%)', plot2: 'Cloud ceiling/base', plot3: 'Temperatures', plot4: 'Boundary layer / mixing height', plot5: 'Relative humidity', plot6: '0°C isotherm', plot7: 'Visibility', plot11: 'NBM ceiling probability', plot12: 'NBM visibility probability', plot10: 'Precipitation' };
+  const map = { plot0: 'T(850 mb) − T(925 mb). Above zero means warmer air aloft: the inversion that caps an undercast.', plot1: 'Cloud Coverage (%)', plot2: 'Cloud ceiling/base', plot3: 'Temperatures', plot4: 'Boundary layer / mixing height', plot7: 'Visibility' };
   Object.keys(map).forEach((id)=>{
     const el = document.getElementById(id); if(!el) return; el.style.position='relative';
     const old = el.querySelector('.plot-info-button'); if(old) old.remove();
@@ -123,7 +123,49 @@ function loadDetailsPlotsFromData(data){
   const d_pushTruthy = (arr, items) => items.forEach(t=>t&&arr.push(t));
   // Render a plot, or hide its container when it has no traces for the current
   // selection, so irrelevant/empty plots collapse instead of showing blank axes.
-  const d_renderOrHide = (id, traces, layout) => { const el = document.getElementById(id); if(!traces||traces.length===0){ if(el) el.style.display='none'; return; } if(el && el.style.display==='none') el.style.display=''; if(layout && layout.xaxis) layout.xaxis.range = d_computeXRange(traces); Plotly.newPlot(id, traces, layout).then(()=>{ const e=document.getElementById(id); if(e) Plotly.Plots.resize(e); }); };
+  const d_renderOrHide = (id, traces, layout) => { const el = document.getElementById(id); if(!el) return; /* the page may not host every plot; Plotly.newPlot on a missing id throws */ if(!traces||traces.length===0){ if(el) el.style.display='none'; return; } if(el && el.style.display==='none') el.style.display=''; if(layout && layout.xaxis) layout.xaxis.range = d_computeXRange(traces); Plotly.newPlot(id, traces, layout).then(()=>{ const e=document.getElementById(id); if(e) Plotly.Plots.resize(e); }); };
+
+  // Plot 0: the inversion itself -- T(850 mb) - T(925 mb).
+  //
+  // This is the headline quantity for undercast: the 925->850 layer sits just
+  // below the 1,917 m summit, so a POSITIVE difference means warmer air sitting
+  // on colder air there, i.e. the cap that holds a deck down. Measured over 29
+  // years it is the single most informative field in the dataset, which is why
+  // it leads rather than being buried in the raw temperature traces.
+  //
+  // A difference in kelvin equals a difference in degrees Celsius, so this is
+  // labelled °C regardless of the unit toggle -- no conversion is applied, and
+  // an offset conversion (K->°C) would be wrong on a difference anyway.
+  const cInv = d_defaultColors;
+  const tracesInv = [];
+  const d_invTrace = (model, name, color) => {
+    const hi = data[`tmp_850mb_${model}`], lo = data[`tmp_925mb_${model}`];
+    if (!hi || !hi.y || !lo || !lo.y) return null;
+    const y = hi.y.map((v, i) => (v == null || lo.y[i] == null) ? null : v - lo.y[i]);
+    if (!y.some(v => v != null)) return null;
+    return { x: convertedDates, y, mode: 'lines+markers', type: 'scatter',
+             connectgaps: model === 'ecmwf', name,
+             line: { dash: d_modelDash[model], color },
+             marker: { symbol: d_modelMarkers[model] } };
+  };
+  if (showHRRR) d_pushTruthy(tracesInv, [d_invTrace('hrrr', 'HRRR', cInv[0])]);
+  if (showNAM) d_pushTruthy(tracesInv, [d_invTrace('nam', 'NAM', cInv[1])]);
+  if (showGFS) d_pushTruthy(tracesInv, [d_invTrace('gfs', 'GFS', cInv[2])]);
+  if (showRAP) d_pushTruthy(tracesInv, [d_invTrace('rap', 'RAP', cInv[3])]);
+  if (showECMWF) d_pushTruthy(tracesInv, [d_invTrace('ecmwf', 'ECMWF', cInv[4])]);
+  d_renderOrHide('plot0', tracesInv, {
+    title: { text: 'Inversion strength: 850 mb minus 925 mb', font: { color: textColor } },
+    xaxis: {},
+    yaxis: { title: 'Temperature difference (°C)', zeroline: true, zerolinewidth: 2,
+             zerolinecolor: '#888' },
+    // Anything above the zero line is an inversion. Shading it saves the reader
+    // having to remember which way the sign runs.
+    shapes: [{ type: 'rect', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: 0, y1: 100,
+               fillcolor: 'rgba(196,78,82,0.10)', line: { width: 0 }, layer: 'below' }],
+    annotations: [{ xref: 'paper', yref: 'paper', x: 0.01, y: 0.97, showarrow: false,
+                    text: 'inversion (warmer aloft)', font: { size: 11, color: '#C44E52' } }],
+    legend: { font: { color: textColor } }, showlegend: true
+  });
 
   // Plot 1: Cloud Coverage
   const c1 = d_defaultColors;
@@ -361,7 +403,7 @@ function normalizeExamplePath(path){
 // Plotly sizes to the container at plot time only, so the two-column grid would
 // keep its old pixel width after a window resize or phone rotation.
 let d_resizeTimer;
-window.addEventListener('resize', ()=>{ clearTimeout(d_resizeTimer); d_resizeTimer = setTimeout(()=>{ ['plot1','plot2','plot3','plot4','plot5','plot6','plot7','plot11','plot12','plot10'].forEach((id)=>{ const el=document.getElementById(id); if(el && el.style.display!=='none' && el.data) Plotly.Plots.resize(el); }); }, 150); });
+window.addEventListener('resize', ()=>{ clearTimeout(d_resizeTimer); d_resizeTimer = setTimeout(()=>{ ['plot0','plot1','plot2','plot3','plot4','plot7'].forEach((id)=>{ const el=document.getElementById(id); if(el && el.style.display!=='none' && el.data) Plotly.Plots.resize(el); }); }, 150); });
 
 document.getElementById('details-date-select').addEventListener('change',(e)=>{ loadDetailsPlots(normalizeExamplePath(e.target.value)); });
 document.querySelectorAll('input[name="model-toggle"]').forEach(inp=>inp.addEventListener('change',()=>{ const cur = normalizeExamplePath(document.getElementById('details-date-select').value); loadDetailsPlots(cur); }));

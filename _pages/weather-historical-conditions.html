@@ -103,6 +103,34 @@ author_profile: true
         margin: 0 auto 20px;
     }
 
+    .day-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 6px 16px;
+        font-weight: 700;
+        font-size: 1rem;
+        margin: 4px 0 10px;
+    }
+
+    .day-badge .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    .day-undercast { background: #fae3e4; color: #a3363c; }
+    .day-clear { background: #e4ecf7; color: #2f5d99; }
+    .day-foggy { background: #eceef0; color: #4a4f55; }
+    .day-overcast { background: #e8eaed; color: #3c4043; }
+
+    html[data-theme="dark"] .day-undercast { background: #4a1f22; color: #ffb3b8; }
+    html[data-theme="dark"] .day-clear { background: #1e3352; color: #a9c9f2; }
+    html[data-theme="dark"] .day-foggy { background: #2c3136; color: #c2c7cc; }
+    html[data-theme="dark"] .day-overcast { background: #2c3136; color: #d2d6da; }
+
     .ie-note {
         border-left: 3px solid #d9a441;
         padding: 10px 14px;
@@ -113,18 +141,13 @@ author_profile: true
 
 <h2>Undercasts are caused by temperature inversions, right?</h2>
 
-<p style="max-width:900px;">Yes — and for a long time this page argued the opposite of what the data says. It used to
-    claim, from a handful of hand-picked dates, that the forecast models simply <em>do not</em> predict inversions
-    during undercasts, and that we therefore could not use modelled inversions to predict them. The first half of that
-    was wrong.</p>
+<p style="max-width:900px;">Yes. And the forecast models do see those inversions. Across 29 years of summit
+    observations joined to the forecasts, the 850&nbsp;mb&nbsp;&minus;&nbsp;925&nbsp;mb temperature difference — the
+    capping inversion in the layer just below the summit — is the <strong>single most informative number in the entire
+    dataset</strong>, ahead of any cloud field.</p>
 
-<p style="max-width:900px;">With 29 years of summit observations joined to the forecasts, the question is now
-    answerable properly rather than by eye. The 850&nbsp;mb&nbsp;&minus;&nbsp;925&nbsp;mb temperature difference — the
-    capping inversion in the layer just below the summit — turns out to be the <strong>single most informative
-    number in the entire dataset</strong>, more so than any cloud field. The models see it.</p>
-
-<p style="max-width:900px;">What they cannot do is separate it cleanly. Here is every HRRR near-analysis hour in the
-    sample, undercast against everything else:</p>
+<p style="max-width:900px;">What the models cannot do is separate it cleanly. Here is every HRRR near-analysis hour in
+    the sample, undercast against everything else:</p>
 
 <img class="ie-fig" src="/files/weather/examples/model_training_images/inversion_evidence.png"
     alt="Four histograms comparing undercast hours with all other hours: inversion strength, modelled cloud ceiling, surface visibility, and boundary layer depth. Each shows the undercast distribution shifted but heavily overlapping.">
@@ -148,13 +171,11 @@ author_profile: true
 </ul>
 
 <div class="ie-note">
-    <p style="margin:0;"><strong>So the conclusion changed, but not the practical upshot.</strong> The original claim
-        — no inversion signal — was wrong. The revised one is that the signal is there, it is the best single thing
-        available, and it is still far too weak to threshold: the best hand-written rule built on it reaches precision
+    <p style="margin:0;"><strong>The signal is real, and it is far too weak to threshold.</strong> Inversion strength
+        is the best single quantity available, and the best hand-written rule built on it still reaches only precision
         0.09 against a 3% base rate. That is why the
-        <a href="/weather/details/#first-attempt">rule-based attempt</a> failed and why this became a machine-learning
-        problem — not because the models are blind, but because the thing they see is not separable by any single
-        line.</p>
+        <a href="/weather/details/#first-attempt">rule-based attempt</a> fails and why this is a machine-learning
+        problem — not because the models are blind, but because what they see is not separable by any single line.</p>
 </div>
 
 <h3>Individual days</h3>
@@ -169,6 +190,9 @@ author_profile: true
             Model parameters for selected dates with different conditions. Pick an undercast day and a clear one and
             flip between them: the profiles are often far more similar than the view from the summit was.
         </p>
+        <div id="day-status" class="day-badge day-clear"><span class="dot"></span><span
+                id="day-status-text">—</span></div>
+
         <div style="display: inline-flex; align-items: center; gap: 8px;" class="weather-location-control">
             <label for="details-date-select">Select Date:</label>
             <select id="details-date-select"
@@ -233,17 +257,17 @@ author_profile: true
     </div>
 </div>
 
+<!-- Only the fields that bear on undercast are plotted. Relative humidity, the
+     0 °C isotherm, precipitation and the two NBM probability panels were dropped:
+     they describe the weather but say nothing about whether the summit is sitting
+     above a deck, and ten panels buried the four that matter. -->
 <div class="wx-plots">
-    <div id="plot1"></div>
-    <div id="plot2"></div>
+    <div id="plot0"></div>
     <div id="plot3"></div>
-    <div id="plot4"></div>
-    <div id="plot5"></div>
-    <div id="plot6"></div>
+    <div id="plot2"></div>
     <div id="plot7"></div>
-    <div id="plot11"></div>
-    <div id="plot12"></div>
-    <div id="plot10"></div>
+    <div id="plot4"></div>
+    <div id="plot1"></div>
 </div>
 
 <script src="https://cdn.plot.ly/plotly-3.3.1.min.js"></script>
@@ -251,3 +275,38 @@ author_profile: true
 
 
 <script src="/assets/js/weather-plots-details.js"></script>
+<script>
+    (function () {
+        // The category for each example day already lives in the option label
+        // ("Undercast — 2025-11-15"), so the badge reads it from the selection
+        // instead of keeping a second copy of the mapping that could drift.
+        var sel = document.getElementById('details-date-select');
+        var box = document.getElementById('day-status');
+        var txt = document.getElementById('day-status-text');
+        if (!sel || !box || !txt) return;
+        var WORDS = {
+            undercast: ['day-undercast', 'Undercast — the summit was above the deck'],
+            clear: ['day-clear', 'Clear — no deck to be above'],
+            foggy: ['day-foggy', 'Foggy — the summit was inside the cloud'],
+            overcast: ['day-overcast', 'Overcast — cloud above the summit, not below']
+        };
+
+        function update() {
+            var label = (sel.options[sel.selectedIndex] || {}).textContent || '';
+            var key = Object.keys(WORDS).find(function (k) {
+                return label.toLowerCase().indexOf(k) === 0;
+            });
+            var w = WORDS[key] || ['day-foggy', label || '—'];
+            box.className = 'day-badge ' + w[0];
+            txt.textContent = w[1];
+        }
+        sel.addEventListener('change', update);
+        // index.json populates the select asynchronously, so poll briefly for
+        // the first real option rather than racing it.
+        var tries = 0;
+        var t = setInterval(function () {
+            if (sel.options.length && sel.options[0].value) { update(); clearInterval(t); }
+            if (++tries > 40) clearInterval(t);
+        }, 100);
+    })();
+</script>
