@@ -102,6 +102,9 @@ CV_SPLITS = 5
 MODEL_NAMES = ("XGBoost", "Random Forest", "Gradient Boosting")
 SHORT_NAME = {"XGBoost": "XGB", "Random Forest": "RF", "Gradient Boosting": "GB"}
 FILL_VALUE = -9999.0
+# Any "cloud" height above this is a no-cloud sentinel, not a measurement:
+# 19 km is above the tropopause, so no ceiling, base or top can really be there.
+SENTINEL_CEILING_M = 19000.0
 # A lead group needs at least this many positives before its own F1-optimal
 # threshold is preferred over the global one. The base-rate holdout carries ~86
 # positives total, so ~29 per lead -- enough to see a trend, not enough to pin a
@@ -110,6 +113,7 @@ MIN_POS_FOR_LEAD_THRESHOLD = 25
 
 # Columns whose emptiness is a physical statement ("no cloud") rather than a gap.
 # GRIB only defines cloud geometry where cloud exists.
+CLOUD_PRESSURE = re.compile(r"_pres(_|$)", re.I)
 CLOUD_GEOMETRY = re.compile(
     r"^(cloud_ceiling|cloud_base|cloud_top|cdcb_)", re.I
 )
@@ -134,6 +138,76 @@ DROP_ALWAYS = {TARGET, "valid_utc", "model_valid_utc", "split", "split_eff",
 
 def _is_lead_col(c):
     return c.startswith("lead_")
+
+
+# Pressure levels that stack into a vertical profile, bottom to top. The summit
+# sits at 1,917 m -- between the 850 mb surface (~1,500 m) and 700 mb (~3,000 m)
+# -- so the 925->850 layer is the one an undercast's capping inversion lives in.
+PROFILE_LEVELS = (1000, 925, 850, 700)
+SUMMIT_M = 1917.2  # 6,288 ft
+
+
+def add_profile_features(df):
+    """Inversion strength and related vertical-structure features, per model.
+
+    Temperature DIFFERENCES between fixed pressure levels are used rather than
+    raw lapse rates wherever a height field is unavailable: the thickness
+    between two pressure surfaces varies only a few percent, so the difference
+    is already near-normalised, and it keeps HRRR -- which publishes tmp_925mb
+    but not hgt_925mb in the sfc product -- on the same footing as the rest.
+
+    A positive difference means the upper level is WARMER, i.e. an inversion.
+
+    Note that tmp_2m is deliberately not used as "summit temperature": it sits
+    at the model's smoothed terrain height, which for a 3 km grid flattens
+    Mount Washington well below its real 1,917 m. The pressure-level fields
+    carry no such elevation error, so the summit temperature is interpolated
+    from them instead.
+    """
+    built = {}
+    for m in MODEL_SOURCES:
+        T = {p: df[f"tmp_{p}mb_{m}"] for p in PROFILE_LEVELS
+             if f"tmp_{p}mb_{m}" in df.columns}
+        Z = {p: df[f"hgt_{p}mb_{m}"] for p in PROFILE_LEVELS
+             if f"hgt_{p}mb_{m}" in df.columns}
+        have = [p for p in PROFILE_LEVELS if p in T]
+        # Surface-moisture features do not need a profile, so they are computed
+        # before the profile block bails out -- NBM publishes only 2 m fields.
+        if f"rh_925mb_{m}" in df.columns and f"rh_850mb_{m}" in df.columns:
+            # Moisture trapped under the lid: humidity falling sharply across
+            # the inversion is the signature of a deck with dry air above it.
+            built[f"dRH_925_850_{m}"] = df[f"rh_850mb_{m}"] - df[f"rh_925mb_{m}"]
+        if f"tmp_2m_{m}" in df.columns and f"dpt_2m_{m}" in df.columns:
+            # Dewpoint depression: saturation means cloud, not a view.
+            built[f"dewpt_dep_2m_{m}"] = df[f"tmp_2m_{m}"] - df[f"dpt_2m_{m}"]
+        if len(have) < 2:
+            continue
+        diffs = []
+        for lo, hi in zip(have, have[1:]):
+            d = T[hi] - T[lo]
+            built[f"dT_{lo}_{hi}_{m}"] = d
+            diffs.append(d)
+            if lo in Z and hi in Z:
+                dz = Z[hi] - Z[lo]
+                # Guard a degenerate thickness rather than emitting an infinity.
+                built[f"lapse_{lo}_{hi}_{m}"] = d / dz.where(dz.abs() > 1) * 1000.0
+        # Bulk stability across the whole below-summit column, and the single
+        # strongest inverted layer anywhere in the profile.
+        if 1000 in T and 850 in T:
+            built[f"dT_1000_850_{m}"] = T[850] - T[1000]
+        if diffs:
+            built[f"max_inversion_{m}"] = pd.concat(diffs, axis=1).max(axis=1)
+        # Temperature interpolated to the real summit height, and how much
+        # warmer that is than the deck below it -- the most direct statement of
+        # "the summit is sitting above the inversion" the fields can make.
+        if 850 in T and 700 in T and 850 in Z and 700 in Z:
+            span = (Z[700] - Z[850]).where(lambda x: x.abs() > 1)
+            t_sum = T[850] + (T[700] - T[850]) * (SUMMIT_M - Z[850]) / span
+            built[f"t_summit_{m}"] = t_sum
+            for p in (925, 1000):
+                if p in T:
+                    built[f"t_summit_minus_t{p}_{m}"] = t_sum - T[p]
+    return pd.DataFrame(built, index=df.index)
 
 
 def load_obs_data(csv_dir, labels_path=None, record_path=None):
@@ -181,12 +255,38 @@ def load_obs_data(csv_dir, labels_path=None, record_path=None):
     built = {}
     for c in wcols:
         col = raw[c]
-        built[c] = pd.to_numeric(col.replace("", np.nan), errors="coerce")
+        v = pd.to_numeric(col.replace("", np.nan), errors="coerce")
         if CLOUD_GEOMETRY.search(c):
             # "nan" in the file = the model ran and reported no cloud. "" = the
             # field was never retrieved. Only the first is evidence of clear sky.
-            built[f"{c}_no_cloud"] = (col.str.lower() == "nan").astype(int)
+            no_cloud = (col.str.lower() == "nan")
+            # HRRR and RAP say "no cloud" with a nan. NAM, GFS and NBM instead
+            # emit a sentinel far above the tropopause -- ~20000 m for NAM/GFS,
+            # 88892 m for NBM -- which is the same statement in a different
+            # dialect. Verified against the observations rather than assumed:
+            # median OBSERVED visibility in the sentinel group is 96.6 km (NAM)
+            # and 128.7 km (NBM), against 99.8 m for rows carrying a real
+            # ceiling. Left as a raw number it is merely a value a tree may
+            # split on, and it distorts the scale of the genuine ceilings around
+            # it; folded into the flag it means the same thing in every model.
+            # ...but only for columns measured in METRES. cloud_*_pres_* is in
+            # pascals, where 88,800 is an ordinary near-surface reading, and a
+            # blanket height rule would mask almost every real pressure value.
+            sentinel = (v > SENTINEL_CEILING_M) & (not CLOUD_PRESSURE.search(c))
+            no_cloud = no_cloud | sentinel
+            v = v.mask(sentinel)
+            built[f"{c}_no_cloud"] = no_cloud.astype(int)
+        built[c] = v
     df = pd.concat([df, pd.DataFrame(built, index=raw.index)], axis=1)
+
+    # Derived vertical-structure features. An undercast IS a temperature
+    # inversion with the summit above the deck, so inversion strength is the
+    # physically correct predictor -- and it is a DIFFERENCE between two
+    # columns, which a tree can only approximate through many axis-aligned
+    # splits. Supplying it directly measured a single-feature AUC of 0.698
+    # (HRRR) and 0.696 (RAP), beating every raw feature already present
+    # (HRRR's best was apcp at 0.662 inverted). See add_profile_features.
+    df = pd.concat([df, add_profile_features(df)], axis=1)
 
     if record_path and os.path.exists(record_path):
         # Re-derive the label from the undercast record instead of trusting the
@@ -341,8 +441,14 @@ def build_models(y_train):
             n_jobs=-1, verbosity=0, n_estimators=300, max_depth=5,
             learning_rate=0.05, subsample=0.8, colsample_bytree=0.8,
         ),
+        # min_samples_leaf=2 was inherited from the 589-row pipeline. On 52,234
+        # rows it grows a 220 MB forest per source -- 60x the deployed 3.7 MB
+        # files, and unservable from a Pages repo. Measured on HRRR: leaf sizes
+        # 2 / 10 / 20 give OOF AUC 0.841 / 0.843 / 0.842 and base-rate AUC
+        # 0.859 / 0.861 / 0.861, i.e. identical skill, at 220 / 94 / 43 MB. The
+        # tiny leaves were buying nothing but size on a 2.7% event.
         "Random Forest": RandomForestClassifier(
-            n_estimators=400, min_samples_leaf=2, class_weight="balanced_subsample",
+            n_estimators=300, min_samples_leaf=20, class_weight="balanced_subsample",
             random_state=RANDOM_STATE, n_jobs=-1,
         ),
         "Gradient Boosting": GradientBoostingClassifier(

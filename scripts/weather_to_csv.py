@@ -314,8 +314,35 @@ def _to_scalar(x):
         return float("nan")
 
 
+def _match_lon_convention(da, lon, lon_name):
+    """Express `lon` in the same convention the grid uses.
+
+    GFS publishes longitude on 0..360; Mount Washington is -71.30. Asking
+    xarray for -71.30 with method="nearest" does NOT raise -- it silently
+    clamps to the closest value in range, which is 0.0, i.e. southwestern
+    France, ~5,400 km away. That is exactly how this went unnoticed: every GFS
+    column was populated, plausibly-valued, and wrong. Detected by comparing
+    850 mb temperature across models -- GFS correlated 0.596 with HRRR and ran
+    +6.8 K warm, where NAM, RAP and ECMWF all correlate 0.99+.
+    """
+    try:
+        coord = da[lon_name].values
+        hi, lo = float(np.nanmax(coord)), float(np.nanmin(coord))
+    except Exception:
+        return lon
+    if hi > 180.0 and lon < 0.0:        # grid is 0..360, request is signed
+        return lon % 360.0
+    if lo < 0.0 and lon > 180.0:        # grid is -180..180, request is 0..360
+        return ((lon + 180.0) % 360.0) - 180.0
+    return lon
+
+
 def sample_nearest(da, lat, lon):
-    """Select nearest value from DataArray using common coordinate name variants."""
+    """Select nearest value from DataArray using common coordinate name variants.
+
+    Longitude is converted to the grid's own convention first -- see
+    _match_lon_convention for why a silent 5,400 km error is possible otherwise.
+    """
     sel_opts = [
         {"lat": lat, "lon": lon},
         {"latitude": lat, "longitude": lon},
@@ -324,6 +351,13 @@ def sample_nearest(da, lat, lon):
     ]
     for opts in sel_opts:
         try:
+            lat_name, lon_name = list(opts)
+            # Only for genuinely longitude-named coordinates. On Lambert grids
+            # "x" is a projection coordinate in metres, where a ">180 means
+            # 0..360" test would misfire badly.
+            if "lon" in lon_name.lower() and lon_name in da.coords:
+                opts = dict(opts)
+                opts[lon_name] = _match_lon_convention(da, lon, lon_name)
             point = da.sel(method="nearest", **opts)
             return _to_scalar(point.squeeze())
         except Exception:
@@ -332,7 +366,8 @@ def sample_nearest(da, lat, lon):
         lat_dim = next(d for d in da.coords if "lat" in d.lower())
         lon_dim = next(d for d in da.coords if "lon" in d.lower())
         ilat = abs(da[lat_dim] - lat).argmin().item()
-        ilon = abs(da[lon_dim] - lon).argmin().item()
+        lon_q = _match_lon_convention(da, lon, lon_dim) if "lon" in lon_dim.lower() else lon
+        ilon = abs(da[lon_dim] - lon_q).argmin().item()
         val = da.isel({lat_dim: ilat, lon_dim: ilon}).squeeze()
         return _to_scalar(val)
     except Exception:
