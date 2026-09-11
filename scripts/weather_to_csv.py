@@ -56,7 +56,11 @@ LOCATIONS = [
 
 variables = {
     "cloud_top_hrrr": {"aliases": ["cloudTop", "nominalTop", "RETOP"], "model": "hrrr"},
-    "boundary_layer_cloud_layer": {
+    # NB: this key MUST end in _hrrr. train_undercast_models.select_features
+    # keeps columns ending in _<source>, so while this was named
+    # "boundary_layer_cloud_layer" it was silently dropped from the HRRR model
+    # (and every other per-source model) and only ever reached the combined one.
+    "boundary_layer_cloud_layer_hrrr": {
         "aliases": [
             "boundaryLayerCloudLayer",
             "TCDC:boundary layer cloud layer",
@@ -103,7 +107,6 @@ variables = {
     "hgt_500mb_hrrr": {"aliases": [":HGT:500 mb"], "model": "hrrr"},
     "hgt_700mb_hrrr": {"aliases": [":HGT:700 mb"], "model": "hrrr"},
     "hgt_850mb_hrrr": {"aliases": [":HGT:850 mb"], "model": "hrrr"},
-    "hgt_925mb_hrrr": {"aliases": [":HGT:925 mb"], "model": "hrrr"},
     "hgt_1000mb_hrrr": {"aliases": [":HGT:1000 mb"], "model": "hrrr"},
     "tmp_2m_hrrr": {"aliases": [":TMP:2 m above ground"], "model": "hrrr"},
     "rh_2m_hrrr": {"aliases": [":RH:2 m above ground"], "model": "hrrr"},
@@ -132,7 +135,7 @@ variables = {
         "model": "gfs",
     },
     "boundary_layer_cloud_layer_gfs": {
-        "aliases": [":TCDC:boundary layer cloud layer:%n hour"],
+        "aliases": [":TCDC:boundary layer cloud layer"],
         "model": "gfs",
     },
     "vis_surface_gfs": {"aliases": [":VIS:surface"], "model": "gfs"},
@@ -170,10 +173,6 @@ variables = {
     },
     "high_cloud_layer_percent_nam": {
         "aliases": [":HCDC:high cloud layer:%n hour"],
-        "model": "nam",
-    },
-    "boundary_layer_cloud_layer_nam": {
-        "aliases": [":TCDC:boundary layer cloud layer:%n hour"],
         "model": "nam",
     },
     "vis_surface_nam": {"aliases": [":VIS:surface"], "model": "nam"},

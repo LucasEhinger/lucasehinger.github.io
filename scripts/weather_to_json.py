@@ -47,6 +47,20 @@ LOCATIONS = [
     {"name": "MtWashington", "lat": 44.27040, "lon": -71.30327},
 ]
 
+# TODO (must land together with the retrained models, not before): mirror the
+# three variable-list fixes made in weather_to_csv.py --
+#   * rename "boundary_layer_cloud_layer" -> "boundary_layer_cloud_layer_hrrr"
+#     (without the suffix, train_undercast_models.select_features drops it from
+#     every per-source model)
+#   * "boundary_layer_cloud_layer_gfs" alias -> ":TCDC:boundary layer cloud
+#     layer" (GFS indexes it with no forecast-hour qualifier, so the %n form
+#     matched nothing and the column was 100% empty)
+#   * drop "hgt_925mb_hrrr" (only in the HRRR "prs" product) and
+#     "boundary_layer_cloud_layer_nam" (NAM never publishes it)
+# Deliberately NOT applied here yet: this script runs on a 6-hourly schedule and
+# feeds the CURRENTLY deployed preprocessors, which were fitted on the old column
+# names. Renaming before those models are replaced would make the live page throw
+# on a missing column. Classic train/serve skew -- change both sides at once.
 variables = {
     "cloud_top_hrrr": {"aliases": ["cloudTop", "nominalTop", "RETOP"], "model": "hrrr"},
     "boundary_layer_cloud_layer": {
