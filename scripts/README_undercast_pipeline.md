@@ -25,13 +25,21 @@ Two defects that motivated the rewrite:
 ```
 scripts/fetch_iem_metar.py          raw KMWN METAR + RMK, 1997-present, cached
 scripts/build_undercast_record.py   apply the undercast screen -> 253,317 obs
-                                    (6,843 undercast, 1997-2026)
+                                    (6,852 undercast, 1997-2026)
 scripts/sample_undercast_obs.py     all positives + 5:1 negatives, stratified on
                                     each positive's own (year, month, hour)
 .github/workflows/fetch_nwp_obs.yml forecast fields at each observation's OWN
                                     valid time, 3 leads (~1/24/48 h), 120 shards
 scripts/train_undercast_obs.py      -> files/weather/models/obs/
+scripts/undercast_eval.py           load the fitted artifacts and score them on
+                                    a split; imported, never run
+scripts/plot_undercast_obs_models.py    the /weather/details/ figures
+scripts/compare_undercast_ensembles.py  is the 3-algorithm vote worth keeping?
 ```
+
+`undercast_eval.py` exists so that nothing which merely *looks at* the models has
+to refit them. A refit is a different model, and its numbers would not be the
+ones the page quotes. Everything downstream loads the pickles instead.
 
 Why each piece is the way it is, where it is not obvious:
 
@@ -160,6 +168,51 @@ deliberately left alone: the deployed models were trained on the France values,
 so correcting the input without retraining would feed them out-of-distribution
 data. Fix it as part of the cutover, never before.
 
+### The 3-algorithm vote is not doing anything
+
+`compare_undercast_ensembles.py`, on the untouched holdouts, using the artifacts
+on disk rather than refits.
+
+**The vote never wins.** On the combined model it ties the best single algorithm
+on the base-rate holdout (F1 0.45) and loses on the webcam holdout (0.33 against
+Gradient Boosting's 0.39). Unanimity buys precision 0.48 on the base-rate holdout
+at the cost of 0.19 recall on the webcam one. The mechanism is that the three
+members rank hours the same way 0.85-0.93 of the time (Spearman) — three tree
+ensembles reading one feature set are not three opinions.
+
+**No other algorithm does better either.** Trained on the same split: XGBoost
+0.925 / GB 0.919 / RF-deeper 0.915 / RF 0.914 / HistGB 0.909 / logistic 0.896 /
+ExtraTrees 0.870 (combined source, base-rate ROC-AUC). On HRRR the same seven
+span 0.855-0.868. Logistic regression landing 0.006 behind on a single source is
+the informative one: nearly all the signal here is linear in these features, and
+the trees earn their keep only on the combined source where six models' columns
+give them interactions to find.
+
+**The diversity that pays is between weather models.** Same measurement across
+the six sources, one algorithm: rank correlation 0.38-0.60, less than half the
+algorithms' agreement, and HRRR/ECMWF — the two strongest — agree least (0.38).
+On the rows every source covers (7,239 obs, 177 positives):
+
+| predictor | base-rate ROC-AUC | 95% CI |
+|---|---|---|
+| best single source (HRRR) | 0.875 | [0.835, 0.915] |
+| mean of all six probabilities | 0.906 | [0.858, 0.946] |
+| combined model (feature-level fusion) | 0.925 | [0.887, 0.958] |
+
+Paired, day-block bootstrap: combined − mean-of-six = **+0.019 [+0.003, +0.034]**,
+so feature-level fusion beats probability averaging by a small but real margin.
+mean-of-six − HRRR = +0.030 [−0.003, +0.063], which does not quite clear zero.
+
+Greedy forward selection: HRRR 0.875 → +ECMWF 0.907 → +GFS 0.910 → +NBM 0.911,
+then NAM and RAP each make it *worse*. Two unlike sources capture essentially the
+whole gain (best pair HRRR+ECMWF 0.907; worst pair GFS+RAP 0.859). RAP finishing
+last is consistent with it being the 13 km model HRRR is initialised from.
+
+Implications: dropping to one gradient-boosted model per source costs no
+measurable skill and removes 43 MB of RandomForest artifacts; effort on
+algorithms has run out of room, effort on a genuinely different view of the
+atmosphere has not.
+
 ### Known weakness: the base-rate holdout is thin
 
 2,896 observations carrying only **86 positives**, so ~29 per lead. Enough to see
@@ -180,11 +233,12 @@ unsampled 3-hourly series for 2022.
 1. **Fix the longitude bug in `weather_to_json.py`'s own copy of
    `sample_nearest`** (see above) — must land in the same commit as the
    retrained models, never before them.
-2. Decide whether GFS is re-fetched or dropped. As it stands its model is
-   worthless (AUC 0.53) and must not be served.
+2. ~~Decide whether GFS is re-fetched or dropped.~~ **Done** — re-fetched with
+   the corrected longitude, commit `03aadfa`; AUC 0.53 → 0.82.
 3. Decide how the RandomForest artifacts are stored. At `min_samples_leaf=20`
    HRRR is 43 MB against the deployed 3.7 MB; XGBoost is 1.1 MB for equal or
-   better skill, so serving XGBoost alone is a live option.
+   better skill, so serving XGBoost alone is a live option — and the ensemble
+   study below now says the vote it would leave behind was not buying anything.
 
 
 Nothing below can land on its own: the live `weather_to_json.py` runs every 6
@@ -212,10 +266,11 @@ names. Changing one side alone breaks the live page on a missing column.
       at 1 h (measured on the fixture: 0.97 at 1 h vs 0.46 at 48 h).
 - [ ] **Point the models directory** at `files/weather/models/obs/` (or copy over
       `files/weather/models/`) once the new numbers beat the old ones.
-- [ ] **Update the results section** of `_pages/weather-details.html`. The
-      "Determining if it's undercast" write-up is already current; the results,
-      per-source table, feature-importance figures and "Next Steps" still
-      describe the old models, and the write-up carries an explicit *Status*
-      paragraph saying so that should be removed.
+- [x] **Update the results section** of `_pages/weather-details.html`. Done: the
+      results table, confusion matrices, feature importances, per-source tables
+      and "Next Steps" all come from the new pipeline, the per-source table now
+      fetches `files/weather/models/obs/model_metadata_*.json`, and the *Status*
+      paragraph no longer disclaims anything. The one first-pass artifact left is
+      `leakage_before_after.png`, kept deliberately inside the row-leakage note.
 - [ ] **Retire the old path** — `regen_weather_csv.yml` and
       `train_undercast_models.py` — only after the new one is serving.

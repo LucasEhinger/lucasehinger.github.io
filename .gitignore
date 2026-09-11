@@ -50,6 +50,7 @@ files/weather/models/obs/*
 # large, regenerable part and stay ignored.
 !files/weather/models/obs/model_metadata_*.json
 !files/weather/models/obs/baseline_rules.json
+!files/weather/models/obs/ensemble_comparison.json
 
 # Narrow shards from a partial re-fetch (fetch_nwp_at_obs.py --models ...).
 # Spliced into files/weather/csv/obs by merge_nwp_columns.py; never committed.

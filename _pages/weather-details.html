@@ -661,10 +661,8 @@ author_profile: true
             test set, so that a model trained on the screen&rsquo;s labels can be scored against human judgement of
             actual photographs rather than against the screen that produced its training data.</p>
         <p><em>Status:</em> the 29-year record is built, the forecast parameters have been downloaded at every
-            observation&rsquo;s own valid time for three leads, and the models are retrained — the headline numbers are
-            in <a href="#results">Results</a>. The confusion matrices, feature-importance charts and per-source tables
-            further down have <em>not</em> been regenerated and still describe the first pass, which had only the 24
-            hand-labeled undercast days to learn from and sampled its forecast fields at the wrong time of day.</p>
+            observation&rsquo;s own valid time for three leads, and the models are retrained. Every number and figure
+            below comes from that rebuilt pipeline; the headline table is in <a href="#results">Results</a>.</p>
     </details>
 
     <h3>What that buys</h3>
@@ -1018,51 +1016,53 @@ author_profile: true
     </div>
 
     <h3>Model selection &amp; training</h3>
-    <p>We don't have a lot of data to train on, so I only consider relatively simple ML models. To begin, I trained
-        four different classification models—Logistic Regression, Random Forest, XGBoost, and Gradient Boosting.
-        Logistic Regression performed significantly worse, so the other three are kept and studied further. This trio is
-        trained independently for each of the seven models above.</p>
-    <p>Undercast days are rare, so the classes are heavily imbalanced. Rather than synthesizing samples, each model
-        handles this with class weights (Random Forest's balanced class weights, XGBoost's
-        <code>scale_pos_weight</code>,
-        and balanced sample weights for Gradient Boosting), which suits tree ensembles and keeps the pipeline clean.
-    </p>
-    <p>Because each date contributes many forecast-hour rows, every cross-validation fold is grouped by date, so no
-        single day's rows land in both training and scoring — otherwise the model would "see the answer" for a day it is
-        being tested on. (An earlier version split rows randomly and looked far more accurate than it really was.)
-        Performance is measured with five-fold grouped cross-validation, and each model's decision threshold is chosen
-        on
-        the pooled out-of-fold predictions rather than a single split: undercast is so rare that any one validation fold
-        holds only a day or two of it. The threshold targets the most recall it can while holding precision above a
-        floor, so the deployed model leans toward staying quiet unless the signal is reasonably strong.</p>
-    <p>How well does it work? The three algorithms all <em>rank</em> undercast days well — ROC-AUC sits around
-        0.80–0.87 across the seven data sources (NBM and the combined all-parameters model are strongest). Precision is
-        the hard part: because undercast is only about 4% of days, even good ranking runs into a precision ceiling near
-        0.25, and the deployed majority vote (below) runs roughly 0.2 precision. In plain terms, when it does call an
-        undercast it's right maybe one time in five, and it catches only a minority of real undercast days.</p>
+    <p>Three algorithms are trained independently for each of the seven sources above: XGBoost, Random Forest and
+        Gradient Boosting. Undercast is rare, so the classes are heavily imbalanced. Rather than synthesizing samples,
+        each one handles that with class weights (Random Forest&rsquo;s balanced class weights, XGBoost&rsquo;s
+        <code>scale_pos_weight</code>, balanced sample weights for Gradient Boosting), which suits tree ensembles and
+        keeps the pipeline honest — no invented rows.</p>
+    <p>Two choices about <em>how</em> it is scored matter more than any of that.</p>
+    <p><strong>Folds are grouped by ISO week, and the holdouts are separated by date.</strong> Each observation is one
+        hour and a day carries about 24 of them, so splitting rows at random lets a model learn a day&rsquo;s weather
+        from 03:50 and be &ldquo;tested&rdquo; on 04:50. Grouping by date fixes that, but not enough: a multi-day
+        inversion makes Tuesday and Wednesday nearly the same event, so folds group by week instead. Any training row
+        sharing a date with a holdout — plus a one-day buffer either side — is dropped outright, which costs about 17%
+        of the training rows and leaves the holdouts as contiguous blocks of calendar time. That is a forward test
+        rather than interpolation between training hours.</p>
+    <p><strong>Thresholds are tuned where the base rate is real.</strong> Negatives were subsampled 5:1 to build the
+        training set, so precision measured there is computed against a ~17% positive rate when the world runs at 2.4%.
+        It would be inflated roughly sixfold and mean nothing. Each threshold is therefore fitted on the held-out year,
+        which is unsampled, and the headline numbers come from the hand-labeled webcam days, scored against a person
+        looking at a photograph rather than against the remark screen that generated the training labels.</p>
+    <p>How well does it work? All three algorithms <em>rank</em> undercast well — ROC-AUC 0.85–0.88 for the individual
+        weather models and 0.93 for the combined one, on the held-out year. Precision is the hard part: at a 2.4% base
+        rate even good ranking hits a ceiling, and the combined model runs about 0.41 precision at 0.46 recall. In
+        plain terms, when it calls an undercast it is right a bit under half the time, and it catches under half of
+        the real ones.</p>
 
     <details class="leakage-note" style="margin:16px 0;">
         <summary style="cursor:pointer; font-weight:600;">What the row-leakage bug was hiding (click to expand)
         </summary>
-        <p style="margin-top:12px;">An earlier writeup here implied ~0.8 precision. That number came from the
-            row-leakage
-            bug mentioned above: folds were split by row rather than by date, so when a given forecast-hour row was
-            scored, the other ~22 rows from the same day were sitting in the training set. The model didn't have to
-            forecast an undercast — it only had to recognize a day it had already memorized.</p>
-        <p>Below is the same all-parameters model evaluated both ways, each panel at its own F1-maximizing threshold.
-            The top row is the leaky split, the bottom row is the honest date-grouped split. Reproducing the old split
-            here looks even better than the original writeup claimed — 0.9+ precision with nearly all undercast days
-            caught — while the same model, same data, same algorithms scored honestly lands near 0.2 precision and
-            misses most events. That collapse is the whole reason the deployed thresholds now aim for ~0.2: the old
+        <p style="margin-top:12px;">An earlier writeup here implied ~0.8 precision. That number came from row leakage:
+            folds were split by row rather than by date, so when a given forecast-hour row was scored, the other ~22
+            rows from the same day were sitting in the training set. The model didn&rsquo;t have to forecast an
+            undercast — it only had to recognize a day it had already memorized.</p>
+        <p>Below is that first-pass model evaluated both ways, each panel at its own F1-maximizing threshold. The top
+            row is the leaky split, the bottom row is the date-grouped one. Reproducing the old split looks even better
+            than the original writeup claimed — 0.9+ precision with nearly all undercast days caught — while the same
+            model, same data, same algorithms scored honestly lands near 0.2 precision and misses most events. The old
             numbers were never forecast skill, just memorized days.</p>
+        <p>The figure is kept because it is the clearest picture of what the mistake was worth. It is the <em>only</em>
+            thing on this page still drawn from the first pass; the current pipeline groups folds by week and separates
+            the holdouts by date, so the leaky split it illustrates cannot occur.</p>
         <figure style="margin:14px 0; text-align:center;">
             <img src="/files/weather/examples/model_training_images/leakage_before_after.png"
                 alt="Confusion matrices before and after the row-leakage fix"
                 style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
             <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Before
-                (row-wise split) vs after (date-grouped split), all-parameters model, out-of-fold. Precision (P) and
-                recall (R) per panel. Same data, same algorithms, same thresholds strategy — only the fold structure
-                changed.</figcaption>
+                (row-wise split) vs after (date-grouped split), first-pass all-parameters model, out-of-fold. Precision
+                (P) and recall (R) per panel. Same data, same algorithms, same threshold strategy — only the fold
+                structure changed.</figcaption>
         </figure>
     </details>
 
@@ -1070,11 +1070,13 @@ author_profile: true
         <img src="/files/weather/examples/model_training_images/per_source_performance.png"
             alt="ROC-AUC and PR-AUC per data source"
             style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
-        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Discrimination
-            for each data
-            source (best of the three algorithms), from grouped out-of-fold cross-validation. Every source ranks well
-            above chance (ROC-AUC), but precision–recall area stays low because undercast is so rare (dashed line = base
-            rate).</figcaption>
+        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Skill for
+            each data source (best of the three algorithms) on the held-out year. Every source ranks well above chance
+            (ROC-AUC), but precision–recall area stays low because undercast is so rare (dashed line = base rate).
+            All seven are scored on the 7,239 hours <em>every</em> source covers, not on each one&rsquo;s own record:
+            HRRR&rsquo;s archive starts in 2014 and ECMWF&rsquo;s in 2022, so per-source row sets would compare
+            different years&rsquo; weather as much as different models. That is why these differ slightly from the
+            per-source tables below, which quote each source on its own full holdout.</figcaption>
     </figure>
 
     <figure style="margin:18px 0; text-align:center;">
@@ -1082,11 +1084,10 @@ author_profile: true
             alt="ROC and precision-recall curves for the all-parameters model"
             style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
         <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">ROC and
-            precision–recall
-            curves for the combined all-parameters model (out-of-fold). The ROC curves sit well above the diagonal,
-            while
-            the precision–recall curves show precision plateauing around 0.2–0.25 — the practical ceiling for this
-            signal.</figcaption>
+            precision–recall curves for the combined all-parameters model on the held-out year. The ROC curves sit well
+            above the diagonal; the precision–recall curves peak near 0.5 and fall away steadily, which is the shape
+            that matters — at a 2.4% base rate every extra undercast you catch costs precision, and there is no
+            operating point that is both sensitive and reliable.</figcaption>
     </figure>
 
     The top model features are shown below.
@@ -1097,17 +1098,25 @@ author_profile: true
         <span style="font-weight:600;">Show features for:</span>
     </div>
     <div class="figure-grid paired" id="features-figures"></div>
-    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin:0 0 24px 0;">Most important features
-        for each selected XGBoost model. For the all-parameters model, physically sensible signals dominate —
-        925&nbsp;mb temperature, boundary-layer mixing height, cloud-top height, and the freezing level. See <a
-            href="/scripts/plot_undercast_models.py">plot_undercast_models.py</a> for generation details.</p>
+    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin:0 0 24px 0;">Most important
+        features (share of total gain) for each selected XGBoost model. For the combined model the top of the list is
+        precipitation — accumulated and rate, from two different sources — which is physically sensible in a blunt way:
+        an undercast requires that it not be raining on you. Below that sit the things the physics predicts, moisture
+        at 925&nbsp;mb, the 925&rarr;850&nbsp;mb humidity jump across the inversion, surface visibility, and the
+        interpolated summit-minus-925&nbsp;mb temperature difference — which is third for HRRR, GFS and RAP alike, so
+        the hand-built inversion feature is doing real work.</p>
+    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin:0 0 24px 0;">Entries marked
+        <em>(not reported)</em> are missingness indicators, and they are not padding: <em>whether HRRR reports a cloud
+        base at all</em> is the second most informative feature it has. GRIB only defines cloud geometry where cloud
+        exists, so a blank field is the model stating there is nothing there — which is precisely the condition an
+        undercast forecast cares about. (The first pass median-imputed those blanks, recoding every clear-sky hour as
+        &ldquo;cloud at the typical height&rdquo;.) See <a
+            href="/scripts/plot_undercast_obs_models.py">plot_undercast_obs_models.py</a> for generation details.</p>
 
     <h3 id="results">Results &mdash; retrained on the 29-year record</h3>
     <p>These are the numbers from the rebuilt pipeline: one row per observation at its own valid time, ~2,900 undercast
         examples instead of 24, and three forecast leads. Thresholds come from the true-base-rate holdout; the
-        <strong>ROC-AUC is on that same unsampled year</strong>, broken out by how far ahead the forecast was made.
-        Everything below this table — the confusion matrices, feature importances and per-source tables — still comes
-        from the <em>earlier</em> setup and has not been regenerated yet.</p>
+        <strong>ROC-AUC is on that same unsampled year</strong>, broken out by how far ahead the forecast was made.</p>
 
     <div style="margin-top:12px; overflow-x:auto;">
         <table style="width:100%; border-collapse:collapse; min-width:680px;">
@@ -1208,29 +1217,29 @@ author_profile: true
         <p>GFS is therefore last on its merits, and the gap to HRRR is about what a coarser grid would predict.</p>
     </details>
 
-    <h3>Earlier results (first pass)</h3>
-    <p>Everything from here down describes the first version of the model — trained on the 24 hand-labeled undercast
-        days, with forecast fields sampled at a fixed time of day rather than at each observation&rsquo;s own valid
-        time. It is kept for comparison until the figures are regenerated.</p>
-    <p>No single model is used on its own. The deployed prediction is a majority vote — a day is called undercast only
-        when at least two of the three algorithms agree at their chosen thresholds. Requiring agreement trims false
-        alarms at the cost of some recall, which is the right trade for a page you'd check before driving to a
-        trailhead.</p>
+    <h3>Confusion matrices</h3>
+    <p>No single algorithm is used on its own. The deployed prediction is a majority vote — a day is called undercast
+        only when at least two of the three agree at their chosen thresholds. The reasoning was that requiring
+        agreement trims false alarms at the cost of some recall, which is the right trade for a page you&rsquo;d check
+        before driving to a trailhead. <a href="#does-the-vote-earn-its-place">Further down</a> that assumption gets
+        tested, and it does not hold up.</p>
     <div class="figure-picker" id="confusion-toggle">
         <span style="font-weight:600;">Show confusion matrices for:</span>
     </div>
     <div class="figure-grid" id="confusion-figures"></div>
-    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin:0 0 18px 0;">Out-of-fold confusion
-        matrices for each selected model at its deployed thresholds, plus the 2-of-3 consensus. (The site itself runs
-        the all-parameters consensus; the individual weather models are shown for comparison.) Undercast is the rare
-        bottom row: the vote keeps false positives low but still misses a fair share of real events — an honest
-        reflection of a hard, data-limited problem.</p>
+    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin:0 0 18px 0;">Confusion matrices on
+        the held-out year for each selected source at its deployed thresholds, plus the 2-of-3 vote. (The site itself
+        runs the all-parameters vote; the individual weather models are shown for comparison.) Undercast is the rare
+        bottom row. Counts are in the cells; the shading is each row&rsquo;s share, because the negative row outnumbers
+        the positive one about 40 to 1 and raw-count shading would paint one square dark and leave the other three
+        blank regardless of how the model did.</p>
 
     <h4>Per-source numbers</h4>
-    <p>The figures above show one source at a time. To see the exact grouped, out-of-fold metrics for any
-        individual data source — or to line several up side by side — tick the sources below. Precision, recall, F1 and
-        the false-positive / false-negative counts are at each algorithm's deployed threshold; ROC-AUC and PR-AUC are
-        threshold-free.</p>
+    <p>The figures above show one source at a time. To see the exact metrics for any individual data source — or to
+        line several up side by side — tick the sources below. Precision, recall, F1 and the false-positive /
+        false-negative counts come from the held-out year at each algorithm&rsquo;s deployed threshold; the webcam
+        columns apply that same threshold to the hand-labeled days, which had no say in choosing it. ROC-AUC and
+        PR-AUC are threshold-free.</p>
 
     <div id="results-model-toggle"
         style="display: inline-flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 12px; margin: 4px 0 16px 0; border: 1px solid var(--global-border-color, #ccc); border-radius: 6px;">
@@ -1323,7 +1332,7 @@ author_profile: true
                 "Top feature importances");
 
             function metadataUrl(key) {
-                return `/files/weather/models/model_metadata_${key}.json`;
+                return `/files/weather/models/obs/model_metadata_${key}.json`;
             }
 
             function fmt(v) {
@@ -1348,17 +1357,40 @@ author_profile: true
                 const table = document.createElement("table");
                 table.style.width = "100%";
                 table.style.borderCollapse = "collapse";
-                table.style.minWidth = "620px";
+                table.style.minWidth = "820px";
 
                 const border = "1px solid var(--global-border-color, #ccc)";
-                const headers = ["Algorithm", "Precision", "Recall", "F1", "Threshold", "FP", "FN", "ROC-AUC", "PR-AUC"];
+                // Two header rows: the same algorithm is scored on two different
+                // holdouts, and a flat header would leave a reader guessing which
+                // precision belongs to which.
+                const groups = [
+                    ["", 2],
+                    ["Held-out year (true base rate)", 6],
+                    ["Hand-labeled webcam days", 3],
+                ];
+                const headers = ["Algorithm", "Threshold",
+                    "P", "R", "F1", "FP", "FN", "ROC-AUC",
+                    "P", "R", "ROC-AUC"];
                 const thead = document.createElement("thead");
+                const gtr = document.createElement("tr");
+                groups.forEach(([label, span], gi) => {
+                    const th = document.createElement("th");
+                    th.textContent = label;
+                    th.colSpan = span;
+                    th.style.textAlign = gi === 0 ? "left" : "center";
+                    th.style.padding = "6px 8px 2px 8px";
+                    th.style.fontSize = "0.88em";
+                    th.style.fontWeight = gi === 0 ? "400" : "600";
+                    th.style.color = "var(--global-fig-caption-color, #666)";
+                    gtr.appendChild(th);
+                });
+                thead.appendChild(gtr);
                 const htr = document.createElement("tr");
                 headers.forEach((h, i) => {
                     const th = document.createElement("th");
                     th.textContent = h;
                     th.style.textAlign = i === 0 ? "left" : "right";
-                    th.style.padding = "8px";
+                    th.style.padding = "4px 8px 8px 8px";
                     th.style.borderBottom = border;
                     htr.appendChild(th);
                 });
@@ -1368,16 +1400,20 @@ author_profile: true
                 const tbody = document.createElement("tbody");
                 ALGORITHMS.forEach((algo) => {
                     const m = meta[algo] || {};
+                    const b = m.baserate || {};
+                    const w = m.webcam_human || {};
                     const cells = [
                         algo,
-                        fmt(m.oof_precision),
-                        fmt(m.oof_recall),
-                        fmt(m.oof_f1_score),
-                        fmt(m.threshold_best_f1),
-                        fmtInt(m.oof_fp),
-                        fmtInt(m.oof_fn),
-                        fmt(m.cv_roc_auc),
-                        fmt(m.cv_pr_auc),
+                        fmt(m.threshold),
+                        fmt(b.precision),
+                        fmt(b.recall),
+                        fmt(b.f1),
+                        fmtInt(b.fp),
+                        fmtInt(b.fn),
+                        fmt(b.roc_auc),
+                        fmt(w.precision),
+                        fmt(w.recall),
+                        fmt(w.roc_auc),
                     ];
                     const tr = document.createElement("tr");
                     cells.forEach((c, i) => {
@@ -1385,6 +1421,11 @@ author_profile: true
                         td.textContent = c;
                         td.style.textAlign = i === 0 ? "left" : "right";
                         td.style.padding = "8px";
+                        // Separate the two holdout blocks so the eye can find the
+                        // boundary without reading the group header again.
+                        if (i === 2 || i === 8) {
+                            td.style.borderLeft = "1px solid var(--global-dark-border-color, #eee)";
+                        }
                         td.style.borderBottom = "1px solid var(--global-dark-border-color, #eee)";
                         tr.appendChild(td);
                     });
@@ -1392,6 +1433,18 @@ author_profile: true
                 });
                 table.appendChild(tbody);
                 wrap.appendChild(table);
+
+                const note = document.createElement("p");
+                note.style.fontSize = "0.9em";
+                note.style.color = "var(--global-fig-caption-color, #666)";
+                note.style.margin = "6px 0 0 0";
+                const n = (meta.n_train_rows || 0).toLocaleString();
+                const pos = (meta.n_train_positives || 0).toLocaleString();
+                const yrs = meta.year_range ? `${meta.year_range[0]}–${meta.year_range[1]}` : "";
+                note.textContent = `Trained on ${n} observations (${pos} undercast) from ${yrs}. `
+                    + "Thresholds are fitted on the held-out year, so its precision and recall are "
+                    + "the optimistic pair; the webcam columns are the clean test.";
+                wrap.appendChild(note);
                 return wrap;
             }
 
@@ -1448,17 +1501,246 @@ author_profile: true
 
 
 
+    <h3 id="does-the-vote-earn-its-place">Does the vote earn its place?</h3>
+    <p>Three algorithms, majority vote. That design was inherited rather than tested, so here it is tested — on the
+        untouched holdouts, using the models already on disk rather than refits, which means these are the numbers the
+        rest of the page quotes and not near-identical approximations.</p>
+    <p>An ensemble only pays when its members make <em>different</em> mistakes. If they agree, the vote can never
+        overturn anything and all it does is average three copies of one opinion. So the first thing to look at is not
+        the score but the agreement.</p>
+
+    <figure style="margin:18px 0; text-align:center;">
+        <img src="/files/weather/examples/model_training_images/ensemble_diversity.png"
+            alt="Two correlation matrices on a shared colour scale and a dot plot of ROC-AUC with confidence intervals. The three algorithms correlate 0.85 to 0.93; the six weather models correlate 0.38 to 0.60."
+            style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">Left and
+            middle share one colour scale, which is the point. Rank correlation between the three algorithms on one
+            weather model runs 0.85–0.93; between the six weather models using one algorithm it runs 0.38–0.60. Right:
+            what that disagreement is worth, with 95% intervals from a bootstrap that resamples whole <em>days</em> —
+            hours within a day are the same weather, and resampling them independently would manufacture confidence
+            that is not there.</figcaption>
+    </figure>
+
+    <h4>1. The vote does not help</h4>
+    <p>On the combined model, at the deployed thresholds:</p>
+    <div style="margin-top:12px; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:640px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:6px 8px 2px 8px;"></th>
+                    <th colspan="3"
+                        style="text-align:center; padding:6px 8px 2px 8px; font-size:0.88em; color:var(--global-fig-caption-color,#666);">
+                        Held-out year</th>
+                    <th colspan="3"
+                        style="text-align:center; padding:6px 8px 2px 8px; font-size:0.88em; color:var(--global-fig-caption-color,#666);">
+                        Webcam days</th>
+                </tr>
+                <tr style="border-bottom:1px solid var(--global-border-color,#ccc);">
+                    <th style="text-align:left; padding:4px 8px 8px 8px;">Predictor</th>
+                    <th style="text-align:right; padding:4px 8px 8px 8px;">P</th>
+                    <th style="text-align:right; padding:4px 8px 8px 8px;">R</th>
+                    <th style="text-align:right; padding:4px 8px 8px 8px;">F1</th>
+                    <th style="text-align:right; padding:4px 8px 8px 8px;">P</th>
+                    <th style="text-align:right; padding:4px 8px 8px 8px;">R</th>
+                    <th style="text-align:right; padding:4px 8px 8px 8px;">F1</th>
+                </tr>
+            </thead>
+            <tbody style="border-bottom:1px solid var(--global-dark-border-color,#eee);">
+                <tr>
+                    <td style="padding:7px 8px;">XGBoost alone</td>
+                    <td style="text-align:right; padding:7px 8px;">0.41</td>
+                    <td style="text-align:right; padding:7px 8px;">0.46</td>
+                    <td style="text-align:right; padding:7px 8px;">0.43</td>
+                    <td style="text-align:right; padding:7px 8px;">0.37</td>
+                    <td style="text-align:right; padding:7px 8px;">0.28</td>
+                    <td style="text-align:right; padding:7px 8px;">0.32</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Random Forest alone</td>
+                    <td style="text-align:right; padding:7px 8px;">0.35</td>
+                    <td style="text-align:right; padding:7px 8px;">0.55</td>
+                    <td style="text-align:right; padding:7px 8px;">0.43</td>
+                    <td style="text-align:right; padding:7px 8px;">0.41</td>
+                    <td style="text-align:right; padding:7px 8px;">0.25</td>
+                    <td style="text-align:right; padding:7px 8px;">0.31</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Gradient Boosting alone</td>
+                    <td style="text-align:right; padding:7px 8px;">0.39</td>
+                    <td style="text-align:right; padding:7px 8px;">0.55</td>
+                    <td style="text-align:right; padding:7px 8px;"><strong>0.45</strong></td>
+                    <td style="text-align:right; padding:7px 8px;">0.37</td>
+                    <td style="text-align:right; padding:7px 8px;">0.42</td>
+                    <td style="text-align:right; padding:7px 8px;"><strong>0.39</strong></td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Any of the three</td>
+                    <td style="text-align:right; padding:7px 8px;">0.31</td>
+                    <td style="text-align:right; padding:7px 8px;">0.60</td>
+                    <td style="text-align:right; padding:7px 8px;">0.41</td>
+                    <td style="text-align:right; padding:7px 8px;">0.37</td>
+                    <td style="text-align:right; padding:7px 8px;">0.46</td>
+                    <td style="text-align:right; padding:7px 8px;">0.41</td>
+                </tr>
+                <tr style="background:rgba(128,128,128,0.07);">
+                    <td style="padding:7px 8px;"><strong>2 of 3 &mdash; deployed</strong></td>
+                    <td style="text-align:right; padding:7px 8px;">0.40</td>
+                    <td style="text-align:right; padding:7px 8px;">0.52</td>
+                    <td style="text-align:right; padding:7px 8px;">0.45</td>
+                    <td style="text-align:right; padding:7px 8px;">0.39</td>
+                    <td style="text-align:right; padding:7px 8px;">0.29</td>
+                    <td style="text-align:right; padding:7px 8px;">0.33</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Unanimous</td>
+                    <td style="text-align:right; padding:7px 8px;">0.48</td>
+                    <td style="text-align:right; padding:7px 8px;">0.44</td>
+                    <td style="text-align:right; padding:7px 8px;">0.46</td>
+                    <td style="text-align:right; padding:7px 8px;">0.39</td>
+                    <td style="text-align:right; padding:7px 8px;">0.19</td>
+                    <td style="text-align:right; padding:7px 8px;">0.26</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Mean of the three probabilities</td>
+                    <td style="text-align:right; padding:7px 8px;">0.44</td>
+                    <td style="text-align:right; padding:7px 8px;">0.47</td>
+                    <td style="text-align:right; padding:7px 8px;">0.46</td>
+                    <td style="text-align:right; padding:7px 8px;">0.38</td>
+                    <td style="text-align:right; padding:7px 8px;">0.25</td>
+                    <td style="text-align:right; padding:7px 8px;">0.30</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin:8px 0 18px 0;">Held-out year: 7,239
+        observations, 177 undercast. Webcam days: 1,767 observations, 72 undercast by human scoring. Thresholds were
+        fitted on the held-out year, so that side is the optimistic one for every row alike.</p>
+    <p>The vote never wins. On the held-out year it ties the best single algorithm (F1 0.45); on the webcam days,
+        which had no say in choosing any threshold, it loses to Gradient Boosting alone, 0.33 against 0.39. Requiring
+        unanimity does buy precision on the held-out year — 0.48, the best figure in the table — but it does so by
+        dropping recall to 0.19 on the webcam days, which is not a trade worth making for a page meant to tell you
+        when to drive up.</p>
+    <p>None of these gaps is individually significant on 72 positives, and that is the finding rather than a caveat:
+        the vote is not doing the job it was put there to do. The mechanism is on the left of the figure. The three
+        algorithms rank the same hours the same way 0.85–0.93 of the time, because they are three tree ensembles
+        reading one set of features. When two of them disagree with the third, it is usually because the case sits near
+        a threshold, not because one of them saw something the others missed.</p>
+
+    <h4>2. Nothing else does better either</h4>
+    <p>If the three are near-duplicates, is one of them simply the wrong pick? Four alternatives, trained on the same
+        split and scored the same way:</p>
+    <div style="margin-top:12px; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:560px;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--global-border-color,#ccc);">
+                    <th style="text-align:left; padding:8px;">Algorithm</th>
+                    <th style="text-align:right; padding:8px;">Combined, held-out year</th>
+                    <th style="text-align:right; padding:8px;">HRRR, held-out year</th>
+                </tr>
+            </thead>
+            <tbody style="border-bottom:1px solid var(--global-dark-border-color,#eee);">
+                <tr>
+                    <td style="padding:7px 8px;">XGBoost <em>(deployed)</em></td>
+                    <td style="text-align:right; padding:7px 8px;"><strong>0.925</strong></td>
+                    <td style="text-align:right; padding:7px 8px;">0.866</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Gradient Boosting <em>(deployed)</em></td>
+                    <td style="text-align:right; padding:7px 8px;">0.919</td>
+                    <td style="text-align:right; padding:7px 8px;"><strong>0.868</strong></td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Random Forest, deeper trees</td>
+                    <td style="text-align:right; padding:7px 8px;">0.915</td>
+                    <td style="text-align:right; padding:7px 8px;">0.860</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Random Forest <em>(deployed)</em></td>
+                    <td style="text-align:right; padding:7px 8px;">0.914</td>
+                    <td style="text-align:right; padding:7px 8px;">0.861</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Histogram Gradient Boosting</td>
+                    <td style="text-align:right; padding:7px 8px;">0.909</td>
+                    <td style="text-align:right; padding:7px 8px;">0.865</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Logistic regression</td>
+                    <td style="text-align:right; padding:7px 8px;">0.896</td>
+                    <td style="text-align:right; padding:7px 8px;">0.860</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">Extra Trees</td>
+                    <td style="text-align:right; padding:7px 8px;">0.870</td>
+                    <td style="text-align:right; padding:7px 8px;">0.855</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin:8px 0 18px 0;">ROC-AUC on the
+        held-out year. Histogram Gradient Boosting gets the raw columns with their gaps intact, since it splits on
+        missingness natively; logistic regression gets median imputation and standardisation, because handing a linear
+        model the &minus;9999 sentinel the trees use would let one fill value swamp every coefficient.</p>
+    <p>The three incumbents hold the top of both columns, so there is no change to make. The interesting row is
+        logistic regression: a straight linear model lands 0.03 behind on the combined source and 0.006 behind on HRRR.
+        Nearly all of the signal here is available to a weighted sum of the inputs. The trees are earning a little on
+        the combined model, where 213 features from six sources give them interactions to find, and essentially
+        nothing on a single source.</p>
+
+    <h4>3. The disagreement that matters is between weather models</h4>
+    <p>The same measurement across the six weather models, one algorithm each, gives rank correlations of 0.38–0.60 —
+        less than half the agreement the algorithms showed. HRRR and ECMWF, the two strongest, agree least of all
+        (0.38). They are genuinely different instruments: a 3&nbsp;km regional model run hourly against a global model
+        at 0.25° on its own physics.</p>
+    <p>And there that diversity pays. On the rows every source covers:</p>
+    <ul>
+        <li>The best single source, HRRR, reaches ROC-AUC <strong>0.875</strong> [0.835, 0.915].</li>
+        <li>Averaging all six probabilities reaches <strong>0.906</strong> [0.858, 0.946] — better than any of its
+            members, though +0.030 [&minus;0.003, +0.063] against HRRR alone stops just short of significance.</li>
+        <li>The combined model, which sees every source&rsquo;s columns at once rather than averaging their verdicts,
+            reaches <strong>0.925</strong> [0.887, 0.958]. Against the six-way average that is +0.019 [+0.003, +0.034]
+            — small, but the interval clears zero.</li>
+    </ul>
+    <p>So fusing at the level of features beats fusing at the level of opinions, which is what the combined model has
+        been doing all along. The spread between individual sources, meanwhile, is modest: 0.824 to 0.875, with every
+        interval overlapping every other. <em>Which</em> weather model you pick matters much less than whether you use
+        more than one.</p>
+    <p>How many is enough? Adding sources greedily, best-first: HRRR alone 0.875, plus ECMWF 0.907, plus GFS 0.910,
+        plus NBM 0.911 — and then it stops, with NAM and RAP each making it slightly worse. Two sources capture
+        essentially the whole gain, and they need to be unlike each other: HRRR+ECMWF is the best pair at 0.907, while
+        GFS+RAP is the worst at 0.859. That ordering is chosen on the same holdout it is scored on, so the curve is
+        optimistic and the exact ranking should not be read too closely; the shape of it — most of the benefit in the
+        first two, nothing after four — is the durable part.</p>
+    <p>RAP finishing last is not a surprise on reflection. It is the model HRRR is initialised from, run on a coarser
+        13&nbsp;km grid, so it contributes a blurrier version of a view already held.</p>
+
+    <h4>What this changes</h4>
+    <p>Nothing urgent, which is worth saying plainly rather than manufacturing an action item. The deployed vote is
+        not costing anything measurable — it tracks the best single algorithm on the held-out year — and the combined
+        model is already doing the ensembling that works. But the vote is not buying anything either, and it triples
+        the artifact footprint: the Random Forests alone are 43&nbsp;MB against XGBoost&rsquo;s 1.1&nbsp;MB. If the
+        deployment ever needs to get smaller, dropping to a single gradient-boosted model per source costs no
+        measurable skill.</p>
+    <p>The more useful direction is the one panel three points at. Effort spent on algorithms has run out of room —
+        seven of them land within 0.03 of each other. Effort spent on getting a second, genuinely different view of
+        the atmosphere is still paying. Full details and the numbers behind every claim here are in <a
+            href="/scripts/compare_undercast_ensembles.py">compare_undercast_ensembles.py</a>.</p>
+
     <h3>Next Steps</h3>
     <p>Reading the summit observer&rsquo;s remarks instead of hand-scoring photographs supplies roughly 286&times;
         more positive examples, and discrimination is decent on the back of it: the combined model separates undercast
         from not at ROC-AUC 0.95 an hour ahead and 0.88 two days ahead.</p>
-    <p>Precision is the weak spot, sitting near 0.45 — about half the alerts are wrong. The binding constraint is the
-        <em>labels themselves</em>: the screen that reads the remarks is only about 70% precise, so roughly three in
-        ten training positives are not really undercast, and no classifier can be cleanly better than the thing
-        defining its target. The useful next steps are therefore about truth rather than architecture — more
-        hand-scored days to enlarge the honest test set, several images per day to pin down timing, and observed
-        vertical temperature profiles from the Auto Road, which would measure the inversion directly instead of
-        inferring it from a model that thinks this mountain is 700&nbsp;m shorter than it is.</p>
+    <p>Precision is the weak spot, sitting near 0.41 — roughly three in five alerts are wrong. The binding constraint
+        is the <em>labels themselves</em>: the screen that reads the remarks is only about 70% precise, so roughly
+        three in ten training positives are not really undercast, and no classifier can be cleanly better than the
+        thing defining its target.</p>
+    <p>The <a href="#does-the-vote-earn-its-place">ensemble comparison</a> above says the same thing from the other
+        direction. Seven different algorithms land within 0.03 ROC-AUC of each other, and a plain logistic regression
+        comes within 0.006 on a single source — when the method stops mattering that much, the method is no longer
+        what is limiting you. So the useful next steps are about truth rather than architecture: more hand-scored days
+        to enlarge the honest test set, several images per day to pin down timing, and observed vertical temperature
+        profiles from the Auto Road, which would measure the inversion directly instead of inferring it from a model
+        that thinks this mountain is 700&nbsp;m shorter than it is.</p>
     <p>It is not something to plan a sunrise around. If you want to know whether it&rsquo;s undercast, you&rsquo;ll
         have to hike up yourself.</p>
 </div>

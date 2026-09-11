@@ -1,4 +1,18 @@
-"""Regenerate the model-performance figures shown on /weather/details/.
+"""SUPERSEDED by plot_undercast_obs_models.py. Kept for one figure only.
+
+Every figure this produced has been regenerated from the per-observation
+pipeline except `leakage_before_after.png`, which is *about* the first pass --
+it shows what the row-leakage bug was worth -- and can only be drawn by the code
+that had the bug. That figure is still on the page, inside the row-leakage note,
+so this script stays as its provenance. Do not run it for anything else: it
+writes into the same directory and would overwrite the current figures with
+first-pass ones.
+
+    python3 scripts/plot_undercast_models.py --sources all   # leakage figure
+
+Original docstring follows.
+
+Regenerate the model-performance figures shown on /weather/details/.
 
 Reuses train_undercast_models.py for data loading, feature selection, and
 grouped out-of-fold CV predictions, then renders honest performance plots into
