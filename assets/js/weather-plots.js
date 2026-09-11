@@ -219,6 +219,211 @@ function convertTimeToDateTime(timeValues, dateStr) {
     return `${y}-${m}-${d} ${h}:${min}`;
   });
 }
+// --- headline undercast forecast -------------------------------------------
+// One model, shown above everything else: the combined-source gradient boosting
+// classifier, which is what predictions_all.json["current"] carries. The plots
+// further down still show every source and algorithm; this is the answer to the
+// question people actually arrive with.
+//
+// Three states, and the distinction matters:
+//   * the model ran and expects an undercast  -> when, and how much to trust it
+//   * the model ran and expects none          -> say so plainly
+//   * the model did not run                   -> say nothing at all, rather than
+//     implying "no undercast". The key is simply absent when the serving path
+//     fails, and a missing forecast is not a negative forecast.
+function renderUndercastHeadline(data_ML, dateStr, datasetId) {
+  const el = document.getElementById("undercast-headline");
+  if (!el) return;
+  const cur = data_ML && data_ML.current;
+  const verdictEl = document.getElementById("uh-verdict");
+  const whenEl = document.getElementById("uh-when");
+  const stripEl = document.getElementById("uh-strip");
+  const axisEl = document.getElementById("uh-axis");
+  const footEl = document.getElementById("uh-foot");
+
+  // The undercast model is trained on Mount Washington summit observations and
+  // is not transferable to the other summits, which have no observer writing
+  // "TPS LWR" remarks. Showing it for them would be inventing a forecast.
+  if (String(datasetId) !== "1") {
+    el.hidden = true;
+    return;
+  }
+  // An explicit outage is shown, not hidden. "No panel" reads as "no undercast"
+  // to anyone who does not know the panel exists, and that is the one thing it
+  // must never be mistaken for.
+  if (cur && cur.status === "unavailable") {
+    el.classList.toggle("uh-quiet", true);
+    verdictEl.textContent = "Forecast unavailable";
+    whenEl.textContent =
+      "The combined model needs all six weather models reporting, and at least one " +
+      "did not publish in time for this run. It will retry in a few hours.";
+    stripEl.innerHTML = "";
+    axisEl.innerHTML = "";
+    footEl.textContent = "";
+    el.hidden = false;
+    return;
+  }
+  if (!cur || !Array.isArray(cur.y) || !cur.x || !cur.x.length) {
+    el.hidden = true;
+    return;
+  }
+
+  const base = parseRunTimeUTC(dateStr);
+  if (!base) {
+    el.hidden = true;
+    return;
+  }
+
+  // The base run is a couple of hours old by the time it is usable, so the first
+  // forecast hours are already in the past. A "forecast" for this morning is not
+  // what anyone is here for; drop anything that has already happened.
+  const nowMs = Date.now();
+  const pts = cur.x
+    .map((h, i) => ({
+      h: h,
+      hit: cur.y[i] === 1,
+      known: cur.y[i] !== null && cur.y[i] !== undefined,
+      p: cur.probability ? cur.probability[i] : null,
+      when: new Date(base.getTime() + h * 3600 * 1000),
+    }))
+    .filter((d) => d.known && d.when.getTime() >= nowMs - 3600 * 1000);
+  if (!pts.length) {
+    el.hidden = true;
+    return;
+  }
+
+  const fmt = (d) =>
+    d.toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      weekday: "short",
+      hour: "numeric",
+      hour12: true,
+    });
+
+  // Contiguous runs of "undercast", so the headline can name a window rather
+  // than a single hour: the model is sampled every 2 h and an undercast that
+  // matters lasts longer than that.
+  const runs = [];
+  let open = null;
+  pts.forEach((d) => {
+    if (d.hit && !open) open = { from: d, to: d, peak: d };
+    else if (d.hit && open) {
+      open.to = d;
+      if ((d.p || 0) > (open.peak.p || 0)) open.peak = d;
+    } else if (!d.hit && open) {
+      runs.push(open);
+      open = null;
+    }
+  });
+  if (open) runs.push(open);
+
+  el.classList.toggle("uh-quiet", runs.length === 0);
+  if (runs.length === 0) {
+    verdictEl.textContent = "No undercast expected";
+    const last = pts[pts.length - 1];
+    whenEl.textContent = `Through ${fmt(last.when)}, the model stays below its threshold at every hour.`;
+  } else {
+    // Lead the headline with the soonest window; a forecast is about what is
+    // coming next, not about whichever window scores highest.
+    const first = runs[0];
+    verdictEl.textContent =
+      runs.length === 1 ? "Undercast expected" : "Undercast expected, more than once";
+    const span =
+      first.from.h === first.to.h
+        ? `around ${fmt(first.from.when)}`
+        : `${fmt(first.from.when)} to ${fmt(first.to.when)}`;
+    const extra =
+      runs.length > 1 ? `, and again later in the run` : "";
+    whenEl.textContent = `Soonest window: ${span}${extra}.`;
+  }
+
+  // The strip: one bar per forecast hour, height = probability, filled where the
+  // model actually calls it. Showing the probability as well as the call makes a
+  // near-miss visible instead of rounding it away to "no".
+  stripEl.innerHTML = "";
+  const maxP = Math.max(0.05, ...pts.map((d) => d.p || 0));
+  pts.forEach((d) => {
+    const bar = document.createElement("div");
+    bar.className = "uh-bar" + (d.hit ? " uh-hit" : "");
+    const frac = d.p === null ? 0.06 : Math.max(0.06, (d.p || 0) / maxP);
+    bar.style.height = `${Math.round(frac * 100)}%`;
+    bar.title =
+      `${fmt(d.when)} — ` +
+      (d.p === null ? "no probability" : `${Math.round(d.p * 100)}% model score`) +
+      (d.hit ? " — undercast called" : "");
+    stripEl.appendChild(bar);
+  });
+  axisEl.innerHTML = "";
+  const leftLab = document.createElement("span");
+  leftLab.textContent = fmt(pts[0].when);
+  const rightLab = document.createElement("span");
+  rightLab.textContent = fmt(pts[pts.length - 1].when);
+  axisEl.appendChild(leftLab);
+  axisEl.appendChild(rightLab);
+
+  // How much to trust it, at the lead that actually matters here. Skill was
+  // measured at 1, 24 and 48 h; quote the nearest measured lead to the window
+  // being described rather than a single pooled number, because precision falls
+  // from about 0.5 to about 0.28 across that range.
+  const skill = (cur.model && cur.model.skill_by_lead) || {};
+  const leads = Object.keys(skill).map(Number).sort((a, b) => a - b);
+  const target = runs.length ? runs[0].from.h : pts[Math.floor(pts.length / 2)].h;
+  let trust = "";
+  if (leads.length) {
+    const nearest = leads.reduce((a, b) =>
+      Math.abs(b - target) < Math.abs(a - target) ? b : a
+    );
+    const s = skill[String(nearest)];
+    if (s && typeof s.precision === "number") {
+      // A quiet forecast and a positive one need different numbers. Telling
+      // someone how often the model is right *when it fires* is no use when it
+      // has not fired; what they need then is how often it stays quiet through
+      // an undercast that happens anyway.
+      if (runs.length) {
+        const inTen = Math.round(s.precision * 10);
+        trust =
+          `At about ${nearest} h ahead this model is right roughly ${inTen} time${
+            inTen === 1 ? "" : "s"
+          } in 10 when it calls an undercast, ` +
+          `and catches about ${Math.round(s.recall * 10)} in 10 of the ones that happen. `;
+      } else {
+        trust =
+          `Treat a quiet forecast as weak evidence: at about ${nearest} h ahead this ` +
+          `model misses roughly ${Math.round((1 - s.recall) * 10)} in 10 of the ` +
+          `undercasts that actually occur. `;
+      }
+    }
+  }
+  const label = (cur.model && cur.model.label) || "combined model";
+  footEl.innerHTML = "";
+  footEl.appendChild(
+    document.createTextNode(
+      trust +
+        (runs.length
+          ? `Undercast is rare — about 1 hour in 40 — so even a good model raises a lot of false alarms. `
+          : "") +
+        `${label}. `
+    )
+  );
+  const a = document.createElement("a");
+  a.href = "/weather/details/#results";
+  a.textContent = "How this was built and measured";
+  footEl.appendChild(a);
+  footEl.appendChild(document.createTextNode("."));
+  el.hidden = false;
+}
+
+// The run time is UTC ("YYYY-MM-DD HH:MM"). Parsing it with new Date() would be
+// read as LOCAL time in most browsers, shifting every label by the viewer's
+// offset -- which for the US east coast puts a dawn undercast in the small hours.
+function parseRunTimeUTC(dateStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(dateStr || "");
+  if (!m) return null;
+  return new Date(
+    Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], 0)
+  );
+}
+
 function loadWeatherPlots(
   datasetId,
   modelChoice = getSelectedModel(),
@@ -296,6 +501,15 @@ function loadWeatherPlots(
         });
 
         lastUpdateEl.textContent = `Last model update: ${easternTime} ET`;
+      }
+
+      // Above the plots: the single model the site stands behind.
+      try {
+        renderUndercastHeadline(data_ML, data_ML.date_str || dateStr, datasetId);
+      } catch (err) {
+        console.error("undercast headline failed:", err);
+        const el = document.getElementById("undercast-headline");
+        if (el) el.hidden = true;
       }
 
       let convertedDates;

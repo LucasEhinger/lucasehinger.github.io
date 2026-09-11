@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Is the deployed design -- three algorithms, majority vote -- the right one?
+"""Is three algorithms and a majority vote the right design?
 
-The site predicts undercast with a 2-of-3 vote across XGBoost, Random Forest and
-Gradient Boosting. That choice was never tested; it was inherited. Three
-questions, answered on the untouched holdouts using the models already on disk:
+It was not. This script is what established that, and the site now serves a
+single model -- combined source, Gradient Boosting, per-lead thresholds -- rather
+than the 2-of-3 vote across XGBoost, Random Forest and Gradient Boosting that it
+used to. That choice had never been tested; it was inherited. Three questions,
+answered on the untouched holdouts using the models already on disk:
 
   1 DOES THE VOTE HELP?  Compare each algorithm alone, the 1/2/3-of-3 votes, and
     the mean of the three probabilities. An ensemble only pays when its members

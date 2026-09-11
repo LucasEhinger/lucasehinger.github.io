@@ -228,49 +228,103 @@ source. That needs a second download pass, because an unbiased holdout requires
 every observation in the held-out weeks and the current sample only has the
 unsampled 3-hourly series for 2022.
 
-## Cutover checklist
+## Cutover: done, additively
 
-1. **Fix the longitude bug in `weather_to_json.py`'s own copy of
-   `sample_nearest`** (see above) — must land in the same commit as the
-   retrained models, never before them.
-2. ~~Decide whether GFS is re-fetched or dropped.~~ **Done** — re-fetched with
-   the corrected longitude, commit `03aadfa`; AUC 0.53 → 0.82.
-3. Decide how the RandomForest artifacts are stored. At `min_samples_leaf=20`
-   HRRR is 43 MB against the deployed 3.7 MB; XGBoost is 1.1 MB for equal or
-   better skill, so serving XGBoost alone is a live option — and the ensemble
-   study below now says the vote it would leave behind was not buying anything.
+The live page now serves the new model. It was done **alongside** the old path
+rather than in place of it, which is the part worth knowing if something looks
+wrong later:
 
+`weather_to_json.py` still computes and publishes every legacy per-source,
+per-algorithm series exactly as before, so nothing that existed can break. On top
+of that it publishes one new key, `predictions_all.json["current"]`, from the
+combined-source Gradient Boosting model with per-lead thresholds. That block is
+wrapped in try/except: if it raises, the key is absent, the headline panel on
+/weather/ hides itself, and every other output is untouched. A missing forecast
+is NOT rendered as "no undercast" — those are different statements and the front
+end keeps them apart.
 
-Nothing below can land on its own: the live `weather_to_json.py` runs every 6
-hours against the deployed preprocessors, which were fitted on the **old** column
-names. Changing one side alone breaks the live page on a missing column.
+What was fixed to make it possible:
 
-- [ ] **Mirror the variable-list fixes** into `weather_to_json.py` (already done
-      in `weather_to_csv.py`, commit `acfab4b`):
-      - rename `boundary_layer_cloud_layer` → `boundary_layer_cloud_layer_hrrr`
-        (without the suffix, `select_features` drops it from every per-source
-        model and it reaches only the combined one)
-      - `boundary_layer_cloud_layer_gfs` alias → `:TCDC:boundary layer cloud
-        layer` (GFS indexes it with no forecast-hour qualifier, so the `%n` form
-        matched nothing and the column was 100% empty)
-      - drop `hgt_925mb_hrrr` (only in the HRRR `prs` product) and
-        `boundary_layer_cloud_layer_nam` (NAM never publishes it)
-      - update the explicit `desired_columns` list further down the same file
-- [ ] **Resolve each model's run independently at inference.** Today a single
-      6-hourly-rounded `date_str` is used for all six models. That aligns valid
-      times, but it leaves HRRR/RAP/NBM up to 6 h staler than necessary, since
-      they run hourly. Reuse `candidate_runs()` / `snap_valid()` from
-      `fetch_nwp_at_obs.py` so inference resolves runs the same way training did.
-- [ ] **Use the per-lead thresholds.** `model_metadata_*.json` now carries
-      `threshold_by_lead`; a global cut either over-fires at 48 h or under-fires
-      at 1 h (measured on the fixture: 0.97 at 1 h vs 0.46 at 48 h).
-- [ ] **Point the models directory** at `files/weather/models/obs/` (or copy over
-      `files/weather/models/`) once the new numbers beat the old ones.
-- [x] **Update the results section** of `_pages/weather-details.html`. Done: the
-      results table, confusion matrices, feature importances, per-source tables
-      and "Next Steps" all come from the new pipeline, the per-source table now
-      fetches `files/weather/models/obs/model_metadata_*.json`, and the *Status*
-      paragraph no longer disclaims anything. The one first-pass artifact left is
-      `leakage_before_after.png`, kept deliberately inside the row-leakage note.
-- [ ] **Retire the old path** — `regen_weather_csv.yml` and
-      `train_undercast_models.py` — only after the new one is serving.
+- **The longitude bug is gone from the serving path.** `sample_nearest`,
+  `_match_lon_convention`, `_to_scalar` and `find_nearest_by_geodetic` now live
+  in `scripts/grib_sample.py` and are imported by *both* fetchers. They used to
+  be copy-pasted into each, which is why the fix reached the training data and
+  not the live page. There is now one copy and it cannot drift.
+- **Feature construction is imported, not reimplemented.** `time_features`,
+  `normalize_weather_columns` and `add_profile_features` are defined once, in
+  `train_undercast_obs.py`, and called by the serving code.
+- **`scripts/test_serving_features.py` proves it.** Real training rows are
+  replayed through the serving path and compared column by column: all 213 match
+  exactly, and the model's output is identical. Run it after touching either
+  side.
+- **Variable-list mirror.** `boundary_layer_cloud_layer_gfs` now uses the alias
+  that actually matches (the `%n hour` form matched nothing and the column was
+  100% empty). `boundary_layer_cloud_layer` keeps its unsuffixed fetch key
+  because the legacy preprocessors need it, and the serving code aliases the
+  suffixed name onto it rather than renaming and breaking them.
+- **Only two artifacts are committed**: `preprocessor_all.pkl` and
+  `gradient_boosting_best_f1_all.pkl`, 0.57 MB together. CI checks out the repo,
+  so the model it serves has to be in it. The RandomForests (9.6 MB for "all"
+  alone) and every other source stay ignored, because nothing serves them.
+
+Which model, and why: see "The 3-algorithm vote is not doing anything" above.
+Short version — on the hand-labeled webcam days it beats the 2-of-3 vote by F1
++0.090 [+0.010, +0.175] and XGBoost by +0.084 [+0.002, +0.181], and ties both on
+the base-rate holdout.
+
+### Serving the model live turned out to be the hard part
+
+The model was never the obstacle. Getting six weather models onto the same valid
+times, from a cron job, was. Four separate faults, each of which published a
+plausible number rather than failing:
+
+1. **ECMWF was empty in every live run, for months.** IFS open data lags the
+   wall clock by more than six hours, and the script asked for the most recent
+   6-hourly slot -- which reliably did not exist yet. A missing column is just a
+   column of nulls, so nothing complained. `resolve_run()` now finds each
+   model's newest *published* run and lengthens its forecast hours to match, so a
+   staler run still lands on the same valid times.
+2. **The base run was the one currently uploading.** The workflow fires exactly
+   on the synoptic hours. Index files appear before the data, so availability
+   checks passed and the downloads then missed: measured at 18:50 UTC against the
+   18Z run, HRRR, NAM and RAP all returned nothing. The base time is now lagged
+   two hours before rounding down.
+3. **`%n` alias substitution used the reported hour, not the fetched lead.**
+   Aliases like `:APCP:surface:%n hour fcst` name the forecast hour inside the
+   GRIB message. Once a model is read from an older run at a longer lead the two
+   differ, and the substituted name matches nothing -- losing the variable
+   silently. This was introduced by fix 1 and caught by re-probing.
+4. **Hours where only some sources reported still got a forecast.** The six
+   publish on different cadences, so the union of their forecast hours contains
+   hours only one of them covers. The combined model is defined only where all
+   six report; on a row missing five of them it returned a calm, repeated 0.095.
+   Those rows are now published as null. The grids were also aligned onto common
+   three-hourly steps, which took the number of fully-covered hours from nine to
+   seventeen across two days.
+
+Verified against live data end to end: all six sources populate, incomplete hours
+are nulled, and the model publishes. Watch the `[current model]` lines in the
+Actions log -- they report per-source population and how many hours survived.
+
+Known limitation after all that: the panel typically reaches 24-30 h, not 48.
+ECMWF publishes late and 3-hourly, so the fully-covered hours run out before the
+other five sources do. A representative run: 9 usable hours at 3-hourly steps
+from +3 h to +27 h. The 48 h skill numbers remain correct for the model -- they
+come from training rows where each source was fetched at whatever lead it needed
+-- but a single 6-hourly job cannot reproduce that. Closing the gap means
+resolving runs per forecast hour, not once per job.
+
+### Still open
+
+- [ ] **Resolve runs per forecast HOUR, not once per job.** `resolve_run()` now
+      picks each model's newest complete run, which fixed the empty-ECMWF bug,
+      but it still picks one run per model for the whole job. Training used
+      `candidate_runs()` / `snap_valid()` in `fetch_nwp_at_obs.py` to choose, for
+      each target valid time, whatever run covered it best. Doing the same here
+      is what would take the panel from ~27 h of coverage to the full 48.
+- [ ] **Retire the legacy path** — the per-source/per-algorithm series in
+      `weather_to_json.py`, `files/weather/models/`, `regen_weather_csv.yml` and
+      `train_undercast_models.py` — once `current` has run clean for a while.
+      Keeping both is deliberate for now: it is the fallback.
+- [ ] **Watch the first few scheduled runs.** The `[current model]` lines in the
+      Actions log report feature coverage; below 80% it refuses to publish.

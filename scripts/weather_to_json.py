@@ -15,6 +15,15 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 import warnings
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Grid-point sampling lives in grib_sample.py, NOT here. It used to be copied
+# into both this file and the other fetcher, and a longitude fix landed in only
+# one copy -- see that module's docstring.
+from grib_sample import (  # noqa: E402
+    _match_lon_convention, _to_scalar, find_nearest_by_geodetic, sample_nearest,
+)
+
+
 # xarray emits a FutureWarning on .argmin()/.argmax() without an explicit dim
 # (used by the nearest-gridpoint lookup). The current flat-index behaviour is
 # exactly what we want, so silence the deprecation noise.
@@ -47,20 +56,19 @@ LOCATIONS = [
     {"name": "MtWashington", "lat": 44.27040, "lon": -71.30327},
 ]
 
-# TODO (must land together with the retrained models, not before): mirror the
-# three variable-list fixes made in weather_to_csv.py --
-#   * rename "boundary_layer_cloud_layer" -> "boundary_layer_cloud_layer_hrrr"
-#     (without the suffix, train_undercast_models.select_features drops it from
-#     every per-source model)
-#   * "boundary_layer_cloud_layer_gfs" alias -> ":TCDC:boundary layer cloud
-#     layer" (GFS indexes it with no forecast-hour qualifier, so the %n form
-#     matched nothing and the column was 100% empty)
-#   * drop "hgt_925mb_hrrr" (only in the HRRR "prs" product) and
-#     "boundary_layer_cloud_layer_nam" (NAM never publishes it)
-# Deliberately NOT applied here yet: this script runs on a 6-hourly schedule and
-# feeds the CURRENTLY deployed preprocessors, which were fitted on the old column
-# names. Renaming before those models are replaced would make the live page throw
-# on a missing column. Classic train/serve skew -- change both sides at once.
+# Two models are served from this file at once, and the variable names below have
+# to satisfy both.
+#
+# The LEGACY models (files/weather/models/) were fitted on the unsuffixed name
+# "boundary_layer_cloud_layer", so renaming it here would make them throw on a
+# missing column. The CURRENT model (files/weather/models/obs/) was trained on
+# "boundary_layer_cloud_layer_hrrr". Rather than rename and break one side, the
+# fetch key stays as it is and build_current_features() aliases the suffixed name
+# onto it -- the two are the same field, fetched with identical GRIB aliases.
+#
+# "hgt_925mb_hrrr" (HRRR "prs" product only) and "boundary_layer_cloud_layer_nam"
+# (NAM never publishes it) are kept purely because the legacy preprocessors expect
+# the columns to exist. The current model does not use either.
 variables = {
     "cloud_top_hrrr": {"aliases": ["cloudTop", "nominalTop", "RETOP"], "model": "hrrr"},
     "boundary_layer_cloud_layer": {
@@ -140,7 +148,10 @@ variables = {
         "model": "gfs",
     },
     "boundary_layer_cloud_layer_gfs": {
-        "aliases": [":TCDC:boundary layer cloud layer:%n hour"],
+        # NOT the ":%n hour" form: GFS indexes this field with no forecast-hour
+        # qualifier, so that alias matched nothing and the column came back 100%
+        # empty. The training fetcher was corrected first; this is the mirror.
+        "aliases": [":TCDC:boundary layer cloud layer"],
         "model": "gfs",
     },
     "vis_surface_gfs": {"aliases": [":VIS:surface"], "model": "gfs"},
@@ -303,113 +314,90 @@ def try_load(candidates, hobj=None):
     return None, None
 
 
-def sample_nearest(da, lat, lon):
-    """Select nearest value from DataArray using common coordinate name variants."""
-    sel_opts = [
-        {"lat": lat, "lon": lon},
-        {"latitude": lat, "longitude": lon},
-        {"y": lat, "x": lon},
-        {"grid_latitude": lat, "grid_longitude": lon},
-    ]
-    for opts in sel_opts:
+# How far back to look for a run that has actually published, and the maximum
+# lead any model is asked for. ECMWF open data is the reason this exists: IFS
+# lags the wall clock by well over six hours, so the most recent 6-hourly slot is
+# reliably absent. Asking for it and taking the miss meant every ECMWF column was
+# empty in every live run -- silently, because a missing column is just a column
+# of nulls. The combined model then ran on five sources where it was trained on
+# six.
+MAX_RUN_LOOKBACK_H = 30
+MODEL_MAX_LEAD_H = {"hrrr": 48, "rap": 51, "nam": 84, "gfs": 384, "ifs": 144, "nbm": 264}
+# How far back to step while hunting for a usable run, per model. Six hours is
+# the sensible default because the base grid is 6-hourly -- but RAP is the
+# exception that matters: its 00/06/12/18Z cycles stop at 21 h and only the
+# 03/09/15/21Z cycles reach 51. Stepping in sixes can therefore never find a RAP
+# run that covers a 48 h forecast, and the combined model would silently lose
+# every hour past 21. Stepping in threes lands on the extended cycles. The
+# offset need not be a multiple of six: alignment is by valid time, and every
+# forecast hour is shifted by whatever the offset turns out to be.
+RUN_STEP_H = {"rap": 3}
+
+
+def resolve_run(model, date_str, probe_fxx, max_back_h=MAX_RUN_LOOKBACK_H, step_h=None):
+    """The most recent run of `model` that has actually published IN FULL.
+
+    Returns (run_date_str, offset_hours). An offset of 6 means "this model's
+    latest available run is 6 h older than the common base time", and every
+    forecast hour asked of it must be 6 h longer to land on the same valid time.
+
+    `probe_fxx` should be a middling lead. Runs upload in lead order, so probing
+    at F06 accepts a run that started minutes ago and then most of the real
+    fetches miss -- measured: a run started just after 18Z passed an F06 probe and
+    returned nothing for three of six models. Probing at the LONGEST lead is the
+    opposite error, because not every cycle reaches it: RAP's 00/06/12/18Z cycles
+    stop at 21 h, so an F48 probe rejected every RAP run outright.
+
+    Availability is decided by whether Herbie can locate the GRIB, not by
+    downloading it -- one cheap index lookup per model rather than per hour.
+    """
+    base = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
+    _products = {"hrrr": "sfc", "ifs": "oper", "nbm": "co"}
+    step = step_h or RUN_STEP_H.get(model, 6)
+    for offset in range(0, max_back_h + 1, step):
+        run = base - timedelta(hours=offset)
         try:
-            point = da.sel(method="nearest", **opts)
-            val = point.squeeze()
-            try:
-                return float(val[list(val.data_vars)[0]].values)
-            except Exception:
-                return val
+            h = Herbie(
+                run.strftime("%Y-%m-%d %H:%M"),
+                model=model,
+                product=_products.get(model),
+                fxx=probe_fxx + offset,
+                verbose=False,
+            )
+            if getattr(h, "grib", None):
+                if offset:
+                    print(f"  {model}: latest published run is {offset} h back "
+                          f"({run:%Y-%m-%d %H}Z); leads shifted to match valid times")
+                return run.strftime("%Y-%m-%d %H:%M"), offset
         except Exception:
             continue
-    try:
-        lat_dim = next(d for d in da.coords if "lat" in d.lower())
-        lon_dim = next(d for d in da.coords if "lon" in d.lower())
-        ilat = abs(da[lat_dim] - lat).argmin().item()
-        ilon = abs(da[lon_dim] - lon).argmin().item()
-        val = da.isel({lat_dim: ilat, lon_dim: ilon}).squeeze()
-        try:
-            return float(val.values)
-        except Exception:
-            return val
-    except Exception:
-        try:
-            np_point, iy, ix, dkm = find_nearest_by_geodetic(da, lat, lon)
-            try:
-                return float(np_point[list(np_point.data_vars)[0]].values)
-            except Exception:
-                return np_point
-        except Exception:
-            raise
-
-
-def find_nearest_by_geodetic(da, lat0, lon0, lat_name_hint="lat", lon_name_hint="lon"):
-    """Find the nearest grid point in `da` to (lat0, lon0) using great-circle distance."""
-    lat_da = None
-    lon_da = None
-    for name in da.coords:
-        nl = name.lower()
-        if lat_da is None and lat_name_hint in nl:
-            lat_da = da.coords[name]
-        if lon_da is None and lon_name_hint in nl:
-            lon_da = da.coords[name]
-    if lat_da is None and "latitude" in da.coords:
-        lat_da = da.coords["latitude"]
-    if lon_da is None and "longitude" in da.coords:
-        lon_da = da.coords["longitude"]
-
-    if lat_da is None or lon_da is None:
-        raise ValueError("Could not find 2D latitude/longitude coordinates in DataArray")
-
-    lat_vals = np.asarray(lat_da.values)
-    lon_vals = np.asarray(lon_da.values)
-
-    lon_max = float(np.nanmax(lon_vals))
-    if lon_max > 180:
-        lon0 = lon0 % 360
-    else:
-        if lon0 > 180:
-            lon0 = ((lon0 + 180) % 360) - 180
-
-    def haversine_km(lat1, lon1, lat2, lon2):
-        lat1r = np.deg2rad(lat1)
-        lon1r = np.deg2rad(lon1)
-        lat2r = np.deg2rad(lat2)
-        lon2r = np.deg2rad(lon2)
-        dlat = lat2r - lat1r
-        dlon = lon2r - lon1r
-        a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1r) * np.cos(lat2r) * np.sin(dlon / 2.0) ** 2
-        return 2.0 * 6371.0 * np.arcsin(np.sqrt(a))
-
-    dist_grid = haversine_km(lat_vals, lon_vals, lat0, lon0)
-    flat_idx = np.nanargmin(dist_grid.ravel())
-    iy, ix = divmod(int(flat_idx), dist_grid.shape[1])
-
-    lat_dims = lat_da.dims
-    if len(lat_dims) != 2:
-        dims = tuple(da.dims[:2])
-    else:
-        dims = lat_dims
-
-    sel = {dims[0]: iy, dims[1]: ix}
-    nearest_point = da.isel(sel)
-    distance_km = float(dist_grid[iy, ix])
-
-    return nearest_point, iy, ix, distance_km
+    print(f"  {model}: no published run found within {max_back_h} h; "
+          f"falling back to the base time and accepting the misses")
+    return date_str, 0
 
 
 def process_forecast_data(args):
-    """Process forecast data for a single fxx value"""
-    fxx, date_str, model, LOCATIONS, variables = args
+    """Fetch one forecast hour.
+
+    `fxx` is the hour this result is REPORTED at -- hours since the common base
+    time that every model is aligned to. `run_date_str` and `run_fxx` are what is
+    actually asked of Herbie, and they can differ: a model whose latest run has
+    not published yet is fetched from an earlier run at a longer lead, which is
+    the same valid time from a staler forecast. Keying the result by `fxx` keeps
+    every model on one time axis, which is what the combined model needs.
+    """
+    fxx, run_date_str, run_fxx, model, LOCATIONS, variables = args
+    date_str = run_date_str
 
     try:
         with tempfile.TemporaryDirectory() as tmp:
             _products = {"hrrr": "sfc", "ifs": "oper", "nbm": "co"}
             try:
                 h = Herbie(
-                    date_str,
+                    run_date_str,
                     model=model,
                     product=_products.get(model),
-                    fxx=fxx,
+                    fxx=run_fxx,
                     save_dir=tmp,
                 )
             except Exception as e:
@@ -432,7 +420,14 @@ def process_forecast_data(args):
                     processed = []
                     for a in orig_aliases:
                         if isinstance(a, str) and "%n" in a:
-                            processed.append(a.replace("%n", str(fxx)))
+                            # run_fxx, NOT fxx. Several aliases pin the forecast
+                            # hour inside the GRIB message name (":APCP:surface:6
+                            # hour fcst"), and that hour belongs to the file being
+                            # read. When a model is fetched from an older run at a
+                            # longer lead, the two differ, and substituting the
+                            # reported hour builds a name that matches nothing --
+                            # losing the variable silently.
+                            processed.append(a.replace("%n", str(run_fxx)))
                         else:
                             processed.append(a)
                     candidates["aliases"] = processed
@@ -472,6 +467,200 @@ def process_forecast_data(args):
     except Exception as e:
         print(f"\nSkipping fxx={fxx} model={model} due to error: {type(e).__name__}")
         return None
+
+
+CURRENT_MODEL_DIR = "files/weather/models/obs"
+# Combined source, Gradient Boosting, per-lead thresholds. Chosen by measurement,
+# not preference: on the hand-labeled webcam days -- the only holdout scored
+# against a human looking at a photograph -- it beats the deployed 2-of-3 vote by
+# F1 +0.090 [+0.010, +0.175] on a paired day-block bootstrap, and beats XGBoost
+# by +0.084 [+0.002, +0.181]. On the base-rate holdout it ties both. See
+# scripts/compare_undercast_ensembles.py.
+CURRENT_SOURCE = "all"
+CURRENT_ALGO = "Gradient Boosting"
+# Below this share of the model's features actually present, refuse to publish a
+# forecast at all. Every numeric carries a missingness indicator, so absent
+# columns do not crash -- they quietly become "not reported", and the model would
+# return a confident-looking number built on almost nothing. A blank panel is a
+# better answer than a wrong one.
+MIN_FEATURE_COVERAGE = 0.80
+# ...and the same argument one level down. Column PRESENCE is not enough:
+# results_to_dataframe emits a column for every variable whether or not the
+# download succeeded, so an entire model going offline leaves its columns present
+# and empty. The combined model is defined only on rows where all six sources
+# reported -- that is how it was trained -- so a source that is wholly absent puts
+# it out of distribution while nothing raises. Checked per source, not just in
+# aggregate, because one missing source out of six is easy to lose in an average.
+MIN_SOURCE_POPULATED = 0.30
+CURRENT_REQUIRES_SOURCES = ("hrrr", "nam", "gfs", "rap", "ecmwf", "nbm")
+
+
+def build_current_features(weather_df, date_str):
+    """The 213 columns the current combined model was trained on.
+
+    Every step here has a counterpart in train_undercast_obs.load_obs_data, and
+    the shared helpers are imported from that module rather than reimplemented --
+    this is the train/serve boundary, and it is where skew would be invisible.
+
+    Returns (X, valid_times) or raises.
+    """
+    import numpy as np
+    import pandas as pd
+
+    from train_undercast_obs import (
+        add_profile_features, normalize_weather_columns, time_features,
+    )
+
+    base = datetime.strptime(date_str, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+    fxx = pd.to_numeric(weather_df["fxx"], errors="coerce")
+    valid = pd.Series([base + timedelta(hours=int(h)) if pd.notna(h) else pd.NaT
+                       for h in fxx], index=weather_df.index)
+    valid = pd.to_datetime(valid, utc=True)
+
+    raw = weather_df.drop(columns=["fxx", "month", "day"], errors="ignore").copy()
+    # Same field, two names: the legacy preprocessors want the unsuffixed one,
+    # this model was trained on the suffixed one. Fetched with identical aliases.
+    if "boundary_layer_cloud_layer" in raw.columns:
+        raw["boundary_layer_cloud_layer_hrrr"] = raw["boundary_layer_cloud_layer"]
+
+    out = pd.DataFrame(time_features(valid), index=raw.index)
+    built = normalize_weather_columns(raw, list(raw.columns))
+    out = pd.concat([out, pd.DataFrame(built, index=raw.index)], axis=1)
+    out = pd.concat([out, add_profile_features(out)], axis=1)
+    return out, valid
+
+
+def _lead_threshold(meta_algo, lead_h):
+    """Threshold for an arbitrary forecast hour, interpolated between the trained ones.
+
+    Thresholds were fitted at leads 1, 24 and 48 only; the page forecasts every
+    hour in between. Interpolating rather than snapping avoids a visible step in
+    the published series at an arbitrary hour. For this model the three values
+    are 0.775 / 0.780 / 0.725, so the choice barely moves anything -- it is about
+    not introducing an artefact.
+    """
+    import numpy as np
+
+    by = meta_algo.get("threshold_by_lead") or {}
+    if not by:
+        return float(meta_algo["threshold"])
+    leads = np.array(sorted(int(k) for k in by))
+    vals = np.array([float(by[str(k)]) for k in leads])
+    return float(np.interp(float(lead_h), leads, vals))
+
+
+def predict_current_model(weather_df, date_str, max_fxx):
+    """Undercast probability and call per forecast hour, from the current model.
+
+    Deliberately additive: the legacy per-source, per-algorithm outputs are left
+    exactly as they were, so nothing that exists today can break if this path
+    fails. It raises on any problem and the caller drops the key.
+    """
+    import joblib
+    import numpy as np
+    import pandas as pd
+
+    meta_path = f"{CURRENT_MODEL_DIR}/model_metadata_{CURRENT_SOURCE}.json"
+    with open(meta_path) as fh:
+        meta = json.load(fh)
+    wanted = list(meta["feature_columns"])
+
+    X_all, valid = build_current_features(weather_df, date_str)
+    present = [c for c in wanted if c in X_all.columns]
+    coverage = len(present) / len(wanted)
+    populated = float(X_all.reindex(columns=wanted).notna().to_numpy().mean())
+    print(f"[current model] {len(present)}/{len(wanted)} feature columns present "
+          f"({coverage:.1%}), {populated:.1%} of cells populated")
+    if coverage < MIN_FEATURE_COVERAGE:
+        missing = [c for c in wanted if c not in X_all.columns]
+        raise RuntimeError(
+            f"only {coverage:.1%} of the model's features could be built "
+            f"(need {MIN_FEATURE_COVERAGE:.0%}); missing e.g. {missing[:8]}"
+        )
+    X = X_all.reindex(columns=wanted)
+
+    # Per ROW, not per frame. The forecast hours in this table are the union of
+    # six different cadences: HRRR/RAP/NBM stop at 48 h, NAM at 60, GFS runs to
+    # 120, and ECMWF is 3-hourly where the rest are 2-hourly. So an hour like
+    # fxx=3 exists only because ECMWF reported it, and every other source is
+    # blank on that row -- while fxx=50 has GFS and nothing else.
+    #
+    # The combined model was trained only on rows where all six sources reported
+    # (rows_for_source("all") requires it), and every numeric carries a
+    # missingness indicator, so a row missing five sources does not fail: it
+    # produces a calm, confident-looking number out of almost nothing. The first
+    # live run published exactly that -- a repeated 0.095 at every odd hour.
+    # Those rows are nulled, the same as hours past the model's reach.
+    usable = pd.Series(True, index=X.index)
+    for src in CURRENT_REQUIRES_SOURCES:
+        cols = [c for c in wanted if c.endswith(f"_{src}")]
+        if not cols:
+            continue
+        filled_row = X[cols].notna().mean(axis=1)
+        usable &= filled_row >= MIN_SOURCE_POPULATED
+        print(f"[current model]   {src:6s} {len(cols):3d} columns, "
+              f"{float(X[cols].notna().to_numpy().mean()):.0%} populated overall, "
+              f"{int((filled_row >= MIN_SOURCE_POPULATED).sum())}/{len(X)} rows usable")
+    print(f"[current model] {int(usable.sum())}/{len(X)} forecast hours have every "
+          f"source reporting")
+    if not usable.any():
+        raise RuntimeError(
+            "no forecast hour has all six sources reporting; the combined model "
+            "cannot be applied to any of them. Publishing nothing instead."
+        )
+
+    pre = joblib.load(f"{CURRENT_MODEL_DIR}/preprocessor_{CURRENT_SOURCE}.pkl")
+    model = joblib.load(
+        f"{CURRENT_MODEL_DIR}/gradient_boosting_best_f1_{CURRENT_SOURCE}.pkl"
+    )
+    proba = model.predict_proba(pre.transform(X))[:, 1]
+
+    fxx = pd.to_numeric(weather_df["fxx"], errors="coerce")
+    xs, ys, ps, ts = [], [], [], []
+    for i, h in enumerate(fxx):
+        if pd.isna(h):
+            continue
+        h = int(h)
+        xs.append(h)
+        if h > max_fxx or not bool(usable.iloc[i]):
+            # Either past where every source still has data, or an hour only some
+            # of them reported. Both leave the combined model without its inputs.
+            # Null, not a guess.
+            ys.append(None)
+            ps.append(None)
+            ts.append(None)
+            continue
+        thr = _lead_threshold(meta[CURRENT_ALGO], h)
+        ys.append(int(proba[i] >= thr))
+        ps.append(round(float(proba[i]), 4))
+        ts.append(round(thr, 4))
+
+    m = meta[CURRENT_ALGO]
+    by_lead = m.get("baserate_by_lead", {})
+    return {
+        "status": "ok",
+        "x": xs,
+        "y": ys,
+        "probability": ps,
+        "threshold": ts,
+        "valid_utc": [v.strftime("%Y-%m-%dT%H:%M") if pd.notna(v) else None
+                      for v in valid],
+        "model": {
+            "source": CURRENT_SOURCE,
+            "algorithm": CURRENT_ALGO,
+            "label": "Combined (Gradient Boosting)",
+            "trained_on": meta.get("year_range"),
+            "n_train_rows": meta.get("n_train_rows"),
+            # Skill at the three leads it was measured at, so the page can say
+            # how much to trust a call at the hour being looked at.
+            "skill_by_lead": {
+                k: {"precision": round(v["precision"], 3),
+                    "recall": round(v["recall"], 3),
+                    "roc_auc": round(v["roc_auc"], 3)}
+                for k, v in by_lead.items()
+            },
+        },
+    }
 
 
 def results_to_dataframe(results, locations, date_str):
@@ -686,8 +875,19 @@ def results_to_dataframe(results, locations, date_str):
 
 
 if __name__ == "__main__":
-    # Set date_str to the most recent date at the nearest 6-hour increment
-    now = datetime.now().astimezone(timezone.utc)
+    # The most recent 6-hourly slot, lagged by two hours before rounding down.
+    #
+    # Without the lag this lands on a run that started minutes ago. The index
+    # files appear early, so every availability check passes, and then most of
+    # the actual subset downloads miss because the run is still uploading --
+    # measured, at 18:50 UTC against the 18Z run: HRRR, NAM and RAP all returned
+    # nothing. The workflow fires exactly on the synoptic hours, so this is the
+    # normal case for it, not an edge case.
+    #
+    # Two hours costs the forecast a little reach at the near end and buys a run
+    # that has finished publishing. Per-model staleness is handled separately by
+    # resolve_run, which walks each model back to its own newest complete run.
+    now = datetime.now().astimezone(timezone.utc) - timedelta(hours=2)
     hours = (now.hour // 6) * 6
     if hours == 24:
         hours = 0
@@ -717,26 +917,58 @@ if __name__ == "__main__":
             "%Y-%m-%d %H:%M"
         )
 
-    FXX_LIST = list(range(0, 48 + 1, 2))  # every 2 hour
-    FXX_LIST_GFS = list(range(0, 120 + 1, 2))  # every 2 hours
-    FXX_LIST_NAM = list(range(0, 60 + 1, 2))  # every 2 hour
-    FXX_LIST_ECMWF = list(range(0, 48 + 1, 3))  # IFS open data is 3-hourly
-    FXX_LIST_NBM = list(range(0, 48 + 1, 2))  # NBM is hourly; sample every 2 h
-    FXX_LIST_RAP = list(range(0, 48 + 1, 2))  # RAP hourly; standard runs to 21 h
+    # Every model is sampled on the union of a 2-hourly and a 3-hourly grid.
+    #
+    # The 3-hourly part is not cosmetic. ECMWF open data publishes 3-hourly and
+    # everything else was on a 2-hourly grid, so the only hours where ALL SIX
+    # reported were multiples of 6 -- and the combined model, which is defined
+    # only where every source reports, could honestly be evaluated at just nine
+    # points across two days. Adding the odd multiples of three to the others
+    # brings that to seventeen, at the cost of about 17% more downloads.
+    def _grid(last):
+        return sorted(set(range(0, last + 1, 2)) | set(range(0, last + 1, 3)))
 
+    FXX_LIST = _grid(48)
+    FXX_LIST_GFS = _grid(120)
+    FXX_LIST_NAM = _grid(60)
+    FXX_LIST_ECMWF = list(range(0, 48 + 1, 3))  # IFS open data is 3-hourly
+    FXX_LIST_NBM = _grid(48)
+    FXX_LIST_RAP = _grid(48)  # RAP hourly; standard product runs to 21 h
+
+    # One index lookup per model to find its newest published run, then every
+    # forecast hour for that model is asked of THAT run at a correspondingly
+    # longer lead. The reported hour stays relative to the common base time, so
+    # all six models remain on one valid-time axis.
+    print("Resolving the latest published run for each model:")
+    wanted = [
+        ("hrrr", FXX_LIST),
+        ("gfs", FXX_LIST_GFS),
+        ("nam", FXX_LIST_NAM),
+        ("rap", FXX_LIST_RAP),
+        ("ifs", FXX_LIST_ECMWF),
+        ("nbm", FXX_LIST_NBM),
+    ]
     tasks = []
-    for fxx in FXX_LIST:
-        tasks.append((fxx, date_str, "hrrr", LOCATIONS, variables))
-    for fxx in FXX_LIST_GFS:
-        tasks.append((fxx, date_str, "gfs", LOCATIONS, variables))
-    for fxx in FXX_LIST_NAM:
-        tasks.append((fxx, date_str, "nam", LOCATIONS, variables))
-    for fxx in FXX_LIST_RAP:
-        tasks.append((fxx, date_str, "rap", LOCATIONS, variables))
-    for fxx in FXX_LIST_ECMWF:
-        tasks.append((fxx, date_str, "ifs", LOCATIONS, variables))
-    for fxx in FXX_LIST_NBM:
-        tasks.append((fxx, date_str, "nbm", LOCATIONS, variables))
+    for model, fxx_list in wanted:
+        # Probe at a MIDDLING lead, not the longest one. Long enough that a run
+        # which only started minutes ago has not reached it (that is the whole
+        # point of the check), short enough that every cycle publishes it: RAP's
+        # 00/06/12/18Z cycles stop at 21 h and only 03/09/15/21Z reach 51, so
+        # probing at F48 rejected every RAP run and fell back 30 h for nothing.
+        # RAP is probed at the lead we actually need from it, because the point
+        # of stepping back in threes is to skip the short cycles. Everything else
+        # is probed at a middling lead: long enough to reject a run that is still
+        # uploading, short enough that every cycle has it.
+        probe = max(fxx_list) if model == "rap" else min(max(fxx_list), 18)
+        probe = min(probe, MODEL_MAX_LEAD_H.get(model, 48))
+        run_date, offset = resolve_run(model, date_str, probe_fxx=probe)
+        cap = MODEL_MAX_LEAD_H.get(model, 48)
+        kept = [f for f in fxx_list if f + offset <= cap]
+        if len(kept) < len(fxx_list):
+            print(f"  {model}: dropped {len(fxx_list) - len(kept)} hours that would "
+                  f"exceed its {cap} h maximum lead once shifted")
+        for fxx in kept:
+            tasks.append((fxx, run_date, fxx + offset, model, LOCATIONS, variables))
 
     results = {}
     for loc in LOCATIONS:
@@ -965,8 +1197,35 @@ if __name__ == "__main__":
         predictions_output[f"Gradient Boosting_{ml_model}"] = {"x": gb_x, "y": gb_y}
         predictions_output[f"consensus_{ml_model}"] = {"x": consensus_x, "y": consensus_y}
 
-        # Save all predictions to a single JSON file
-        pred_json_path = json_outdir / "predictions_all.json"
-        with open(pred_json_path, "w") as f:
-            json.dump(_clean_for_json(predictions_output), f, indent=2)
-        print(f"Saved all predictions to {pred_json_path}")
+    # The headline forecast: one model, chosen by measurement (see
+    # predict_current_model). Added ALONGSIDE the legacy outputs above rather
+    # than replacing them, and wrapped, so that a failure here -- a missing
+    # artifact, a renamed column, an unreadable GRIB -- costs the page its
+    # headline panel and nothing else. The front end hides the panel when the
+    # key is absent, which is the correct behaviour for "we do not know".
+    try:
+        weather_df = results_to_dataframe(results, [LOCATIONS[0]], date_str)
+        predictions_output["current"] = predict_current_model(
+            weather_df, date_str,
+            max_fxx=min(max(FXX_LIST), max(FXX_LIST_GFS), max(FXX_LIST_NAM)),
+        )
+        print("[current model] published as predictions_all.json['current']")
+    except Exception as exc:
+        import traceback
+        print(f"[current model] NOT published: {type(exc).__name__}: {exc}")
+        traceback.print_exc()
+        # Record the outage rather than leaving the key absent. A panel that
+        # vanishes is indistinguishable from a panel that never existed, and
+        # both are indistinguishable from "no undercast expected" to a reader.
+        # Saying "unavailable, and why" is the only one of the three that is
+        # true when the model could not run.
+        predictions_output["current"] = {
+            "status": "unavailable",
+            "reason": str(exc)[:300],
+        }
+
+    # Save all predictions to a single JSON file
+    pred_json_path = json_outdir / "predictions_all.json"
+    with open(pred_json_path, "w") as f:
+        json.dump(_clean_for_json(predictions_output), f, indent=2)
+    print(f"Saved all predictions to {pred_json_path}")

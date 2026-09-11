@@ -455,6 +455,91 @@ on Mt. Washington.
     }
 </style>
 
+<style>
+    /* The headline undercast forecast. Deliberately plain: it is the one thing
+       most visitors come for, so it sits above the plots and reads without any
+       interaction. Colours come from tokens where the theme provides them, with
+       literal fallbacks, so it survives both light and dark. */
+    #undercast-headline {
+        border: 1px solid var(--global-border-color, #ccc);
+        border-radius: 8px;
+        padding: 16px 18px;
+        margin: 0 0 22px 0;
+        background-color: var(--global-bg-color, #fff);
+        color: var(--global-text-color, #333);
+    }
+
+    #undercast-headline .uh-eyebrow {
+        font-size: 0.78em;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--global-fig-caption-color, #777);
+        margin-bottom: 6px;
+    }
+
+    #undercast-headline .uh-verdict {
+        font-size: 1.55em;
+        font-weight: 700;
+        line-height: 1.2;
+        margin: 0 0 2px 0;
+    }
+
+    #undercast-headline .uh-when {
+        font-size: 1em;
+        color: var(--global-text-color-light, #555);
+        margin-bottom: 12px;
+    }
+
+    #undercast-headline .uh-strip {
+        display: flex;
+        align-items: flex-end;
+        gap: 1px;
+        height: 46px;
+        margin: 10px 0 4px 0;
+    }
+
+    #undercast-headline .uh-bar {
+        flex: 1 1 0;
+        min-width: 2px;
+        border-radius: 1px 1px 0 0;
+        background-color: var(--global-border-color, #d6d9dd);
+        position: relative;
+    }
+
+    #undercast-headline .uh-bar.uh-hit {
+        background-color: #C44E52;
+    }
+
+    #undercast-headline .uh-axis {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.78em;
+        color: var(--global-fig-caption-color, #777);
+        margin-bottom: 12px;
+    }
+
+    #undercast-headline .uh-foot {
+        font-size: 0.9em;
+        color: var(--global-fig-caption-color, #666);
+        border-top: 1px solid var(--global-dark-border-color, #eee);
+        padding-top: 10px;
+    }
+
+    #undercast-headline.uh-quiet .uh-verdict {
+        font-weight: 600;
+        font-size: 1.3em;
+    }
+</style>
+
+<div id="undercast-headline" hidden>
+    <div class="uh-eyebrow">Undercast forecast &mdash; Mount Washington</div>
+    <p class="uh-verdict" id="uh-verdict"></p>
+    <div class="uh-when" id="uh-when"></div>
+    <div class="uh-strip" id="uh-strip"></div>
+    <div class="uh-axis" id="uh-axis"></div>
+    <div class="uh-foot" id="uh-foot"></div>
+</div>
+
 <div id="plot8" style="width:96%;display:inline-block;"></div>
 <div id="plot9" style="width:96%;display:inline-block;"></div>
 

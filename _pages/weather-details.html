@@ -1217,12 +1217,110 @@ author_profile: true
         <p>GFS is therefore last on its merits, and the gap to HRRR is about what a coarser grid would predict.</p>
     </details>
 
+    <h3 id="what-the-site-serves">What the site actually serves</h3>
+    <p>One model, not seven, and not a vote: the <strong>combined source, Gradient Boosting</strong>, with a separate
+        threshold for each forecast lead. It is what the panel at the top of <a href="/weather/">the forecast page</a>
+        shows.</p>
+    <p>It was picked by measurement rather than preference. On the hand-labeled webcam days — the only holdout scored
+        against a person looking at a photograph rather than against the remark screen — it beats the 2-of-3 vote this
+        page used to run by F1 <strong>+0.090</strong> [+0.010, +0.175] on a paired day-block bootstrap, and beats
+        XGBoost by +0.084 [+0.002, +0.181]. On the held-out year it ties both. Two honest caveats: that webcam holdout
+        carries only 72 positives, and the winner was chosen on the same set that shows it winning, so the <em>size</em>
+        of the margin deserves less confidence than its direction. On the held-out year Gradient Boosting and XGBoost
+        are indistinguishable (F1 +0.001), and XGBoost is very slightly ahead threshold-free.</p>
+    <p>The per-lead thresholds matter more than the choice of algorithm. The model is deliberately lead-agnostic — how
+        far ahead a forecast reaches is not one of its inputs — but its calibration is not, because a 48 h forecast is
+        less sharp than a 1 h one. One global cut either over-fires at long range or goes quiet at short. Splitting it
+        lifted every algorithm on the clean holdout.</p>
+
+    <figure style="margin:18px 0; text-align:center;">
+        <img src="/files/weather/examples/model_training_images/headline_model_confusion.png"
+            alt="Four confusion matrices for the served model: at 1, 24 and 48 hours ahead on the held-out year, and on the hand-labeled webcam days."
+            style="max-width:100%; height:auto; border:1px solid #ddd; padding:6px; background:#fff;" />
+        <figcaption style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin-top:8px;">The forecast
+            the page publishes, at the thresholds it publishes it with. Split by lead because the page makes a call for
+            every hour out to 48, and a pooled matrix would hide the thing worth knowing: this model is far more
+            trustworthy about tonight than about the day after tomorrow.</figcaption>
+    </figure>
+
+    <div style="margin-top:12px; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:560px;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--global-border-color,#ccc);">
+                    <th style="text-align:left; padding:8px;">How far ahead</th>
+                    <th style="text-align:right; padding:8px;">When it says undercast, it&rsquo;s right</th>
+                    <th style="text-align:right; padding:8px;">Of real undercasts, it catches</th>
+                    <th style="text-align:right; padding:8px;">ROC-AUC</th>
+                </tr>
+            </thead>
+            <tbody style="border-bottom:1px solid var(--global-dark-border-color,#eee);">
+                <tr>
+                    <td style="padding:7px 8px;">1 hour</td>
+                    <td style="text-align:right; padding:7px 8px;">51%</td>
+                    <td style="text-align:right; padding:7px 8px;">63%</td>
+                    <td style="text-align:right; padding:7px 8px;">0.950</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">24 hours</td>
+                    <td style="text-align:right; padding:7px 8px;">38%</td>
+                    <td style="text-align:right; padding:7px 8px;">56%</td>
+                    <td style="text-align:right; padding:7px 8px;">0.924</td>
+                </tr>
+                <tr>
+                    <td style="padding:7px 8px;">48 hours</td>
+                    <td style="text-align:right; padding:7px 8px;">28%</td>
+                    <td style="text-align:right; padding:7px 8px;">52%</td>
+                    <td style="text-align:right; padding:7px 8px;">0.874</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p style="font-size:0.95em; color:var(--global-fig-caption-color,#666); margin:8px 0 18px 0;">Held-out year, true
+        2.4% base rate. Read the first column as the one that governs whether to drive: a 24-hour call that an undercast
+        is coming is right rather less than half the time.</p>
+
+    <details style="margin:16px 0;">
+        <summary style="cursor:pointer; font-weight:600;">How the live page avoids serving a different model than the
+            one measured here (click to expand)</summary>
+        <p style="margin-top:12px;">Training features are built from archived shard CSVs; serving features are built
+            from a live download, by different code, in a different process, months apart. If those two ever disagree —
+            a renamed column, a sentinel handled on one side only, a time feature taken from the model run instead of
+            the valid time — nothing raises. The model still returns a confident-looking number, and it is simply not
+            the model that was measured. That is exactly how the GFS longitude error survived as long as it did.</p>
+        <p>Three things now stand in the way. The feature-building steps are <em>imported</em> by the serving code from
+            the training module rather than reimplemented, so there is only one definition of what a feature is. Grid
+            sampling lives in one shared module, so a fix cannot land in one copy and miss the other. And <a
+                href="/scripts/test_serving_features.py">test_serving_features.py</a> replays real training rows
+            through the serving path and compares all 213 features column by column — currently exact, with the model
+            output identical to 0 decimal places of difference.</p>
+        <p>There is a second failure this guards against, and the first live run walked straight into it. The six
+            weather models publish on different schedules and different forecast-hour grids, and ECMWF&rsquo;s open
+            data lags far enough that the most recent six-hourly slot has usually not appeared yet. Asking for it and
+            taking the miss left every ECMWF column empty — silently, because a missing column is just a column of
+            nulls. The combined model, which is defined only where all six sources report, then ran on five and
+            returned a calm, confident 0.095 at hour after hour.</p>
+        <p>Two fixes. Each model&rsquo;s newest <em>published</em> run is now resolved before fetching, and forecast
+            hours are lengthened to match, so a staler run still lands on the same valid times. And any forecast hour
+            where some source is missing is published as null rather than as a number — the combined model was trained
+            only on hours where every source reported, and an hour missing five of them is not a forecast. The grids
+            were also aligned onto common three-hourly steps; before that, the only hours all six shared were multiples
+            of six, which left nine usable points across two days instead of seventeen.</p>
+        <p>If nothing can be published, the page says <em>forecast unavailable</em> and why. It does not simply hide
+            the panel: a missing forecast and a forecast of no undercast are different statements, and a panel that
+            quietly disappears is easily read as the second.</p>
+        <p><strong>What this costs, honestly:</strong> the panel usually reaches about 24–30 hours ahead rather than
+            the full 48 the table above is scored at. The binding constraint is ECMWF — it publishes late and only
+            3-hourly, so the hours where all six sources overlap run out before the other five do. The 48 h numbers
+            are still the right ones for the model; they are just measured on training data where every source was
+            fetched at whatever lead it needed, which a fixed 6-hourly cron cannot reproduce. Closing that gap means
+            resolving each model's run per forecast hour rather than once per job.</p>
+    </details>
+
     <h3>Confusion matrices</h3>
-    <p>No single algorithm is used on its own. The deployed prediction is a majority vote — a day is called undercast
-        only when at least two of the three agree at their chosen thresholds. The reasoning was that requiring
-        agreement trims false alarms at the cost of some recall, which is the right trade for a page you&rsquo;d check
-        before driving to a trailhead. <a href="#does-the-vote-earn-its-place">Further down</a> that assumption gets
-        tested, and it does not hold up.</p>
+    <p>These show every algorithm and every source, including the 2-of-3 vote the page used to serve. It is kept
+        here because the comparison is the argument for serving <a href="#what-the-site-serves">one model instead</a>:
+        the vote was assumed to trim false alarms by requiring agreement, and <a
+            href="#does-the-vote-earn-its-place">measured</a>, it does not.</p>
     <div class="figure-picker" id="confusion-toggle">
         <span style="font-weight:600;">Show confusion matrices for:</span>
     </div>
@@ -1502,9 +1600,11 @@ author_profile: true
 
 
     <h3 id="does-the-vote-earn-its-place">Does the vote earn its place?</h3>
-    <p>Three algorithms, majority vote. That design was inherited rather than tested, so here it is tested — on the
-        untouched holdouts, using the models already on disk rather than refits, which means these are the numbers the
-        rest of the page quotes and not near-identical approximations.</p>
+    <p>The page used to predict undercast with a 2-of-3 majority vote across the three algorithms. That design was
+        inherited rather than tested, so here it is tested — on the untouched holdouts, using the models already on
+        disk rather than refits, which means these are the numbers the rest of the page quotes and not near-identical
+        approximations. It is the investigation that led to <a href="#what-the-site-serves">serving one model
+        instead</a>.</p>
     <p>An ensemble only pays when its members make <em>different</em> mistakes. If they agree, the vote can never
         overturn anything and all it does is average three copies of one opinion. So the first thing to look at is not
         the score but the agreement.</p>
@@ -1714,13 +1814,14 @@ author_profile: true
     <p>RAP finishing last is not a surprise on reflection. It is the model HRRR is initialised from, run on a coarser
         13&nbsp;km grid, so it contributes a blurrier version of a view already held.</p>
 
-    <h4>What this changes</h4>
-    <p>Nothing urgent, which is worth saying plainly rather than manufacturing an action item. The deployed vote is
-        not costing anything measurable — it tracks the best single algorithm on the held-out year — and the combined
-        model is already doing the ensembling that works. But the vote is not buying anything either, and it triples
-        the artifact footprint: the Random Forests alone are 43&nbsp;MB against XGBoost&rsquo;s 1.1&nbsp;MB. If the
-        deployment ever needs to get smaller, dropping to a single gradient-boosted model per source costs no
-        measurable skill.</p>
+    <h4>What this changed</h4>
+    <p>The page stopped serving the vote. It now publishes <a href="#what-the-site-serves">a single model</a> — the
+        combined source, Gradient Boosting, with per-lead thresholds — which on the hand-labeled days beats the vote by
+        F1 +0.090 [+0.010, +0.175]. The three-way ensemble was costing a little accuracy and a lot of weight: serving
+        one model needs 0.6&nbsp;MB of artifacts instead of 11&nbsp;MB, so it is the only one that has to live in the
+        repository at all.</p>
+    <p>What did <em>not</em> change is the combined source itself. Feature-level fusion across the six weather models
+        was always the part doing the work, and it still is.</p>
     <p>The more useful direction is the one panel three points at. Effort spent on algorithms has run out of room —
         seven of them land within 0.03 of each other. Effort spent on getting a second, genuinely different view of
         the atmosphere is still paying. Full details and the numbers behind every claim here are in <a
