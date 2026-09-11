@@ -43,7 +43,13 @@ files/weather/webcam/
 # Retrained undercast models: regenerable from the shard CSVs, and the
 # RandomForest artifacts are large. Committing them is a CUTOVER decision --
 # see scripts/README_undercast_pipeline.md -- not something to do incidentally.
-files/weather/models/obs/
+files/weather/models/obs/*
+# ...but keep the small JSON metrics. They are the provenance for the numbers
+# quoted on /weather/details/ -- thresholds, per-lead AUC, rule baselines -- and
+# cost a few hundred KB. The .pkl/.json model artifacts beside them are the
+# large, regenerable part and stay ignored.
+!files/weather/models/obs/model_metadata_*.json
+!files/weather/models/obs/baseline_rules.json
 
 # Narrow shards from a partial re-fetch (fetch_nwp_at_obs.py --models ...).
 # Spliced into files/weather/csv/obs by merge_nwp_columns.py; never committed.

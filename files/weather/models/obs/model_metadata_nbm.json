@@ -1,0 +1,400 @@
+{
+  "XGBoost": {
+    "oof_roc_auc": 0.8055495569240977,
+    "oof_pr_auc": 0.4463493911759294,
+    "threshold": 0.7000000000000001,
+    "threshold_tuned_on": "holdout_baserate",
+    "baserate": {
+      "precision": 0.18149466192170818,
+      "recall": 0.3953488372093023,
+      "f1": 0.24878048780487805,
+      "tp": 102,
+      "fp": 460,
+      "fn": 156,
+      "n": 8686,
+      "note": "threshold fitted on this set -- optimistic",
+      "roc_auc": 0.8396977774343918,
+      "pr_auc": 0.17234605726787566
+    },
+    "webcam_human": {
+      "precision": 0.2988505747126437,
+      "recall": 0.3611111111111111,
+      "f1": 0.3270440251572327,
+      "tp": 26,
+      "fp": 61,
+      "fn": 46,
+      "n": 1767,
+      "roc_auc": 0.8566371681415929
+    },
+    "webcam_human_by_lead": {
+      "1": {
+        "precision": 0.2702702702702703,
+        "recall": 0.4166666666666667,
+        "f1": 0.32786885245901637,
+        "tp": 10,
+        "fp": 27,
+        "fn": 14,
+        "n": 589
+      },
+      "24": {
+        "precision": 0.21739130434782608,
+        "recall": 0.20833333333333334,
+        "f1": 0.2127659574468085,
+        "tp": 5,
+        "fp": 18,
+        "fn": 19,
+        "n": 589
+      },
+      "48": {
+        "precision": 0.4074074074074074,
+        "recall": 0.4583333333333333,
+        "f1": 0.43137254901960786,
+        "tp": 11,
+        "fp": 16,
+        "fn": 13,
+        "n": 589
+      }
+    },
+    "baserate_by_lead": {
+      "1": {
+        "precision": 0.3684210526315789,
+        "recall": 0.32558139534883723,
+        "f1": 0.345679012345679,
+        "tp": 28,
+        "fp": 48,
+        "fn": 58,
+        "n": 2896,
+        "threshold": 0.8150000000000001,
+        "threshold_source": "own lead",
+        "n_positives": 86,
+        "roc_auc": 0.8776876603492509,
+        "pr_auc": 0.24892898711153533
+      },
+      "24": {
+        "precision": 0.1625615763546798,
+        "recall": 0.38372093023255816,
+        "f1": 0.22837370242214533,
+        "tp": 33,
+        "fp": 170,
+        "fn": 53,
+        "n": 2896,
+        "threshold": 0.685,
+        "threshold_source": "own lead",
+        "n_positives": 86,
+        "roc_auc": 0.8170156418108085,
+        "pr_auc": 0.14362066998568077
+      },
+      "48": {
+        "precision": 0.18421052631578946,
+        "recall": 0.32558139534883723,
+        "f1": 0.23529411764705882,
+        "tp": 28,
+        "fp": 124,
+        "fn": 58,
+        "n": 2894,
+        "threshold": 0.7200000000000001,
+        "threshold_source": "own lead",
+        "n_positives": 86,
+        "roc_auc": 0.8202519379844961,
+        "pr_auc": 0.13445457036579944
+      }
+    },
+    "threshold_by_lead": {
+      "1": 0.8150000000000001,
+      "24": 0.685,
+      "48": 0.7200000000000001
+    }
+  },
+  "Random Forest": {
+    "oof_roc_auc": 0.8045600434356535,
+    "oof_pr_auc": 0.44395698024637553,
+    "threshold": 0.455,
+    "threshold_tuned_on": "holdout_baserate",
+    "baserate": {
+      "precision": 0.216,
+      "recall": 0.313953488372093,
+      "f1": 0.2559241706161137,
+      "tp": 81,
+      "fp": 294,
+      "fn": 177,
+      "n": 8686,
+      "note": "threshold fitted on this set -- optimistic",
+      "roc_auc": 0.8458865428269741,
+      "pr_auc": 0.16174550415460573
+    },
+    "webcam_human": {
+      "precision": 0.31746031746031744,
+      "recall": 0.2777777777777778,
+      "f1": 0.2962962962962963,
+      "tp": 20,
+      "fp": 43,
+      "fn": 52,
+      "n": 1767,
+      "roc_auc": 0.8156096361848574
+    },
+    "webcam_human_by_lead": {
+      "1": {
+        "precision": 0.3181818181818182,
+        "recall": 0.2916666666666667,
+        "f1": 0.30434782608695654,
+        "tp": 7,
+        "fp": 15,
+        "fn": 17,
+        "n": 589
+      },
+      "24": {
+        "precision": 0.3181818181818182,
+        "recall": 0.2916666666666667,
+        "f1": 0.30434782608695654,
+        "tp": 7,
+        "fp": 15,
+        "fn": 17,
+        "n": 589
+      },
+      "48": {
+        "precision": 0.3157894736842105,
+        "recall": 0.25,
+        "f1": 0.27906976744186046,
+        "tp": 6,
+        "fp": 13,
+        "fn": 18,
+        "n": 589
+      }
+    },
+    "baserate_by_lead": {
+      "1": {
+        "precision": 0.2824427480916031,
+        "recall": 0.43023255813953487,
+        "f1": 0.34101382488479265,
+        "tp": 37,
+        "fp": 94,
+        "fn": 49,
+        "n": 2896,
+        "threshold": 0.48000000000000004,
+        "threshold_source": "own lead",
+        "n_positives": 86,
+        "roc_auc": 0.8827195232971944,
+        "pr_auc": 0.233181153302639
+      },
+      "24": {
+        "precision": 0.1568627450980392,
+        "recall": 0.37209302325581395,
+        "f1": 0.2206896551724138,
+        "tp": 32,
+        "fp": 172,
+        "fn": 54,
+        "n": 2896,
+        "threshold": 0.38,
+        "threshold_source": "own lead",
+        "n_positives": 86,
+        "roc_auc": 0.8317015641810808,
+        "pr_auc": 0.13937068768261554
+      },
+      "48": {
+        "precision": 0.19008264462809918,
+        "recall": 0.26744186046511625,
+        "f1": 0.2222222222222222,
+        "tp": 23,
+        "fp": 98,
+        "fn": 63,
+        "n": 2894,
+        "threshold": 0.45,
+        "threshold_source": "own lead",
+        "n_positives": 86,
+        "roc_auc": 0.8207861260186842,
+        "pr_auc": 0.13857808099411836
+      }
+    },
+    "threshold_by_lead": {
+      "1": 0.48000000000000004,
+      "24": 0.38,
+      "48": 0.45
+    }
+  },
+  "Gradient Boosting": {
+    "oof_roc_auc": 0.8014336813602251,
+    "oof_pr_auc": 0.4324378754220036,
+    "threshold": 0.74,
+    "threshold_tuned_on": "holdout_baserate",
+    "baserate": {
+      "precision": 0.18269230769230768,
+      "recall": 0.29457364341085274,
+      "f1": 0.22551928783382788,
+      "tp": 76,
+      "fp": 340,
+      "fn": 182,
+      "n": 8686,
+      "note": "threshold fitted on this set -- optimistic",
+      "roc_auc": 0.8308062273043343,
+      "pr_auc": 0.17265944405483422
+    },
+    "webcam_human": {
+      "precision": 0.27710843373493976,
+      "recall": 0.3194444444444444,
+      "f1": 0.2967741935483871,
+      "tp": 23,
+      "fp": 60,
+      "fn": 49,
+      "n": 1767,
+      "roc_auc": 0.8312520485086856
+    },
+    "webcam_human_by_lead": {
+      "1": {
+        "precision": 0.32142857142857145,
+        "recall": 0.375,
+        "f1": 0.34615384615384615,
+        "tp": 9,
+        "fp": 19,
+        "fn": 15,
+        "n": 589
+      },
+      "24": {
+        "precision": 0.2608695652173913,
+        "recall": 0.25,
+        "f1": 0.2553191489361702,
+        "tp": 6,
+        "fp": 17,
+        "fn": 18,
+        "n": 589
+      },
+      "48": {
+        "precision": 0.25,
+        "recall": 0.3333333333333333,
+        "f1": 0.2857142857142857,
+        "tp": 8,
+        "fp": 24,
+        "fn": 16,
+        "n": 589
+      }
+    },
+    "baserate_by_lead": {
+      "1": {
+        "precision": 0.34177215189873417,
+        "recall": 0.313953488372093,
+        "f1": 0.32727272727272727,
+        "tp": 27,
+        "fp": 52,
+        "fn": 59,
+        "n": 2896,
+        "threshold": 0.805,
+        "threshold_source": "own lead",
+        "n_positives": 86,
+        "roc_auc": 0.8673094430191177,
+        "pr_auc": 0.2608425488511514
+      },
+      "24": {
+        "precision": 0.17592592592592593,
+        "recall": 0.22093023255813954,
+        "f1": 0.1958762886597938,
+        "tp": 19,
+        "fp": 89,
+        "fn": 67,
+        "n": 2896,
+        "threshold": 0.75,
+        "threshold_source": "own lead",
+        "n_positives": 86,
+        "roc_auc": 0.8112637590002484,
+        "pr_auc": 0.1316842831683389
+      },
+      "48": {
+        "precision": 0.15048543689320387,
+        "recall": 0.36046511627906974,
+        "f1": 0.21232876712328766,
+        "tp": 31,
+        "fp": 175,
+        "fn": 55,
+        "n": 2894,
+        "threshold": 0.7000000000000001,
+        "threshold_source": "own lead",
+        "n_positives": 86,
+        "roc_auc": 0.8114688928642417,
+        "pr_auc": 0.12284418350408725
+      }
+    },
+    "threshold_by_lead": {
+      "1": 0.805,
+      "24": 0.75,
+      "48": 0.7000000000000001
+    }
+  },
+  "feature_columns": [
+    "month_sin",
+    "month_cos",
+    "hour_sin",
+    "hour_cos",
+    "tcdc_surface_nbm",
+    "tcdc_high_cloud_nbm",
+    "cdcb_high_cloud_nbm_no_cloud",
+    "cdcb_high_cloud_nbm",
+    "cloud_ceiling_m_nbm_no_cloud",
+    "cloud_ceiling_m_nbm",
+    "cloud_base_m_nbm_no_cloud",
+    "cloud_base_m_nbm",
+    "vis_surface_nbm",
+    "ceil_prob_below_152m_nbm",
+    "ceil_prob_below_305m_nbm",
+    "ceil_prob_below_610m_nbm",
+    "ceil_prob_below_914m_nbm",
+    "ceil_prob_below_2012m_nbm",
+    "vis_prob_below_1609m_nbm",
+    "vis_prob_below_3219m_nbm",
+    "vis_prob_below_4828m_nbm",
+    "vis_prob_below_8047m_nbm",
+    "cape_surface_nbm",
+    "mixing_height_nbm",
+    "tmp_2m_nbm",
+    "dpt_2m_nbm",
+    "rh_2m_nbm",
+    "apcp_surface_nbm",
+    "wind_10m_nbm",
+    "gust_surface_nbm",
+    "dewpt_dep_2m_nbm"
+  ],
+  "categorical_columns": [],
+  "numerical_columns": [
+    "month_sin",
+    "month_cos",
+    "hour_sin",
+    "hour_cos",
+    "tcdc_surface_nbm",
+    "tcdc_high_cloud_nbm",
+    "cdcb_high_cloud_nbm_no_cloud",
+    "cdcb_high_cloud_nbm",
+    "cloud_ceiling_m_nbm_no_cloud",
+    "cloud_ceiling_m_nbm",
+    "cloud_base_m_nbm_no_cloud",
+    "cloud_base_m_nbm",
+    "vis_surface_nbm",
+    "ceil_prob_below_152m_nbm",
+    "ceil_prob_below_305m_nbm",
+    "ceil_prob_below_610m_nbm",
+    "ceil_prob_below_914m_nbm",
+    "ceil_prob_below_2012m_nbm",
+    "vis_prob_below_1609m_nbm",
+    "vis_prob_below_3219m_nbm",
+    "vis_prob_below_4828m_nbm",
+    "vis_prob_below_8047m_nbm",
+    "cape_surface_nbm",
+    "mixing_height_nbm",
+    "tmp_2m_nbm",
+    "dpt_2m_nbm",
+    "rh_2m_nbm",
+    "apcp_surface_nbm",
+    "wind_10m_nbm",
+    "gust_surface_nbm",
+    "dewpt_dep_2m_nbm"
+  ],
+  "target_column": "is_undercast",
+  "random_state": 23,
+  "source": "nbm",
+  "n_train_rows": 21443,
+  "n_train_positives": 3806,
+  "n_train_weeks": 166,
+  "year_range": [
+    2020,
+    2026
+  ],
+  "imputation": "constant fill -9999.0 + missingness indicators; cloud-geometry columns carry an explicit _no_cloud flag (nan in source = model reports no cloud = clear)",
+  "split_separation": "by DATE with a 1-day buffer, not by observation",
+  "evaluation": "trained on split=train only; threshold tuned on holdout_baserate (true 2.7% base rate); headline metrics on holdout_webcam scored against HUMAN webcam labels; week-grouped 5-fold CV for OOF AUC"
+}

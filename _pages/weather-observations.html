@@ -1,0 +1,330 @@
+---
+layout: archive
+title: "Observation Viewer"
+permalink: /weather/observations/
+author_profile: true
+---
+
+<style>
+    .obs-intro p {
+        margin-bottom: 10px;
+    }
+
+    .obs-filter {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 14px 0 6px;
+    }
+
+    .obs-filter button {
+        border: 1px solid #cfd4da;
+        background: #fff;
+        color: #333;
+        border-radius: 999px;
+        padding: 5px 14px;
+        font-size: 0.88em;
+        cursor: pointer;
+        line-height: 1.5;
+    }
+
+    .obs-filter button[aria-pressed="true"] {
+        background: #2f3337;
+        border-color: #2f3337;
+        color: #fff;
+    }
+
+    .obs-count {
+        font-size: 0.86em;
+        color: #6b7178;
+        margin: 4px 0 16px;
+    }
+
+    .obs-card {
+        border: 1px solid #e3e6e9;
+        border-radius: 6px;
+        padding: 14px;
+        margin-bottom: 18px;
+        background: #fff;
+    }
+
+    .obs-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .obs-date {
+        font-weight: 700;
+        font-size: 1.05em;
+    }
+
+    .pill {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 0.78em;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .pill-und {
+        background: #fae3e4;
+        color: #a3363c;
+    }
+
+    .pill-clear {
+        background: #e4ecf7;
+        color: #2f5d99;
+    }
+
+    .pill-part {
+        background: #fdf0d8;
+        color: #8a6116;
+    }
+
+    .pill-miss {
+        background: #eceef0;
+        color: #5c6166;
+    }
+
+    .obs-imgs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 10px;
+    }
+
+    .obs-imgs figure {
+        margin: 0;
+    }
+
+    .obs-imgs img {
+        width: 100%;
+        border-radius: 4px;
+        display: block;
+        background: #f2f4f6;
+        cursor: zoom-in;
+    }
+
+    .obs-imgs figcaption {
+        font-size: 0.78em;
+        color: #6b7178;
+        margin-top: 4px;
+    }
+
+    .obs-metar {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.82em;
+        background: #f7f8f9;
+        border: 1px solid #e3e6e9;
+        border-radius: 4px;
+        padding: 8px 10px;
+        margin-top: 10px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .obs-metar .hl {
+        background: #fde9a9;
+        border-radius: 2px;
+        padding: 0 2px;
+        font-weight: 700;
+    }
+
+    .obs-facts {
+        font-size: 0.84em;
+        color: #4a4f55;
+        margin-top: 8px;
+    }
+
+    .obs-facts span {
+        margin-right: 14px;
+        white-space: nowrap;
+    }
+
+    .lightbox {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, .88);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        cursor: zoom-out;
+    }
+
+    .lightbox.on {
+        display: flex;
+    }
+
+    .lightbox img {
+        max-width: 96vw;
+        max-height: 92vh;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .obs-card {
+            background: transparent;
+        }
+    }
+</style>
+
+<div class="obs-intro">
+    <p>These are the raw materials behind <a href="/weather/details/">the undercast write-up</a>: what the summit
+        cameras saw at local noon, next to what the summit observer wrote down within a few minutes of that frame.</p>
+    <p>Each card carries three independent verdicts — my own score from the photographs, the observer&rsquo;s METAR,
+        and the automated screen that reads the METAR. Where they disagree is the interesting part, and it is the
+        reason the hand labels are kept as a test set rather than used for training.</p>
+    <p><strong>Reading the METAR:</strong> the highlighted pieces are the ones the screen looks at — visibility, any
+        layer overhead, and the <code>TPS LWR</code> group giving the coverage and top height of the deck
+        <em>below</em> the 6,288&nbsp;ft summit. Heights in the body are above the station; <code>TPS LWR</code>
+        heights are above sea level.</p>
+</div>
+
+<div class="obs-filter" id="obs-filter" role="group" aria-label="Filter observations"></div>
+<p class="obs-count" id="obs-count"></p>
+<div id="obs-list"></div>
+<div class="lightbox" id="lightbox"><img alt="" id="lightbox-img"></div>
+
+<script>
+    (function () {
+        var BASE = '/files/weather/examples/observations/';
+        var list = document.getElementById('obs-list');
+        var countEl = document.getElementById('obs-count');
+        var filterEl = document.getElementById('obs-filter');
+        var lb = document.getElementById('lightbox');
+        var lbImg = document.getElementById('lightbox-img');
+        var entries = [], active = 'all';
+
+        var FILTERS = [
+            ['all', 'All'],
+            ['undercast', 'Undercast'],
+            ['partial', 'Split verdict'],
+            ['clear', 'Not undercast'],
+            ['disagree', 'Screen disagrees']
+        ];
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        }
+
+        // Highlight the groups the screen actually keys on: visibility, any
+        // BKN/OVC layer overhead, and the TPS LWR group below.
+        //
+        // Body and remark are handled separately, split on " RMK ". That keeps
+        // the overhead-layer pattern from also matching the BKN inside
+        // "TPS LWR BKN055" -- they are different data (body heights are above
+        // the station, TPS LWR heights above sea level) and highlighting them
+        // with one pass would either nest spans or need a lookbehind, which
+        // older Safari does not support.
+        //
+        // Runs on the ESCAPED string, so nothing in the remark can inject markup.
+        function markup(metar) {
+            var parts = esc(metar).split(' RMK ');
+            var body = parts[0], rmk = parts.slice(1).join(' RMK ');
+            body = body.replace(/(\b\d{1,3}SM\b|\b\d+\/\d{1,2}SM\b)/g, '<span class="hl">$1</span>');
+            body = body.replace(/\b((?:BKN|OVC)\d{3})\b/g, '<span class="hl">$1</span>');
+            rmk = rmk.replace(/(TPS LWR (?:FEW|SCT|BKN|OVC)\s?\d{2,3})/g, '<span class="hl">$1</span>');
+            return rmk ? body + ' RMK ' + rmk : body;
+        }
+
+        function disagrees(e) {
+            return (e.screen === 'undercast') !== (e.hand_avg >= 0.5);
+        }
+
+        function humanPill(e) {
+            if (e.hand_avg >= 0.5) return '<span class="pill pill-und">photos: undercast</span>';
+            if (e.hand_avg > 0) return '<span class="pill pill-part">photos: split ' + e.hand_avg + '</span>';
+            return '<span class="pill pill-clear">photos: not undercast</span>';
+        }
+
+        function screenPill(e) {
+            if (e.screen === 'undercast') return '<span class="pill pill-und">screen: undercast</span>';
+            if (e.screen === 'ambiguous') return '<span class="pill pill-part">screen: ambiguous</span>';
+            return '<span class="pill pill-clear">screen: not undercast</span>';
+        }
+
+        function card(e) {
+            var imgs = '';
+            [['tower', 'Tower camera'], ['observatory', 'Observatory camera']].forEach(function (p) {
+                if (!e[p[0]]) {
+                    imgs += '<figure><div style="padding:28px 10px;text-align:center;color:#8b9096;'
+                        + 'border:1px dashed #d7dce3;border-radius:4px;font-size:.82em;">'
+                        + 'no ' + p[1].toLowerCase() + ' frame this day</div></figure>';
+                    return;
+                }
+                imgs += '<figure><img loading="lazy" alt="' + p[1] + ' on ' + esc(e.date) + '" src="'
+                    + BASE + encodeURIComponent(e[p[0]]) + '"><figcaption>' + p[1] + '</figcaption></figure>';
+            });
+            var facts = '';
+            if (e.vis_sm !== '') facts += '<span>visibility <strong>' + esc(e.vis_sm) + ' SM</strong></span>';
+            if (e.max_cover) facts += '<span>deck below <strong>' + esc(e.max_cover)
+                + (e.tops_ft !== '' ? ' at ' + esc(e.tops_ft) + ' ft' : '') + '</strong></span>';
+            if (e.summit_in_cloud === '1') facts += '<span><strong>summit in cloud</strong></span>';
+            if (e.local_time) facts += '<span>report filed ' + esc(e.local_time) + ' local</span>';
+
+            return '<div class="obs-card"><div class="obs-head">'
+                + '<span class="obs-date">' + esc(e.date) + '</span>'
+                + humanPill(e) + screenPill(e)
+                + (disagrees(e) ? '<span class="pill pill-miss">they disagree</span>' : '')
+                + '</div><div class="obs-imgs">' + imgs + '</div>'
+                + (e.metar ? '<div class="obs-metar">' + markup(e.metar) + '</div>' : '')
+                + (facts ? '<div class="obs-facts">' + facts + '</div>' : '')
+                + '</div>';
+        }
+
+        function render() {
+            var shown = entries.filter(function (e) {
+                if (active === 'all') return true;
+                if (active === 'disagree') return disagrees(e);
+                return e.kind === active;
+            });
+            list.innerHTML = shown.map(card).join('') ||
+                '<p style="color:#6b7178;">No days in this category.</p>';
+            var n = entries.filter(disagrees).length;
+            countEl.textContent = shown.length + ' of ' + entries.length + ' days shown. '
+                + 'Across this selection the screen and my own scoring disagree on ' + n
+                + ' — the selection deliberately over-samples the hard cases, so this is not the overall error rate.';
+        }
+
+        FILTERS.forEach(function (f) {
+            var b = document.createElement('button');
+            b.textContent = f[1];
+            b.setAttribute('aria-pressed', f[0] === 'all' ? 'true' : 'false');
+            b.addEventListener('click', function () {
+                active = f[0];
+                Array.prototype.forEach.call(filterEl.children, function (c) {
+                    c.setAttribute('aria-pressed', c === b ? 'true' : 'false');
+                });
+                render();
+            });
+            filterEl.appendChild(b);
+        });
+
+        list.addEventListener('click', function (ev) {
+            var img = ev.target.closest('img');
+            if (!img) return;
+            lbImg.src = img.src;
+            lb.classList.add('on');
+        });
+        lb.addEventListener('click', function () { lb.classList.remove('on'); });
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape') lb.classList.remove('on');
+        });
+
+        fetch(BASE + 'manifest.json')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                entries = d.entries || [];
+                render();
+            })
+            .catch(function () {
+                list.innerHTML = '<p style="color:#a3363c;">Could not load the observation manifest.</p>';
+            });
+    })();
+</script>
