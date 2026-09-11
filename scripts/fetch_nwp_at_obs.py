@@ -338,7 +338,10 @@ def main():
     p.add_argument("--shard", type=int, default=0)
     p.add_argument("--workers", type=int, default=6)
     p.add_argument("--leads", type=int, nargs="+", default=list(TARGET_LEADS))
-    p.add_argument("--limit", type=int, default=0, help="first N tasks only (smoke test)")
+    p.add_argument("--limit", type=int, default=0,
+                   help="cap to about N (observation, lead) tasks, chosen spread "
+                        "evenly across the shard's date range so every model's "
+                        "archive era gets exercised. 0 = no cap.")
     p.add_argument("--resume", action="store_true",
                    help="skip (obs, lead) pairs already present in this shard's output")
     a = p.parse_args()
@@ -351,6 +354,21 @@ def main():
     with open(a.sample) as fh:
         obs = list(csv.DictReader(fh))
     obs = [o for i, o in enumerate(obs) if i % a.num_shards == a.shard]
+
+    if a.limit:
+        # Spread the cap ACROSS the shard's date range instead of taking the
+        # first N. The sample is date-ordered, so a head-N cap only ever
+        # exercises 2014 -- where HRRR is the sole archive -- which makes a
+        # rehearsal look green while never touching the other five models, and
+        # measures a 1-model task when the real job averages ~4.3. Picking whole
+        # observations (all their leads) keeps the per-observation cost, which
+        # is the unit worth extrapolating from.
+        n_obs = max(1, a.limit // max(len(a.leads), 1))
+        if len(obs) > n_obs:
+            step = len(obs) / n_obs
+            obs = [obs[int(i * step)] for i in range(n_obs)]
+        print(f"limit: sampled {len(obs)} observations spread over "
+              f"{obs[0]['valid_utc'][:7]} .. {obs[-1]['valid_utc'][:7]}")
 
     def _open_read(path):
         return gzip.open(path, "rt") if path.endswith(".gz") else open(path)
@@ -380,8 +398,6 @@ def main():
             if (o["valid_utc"], str(lead)) in done:
                 continue
             tasks.append((o["valid_utc"], lead, meta))
-    if a.limit:
-        tasks = tasks[:a.limit]
     print(f"shard {a.shard}/{a.num_shards}: {len(obs)} observations, "
           f"{len(tasks)} (obs, lead) tasks to fetch -> {out_path}")
     if not tasks:
