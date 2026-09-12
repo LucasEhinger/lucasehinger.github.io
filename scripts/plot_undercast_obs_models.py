@@ -46,7 +46,8 @@ from sklearn.metrics import (
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import undercast_eval as ue  # noqa: E402
-from train_undercast_obs import MODEL_NAMES, SHORT_NAME, SOURCES  # noqa: E402
+from train_undercast_obs import (MODEL_NAMES, SHORT_NAME, SOURCES,  # noqa: E402
+                                 SOURCE_MAX_LEAD_H)
 
 OUT = "files/weather/examples/model_training_images"
 INK, GREY = "#2f3337", "#9aa0a6"
@@ -78,19 +79,31 @@ def despine(ax, keep=("left", "bottom")):
 def per_source_performance(df, sources, out_dir, models_dir):
     """Every source on the same rows, on the holdout where precision means something.
 
-    Scored on the rows where EVERY source has data -- which is exactly the row
-    set the combined model is defined on -- rather than on each source's own
-    holdout. HRRR's archive starts in 2014 and ECMWF's in 2022, so per-source
+    Scored on the rows where EVERY source has data, rather than on each source's
+    own holdout. HRRR's archive starts in 2014 and ECMWF's in 2022, so per-source
     row sets would have the bars comparing different years' weather as much as
-    different models. It moves things: restricted to shared rows HRRR climbs
-    from 0.868 to 0.875 and RAP falls from 0.857 to 0.853. ECMWF is the source
-    that starts latest, so the shared set IS its own set and its bar does not
-    move -- everyone else is being brought onto ECMWF's years.
+    different models.
 
-    Per-source numbers therefore differ slightly from the results table, which
-    quotes each source on its own full holdout.
+    TWO restrictions are needed for that, not one. Sharing the same DATES is the
+    old one. The second came in with the lead ladder: `split_rows(df, "all", ...)`
+    is lead-aware, so it keeps 144 h rows where only ECMWF and NBM are required --
+    and HRRR, RAP and NAM have no data there at all. Scoring them on those rows
+    measures the preprocessor's fill value, not the model: HRRR reads 0.630 that
+    way against 0.872 on the leads it actually reaches. So the comparison is cut
+    to leads every PLOTTED source can reach, which for all six is 48 h.
+
+    Per-source numbers therefore differ from the results table, which quotes each
+    source at each lead separately and carries the long leads the table above
+    cannot compare fairly.
     """
     common = ue.split_rows(df, "all", SPLIT)
+    # min over the plotted sources, so plotting a subset widens the window
+    # instead of silently keeping the six-source one.
+    # "all" is not in SOURCE_MAX_LEAD_H and is not the constraint anyway: the
+    # combined model reaches 144 h, the short-range members do not.
+    max_lead = min(SOURCE_MAX_LEAD_H[s] for s in sources if s in SOURCE_MAX_LEAD_H)
+    keep = common["target_lead_h"].astype(float) <= max_lead
+    common = common[keep]
     y = ue.truth(common, SPLIT)
     # Every algorithm, not the best of them. A "best of three" bar hides the thing
     # worth seeing: the three are within a hair of each other everywhere, which is
@@ -138,7 +151,8 @@ def per_source_performance(df, sources, out_dir, models_dir):
     fig.suptitle("Per-source undercast skill on the held-out year, by algorithm",
                  fontsize=12.5, color=INK, x=0.005, ha="left")
     fig.text(0.995, -0.06,
-             f"Unsampled holdout, {len(y):,} hours every source covers, "
+             f"Unsampled holdout, {len(y):,} hours every source covers "
+             f"(leads up to {max_lead} h), "
              f"{int(y.sum())} of them undercast ({100*base_rate:.1f}%). "
              "ROC-AUC starts at 0.5 because that is where skill starts.",
              ha="right", fontsize=8.5, color=GREY)
@@ -254,11 +268,16 @@ HEADLINE_SOURCE, HEADLINE_ALGO = "all", "Gradient Boosting"
 def headline_confusion(df, out_dir, models_dir):
     """The served model, at the thresholds it is served with, by forecast lead.
 
-    Split by lead because the page publishes a call for every hour out to 48, and
+    Split by lead because the page publishes a call for every hour out to 144, and
     a single pooled matrix would hide the thing a reader most needs to know: the
-    same model is far more trustworthy about tonight than about the day after
-    tomorrow. Thresholds are the per-lead ones the live page uses, not a global
-    cut, so these matrices are what the site does.
+    same model is far more trustworthy about tonight than about this time next
+    week. Thresholds are the per-lead ones the live page uses, not a global cut,
+    so these matrices are what the site does.
+
+    Every lead the model was trained at gets a panel, read off the metadata rather
+    than hard-coded -- when the ladder grew from three leads to seven this figure
+    was the one place still quietly showing three, which made the page look like
+    it published two days ahead when it publishes six.
 
     The last panel is the honest one -- hand-labeled days, scored against a person
     looking at a photograph, using a threshold those days had no part in choosing.
@@ -269,7 +288,7 @@ def headline_confusion(df, out_dir, models_dir):
     by_lead = meta["threshold_by_lead"]
 
     panels = []
-    for lead in (1, 24, 48):
+    for lead in sorted(int(k) for k in by_lead):
         m = base["rows"]["target_lead_h"].to_numpy() == lead
         thr = float(by_lead[str(lead)])
         panels.append((f"{lead} h ahead", base["y"][m],
@@ -279,7 +298,13 @@ def headline_confusion(df, out_dir, models_dir):
     panels.append(("hand-labeled webcam days", web["y"],
                    (web["proba"][HEADLINE_ALGO] >= wthr).astype(int), None))
 
-    fig, axes = plt.subplots(1, 4, figsize=(14.6, 4.3), dpi=160)
+    # One row of eight is unreadable; wrap into a grid instead.
+    ncol = 4 if len(panels) <= 4 else (len(panels) + 1) // 2
+    nrow = 1 if len(panels) <= 4 else 2
+    fig, axes = plt.subplots(nrow, ncol, figsize=(3.65 * ncol, 4.3 * nrow), dpi=160)
+    axes = np.atleast_1d(axes).ravel()
+    for ax in axes[len(panels):]:
+        ax.set_visible(False)
     for ax, (title, y, pred, thr) in zip(axes, panels):
         p = precision_score(y, pred, zero_division=0)
         r = recall_score(y, pred)
@@ -288,9 +313,9 @@ def headline_confusion(df, out_dir, models_dir):
     fig.suptitle("The forecast the site publishes — combined model, Gradient Boosting",
                  fontsize=12.5, color=INK, x=0.005, ha="left")
     fig.text(0.995, -0.04,
-             "First three panels: the held-out year at its true 2.4% base rate, "
-             "at the per-lead thresholds the live page uses. Last panel: every "
-             "hand-labeled day, scored against human webcam labels.",
+             "All but the last panel: the held-out year at its true 2.5% base "
+             "rate, at the per-lead thresholds the live page uses. Last panel: "
+             "every hand-labeled day, scored against human webcam labels.",
              ha="right", fontsize=8.5, color=GREY)
     fig.tight_layout()
     out = os.path.join(out_dir, "headline_model_confusion.png")

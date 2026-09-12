@@ -481,14 +481,22 @@ node scripts/test_undercast_panel.mjs       # all six headline-panel render stat
       Keeping both is deliberate for now: it is the fallback.
 - [ ] **Watch the first few scheduled runs.** The `[current model]` lines in the
       Actions log report feature coverage; below 80% it refuses to publish.
-- [ ] **Fetch the ladder, then retrain.** The code is in; the data is not. Run
-      `fetch_nwp_at_obs.py --resume` across the shards to add leads 72-144, then
-      `prune_lead_substitutions.py --apply`, then retrain. Nothing past 48 h
-      publishes until that happens, by design.
-- [ ] **Trim the model** — 40 features and depth 2 instead of 213 and depth 3.
-      Measured as free on both holdouts (every interval contains zero) and worth
-      it anyway: 48 GRIB fields per run instead of 141. See
-      `undercast_capacity.py` and the details page.
+- [x] **Fetch the ladder, then retrain.** DONE 2026-09-12. Leads 1/24/48/72/96/
+      120/144 fetched, `prune_lead_substitutions.py --apply` run, NBM re-fetched
+      on its real 3-hourly grid, one retrain at depth 3 / 213 features. All three
+      algorithms now carry own-lead thresholds at all seven leads, which is what
+      switched long-lead publishing on — no serving code changed.
+- [ ] ~~**Trim the model** — 40 features and depth 2~~ **WITHDRAWN 2026-09-12.**
+      This was measured as free on the three-lead data; on the seven-lead data it
+      is not. 40 features costs 0.014 ROC-AUC and 0.041 PR-AUC on the base-rate
+      holdout, both intervals clearing zero, and 25 features costs more. The
+      likely cause is the ladder itself: past 48 h the short-range models drop
+      out, so a set of 40 features chosen for average importance is mostly
+      short-range fields and leaves a 4-day row with little to read. If a smaller
+      model is wanted operationally, **120 features** is the defensible budget —
+      it ties the full 213 within 0.008 on every measure and cuts the fetch from
+      141 GRIB fields to 100. Depth 2 remains a wash (+0.004 base-rate, −0.000
+      webcam, both containing zero). See `undercast_capacity.py`.
 - [ ] **`cape_ecmwf` is 12.7% populated** — the alias is `:cape:` and ECMWF renamed
       it `mucape` in 2025. `vvel_700/850/925mb_ecmwf` and `dpt_2m_ecmwf` sit at
       exactly 40.8%, so probably one shared cause.
