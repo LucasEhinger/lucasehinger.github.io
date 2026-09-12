@@ -255,8 +255,9 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
     el.classList.toggle("uh-quiet", true);
     verdictEl.textContent = "Forecast unavailable";
     whenEl.textContent =
-      "The combined model needs all six weather models reporting, and at least one " +
-      "did not publish in time for this run. It will retry in a few hours.";
+      "The combined model needs every weather model that reaches the hour in " +
+      "question, and at least one did not publish in time for this run. It will " +
+      "retry in a few hours.";
     stripEl.innerHTML = "";
     axisEl.innerHTML = "";
     footEl.textContent = "";
@@ -509,6 +510,15 @@ function loadWeatherPlots(
       } catch (err) {
         console.error("undercast headline failed:", err);
         const el = document.getElementById("undercast-headline");
+        if (el) el.hidden = true;
+      }
+
+      // ...and, folded away beneath it, how well that model actually does.
+      try {
+        renderModelPerformance(data_ML, datasetId);
+      } catch (err) {
+        console.error("model performance panel failed:", err);
+        const el = document.getElementById("model-performance");
         if (el) el.hidden = true;
       }
 
@@ -2105,5 +2115,152 @@ document.querySelectorAll('input[name="units-toggle"]').forEach((input) => {
     setTimeout(attachPlotInfoTooltips, 150);
   });
 });
+
+// --- how well the served model actually does --------------------------------
+// The headline panel says what the forecast IS; this says how much it is worth.
+// Folded shut by default because it is the second question a visitor has.
+//
+// Numbers come from the model's own metadata file rather than from the forecast
+// payload, for two reasons: the payload carries precision/recall/ROC but not the
+// confusion counts, and the metadata is what the details page quotes, so the two
+// pages cannot drift apart and disagree about the same model.
+//
+// Everything here is measured on the base-rate holdout -- a full unsampled year
+// the model never trained on, at the true ~2.4% undercast rate -- at the same
+// per-lead thresholds the forecast above is calling with.
+const MP_META_URL = "/files/weather/models/obs/model_metadata_all.json";
+const MP_ALGO = "Gradient Boosting";
+
+function renderModelPerformance(data_ML, datasetId) {
+  const el = document.getElementById("model-performance");
+  if (!el) return;
+  // Same restriction as the forecast panel: the model is trained on Mount
+  // Washington summit remarks and does not transfer to the other summits.
+  if (String(datasetId) !== "1") {
+    el.hidden = true;
+    return;
+  }
+  // No forecast means nothing to characterise; claiming skill for a model that
+  // did not run would be worse than saying nothing.
+  const cur = data_ML && data_ML.current;
+  if (!cur || cur.status === "unavailable") {
+    el.hidden = true;
+    return;
+  }
+
+  fetch(MP_META_URL)
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
+    .then((meta) => {
+      const m = meta && meta[MP_ALGO];
+      const byLead = m && m.baserate_by_lead;
+      if (!m || !byLead || !Object.keys(byLead).length) {
+        el.hidden = true;
+        return;
+      }
+      drawModelPerformance(m, byLead);
+      el.hidden = false;
+    })
+    .catch((err) => {
+      console.error("model metadata unavailable:", err);
+      el.hidden = true;
+    });
+}
+
+function drawModelPerformance(m, byLead) {
+  const leadEl = document.getElementById("mp-lead");
+  const statsEl = document.getElementById("mp-stats");
+  const cmEl = document.getElementById("mp-cm");
+  const noteEl = document.getElementById("mp-note");
+  if (!leadEl || !statsEl || !cmEl || !noteEl) return;
+
+  const leads = Object.keys(byLead)
+    .map(Number)
+    .filter((h) => Number.isFinite(h))
+    .sort((a, b) => a - b);
+  let active = leads[0];
+
+  leadEl.innerHTML = "";
+  leads.forEach((h) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = h === 1 ? "1 hour ahead" : `${h} hours ahead`;
+    b.setAttribute("aria-pressed", String(h === active));
+    b.addEventListener("click", () => {
+      active = h;
+      Array.from(leadEl.children).forEach((c) =>
+        c.setAttribute("aria-pressed", String(c === b))
+      );
+      paint();
+    });
+    leadEl.appendChild(b);
+  });
+
+  const pct = (v) => (typeof v === "number" ? `${Math.round(v * 100)}%` : "—");
+  const num = (v) => (typeof v === "number" ? v.toFixed(3) : "—");
+
+  function paint() {
+    const d = byLead[String(active)] || {};
+    // tn is not stored -- it is everything that is left once the other three
+    // cells are removed, which is the overwhelming majority of a rare event.
+    const tp = d.tp || 0;
+    const fp = d.fp || 0;
+    const fn = d.fn || 0;
+    const tn = Math.max((d.n || 0) - tp - fp - fn, 0);
+
+    statsEl.innerHTML = "";
+    [
+      [pct(d.precision), "When it says undercast, it's right"],
+      [pct(d.recall), "Of real undercasts, it catches"],
+      [num(d.roc_auc), "ROC-AUC (0.5 = guessing)"],
+      [num(d.threshold), "Probability threshold used"],
+    ].forEach(([v, label]) => {
+      const box = document.createElement("div");
+      box.className = "mp-stat";
+      const n = document.createElement("div");
+      n.className = "mp-num";
+      n.textContent = v;
+      const l = document.createElement("div");
+      l.className = "mp-lab";
+      l.textContent = label;
+      box.appendChild(n);
+      box.appendChild(l);
+      statsEl.appendChild(box);
+    });
+
+    cmEl.innerHTML = "";
+    const rows = [
+      ["", "Forecast: undercast", "Forecast: none"],
+      ["Actually undercast", tp, fn],
+      ["Actually not", fp, tn],
+    ];
+    rows.forEach((r, ri) => {
+      const tr = document.createElement("tr");
+      r.forEach((cell, ci) => {
+        const isHead = ri === 0 || ci === 0;
+        const node = document.createElement(isHead ? "th" : "td");
+        node.textContent =
+          typeof cell === "number" ? cell.toLocaleString() : cell;
+        // The two cells the model got right, so the shape reads at a glance.
+        if (!isHead && ((ri === 1 && ci === 1) || (ri === 2 && ci === 2))) {
+          node.className = "mp-hit";
+        }
+        tr.appendChild(node);
+      });
+      cmEl.appendChild(tr);
+    });
+
+    const hours = (d.n || 0).toLocaleString();
+    const events = tp + fn;
+    noteEl.textContent =
+      `${hours} hours in the held-out year, ${events} of them undercast ` +
+      `(${(((events / (d.n || 1)) * 100) || 0).toFixed(1)}%). ` +
+      `At this lead it raises ${fp.toLocaleString()} false alarms and misses ` +
+      `${fn.toLocaleString()} real undercasts. Undercast is rare, so even a good ` +
+      `model produces more false alarms than hits at the longer leads — that is ` +
+      `the honest limit of this forecast, not a bug.`;
+  }
+
+  paint();
+}
 
 loadWeatherPlots("1", getSelectedModel(), getSelectedUnits());

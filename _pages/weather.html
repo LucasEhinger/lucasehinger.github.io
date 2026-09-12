@@ -88,7 +88,7 @@ author_profile: true
                 </div>
             </div>
             <select id="weather-toggle"
-                style="width: 300px; background-color: var(background-color, #fff); color: #333; border: 1px solid  #ccc;">
+                style="width: 300px; background-color: var(--global-bg-color); color: var(--global-text-color); border: 1px solid var(--global-dark-border-color);">
                 <option value="1">Mt. Washington</option>
                 <option value="2">Mt. Lafayette</option>
                 <option value="3">Mt. Moosilauke</option>
@@ -96,8 +96,8 @@ author_profile: true
             </select>
         </div>
         <div id="model-toggle"
-            style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid  #ccc; border-radius: 6px; background-color: var(background-color, #fff); color: var(color, #333);">
-            <span style="font-weight: 600; color: var(color, #333);">Model:</span>
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--global-dark-border-color); border-radius: 6px; background-color: var(--global-bg-color); color: var(--global-text-color);">
+            <span style="font-weight: 600; color: var(--global-text-color);">Model:</span>
             <div class="info-circle"
                 style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: #ccc; color: #fff; font-size: 12px; font-weight: bold; cursor: help;">
                 ?
@@ -109,31 +109,31 @@ author_profile: true
                     relevant plots. "Combined" is the all-parameters undercast model.
                 </div>
             </div>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--global-text-color);">
                 <input type="checkbox" name="model-toggle" value="hrrr" aria-label="HRRR" checked /> HRRR
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--global-text-color);">
                 <input type="checkbox" name="model-toggle" value="nam" aria-label="NAM" /> NAM
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--global-text-color);">
                 <input type="checkbox" name="model-toggle" value="gfs" aria-label="GFS" /> GFS
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--global-text-color);">
                 <input type="checkbox" name="model-toggle" value="rap" aria-label="RAP" /> RAP
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--global-text-color);">
                 <input type="checkbox" name="model-toggle" value="ecmwf" aria-label="ECMWF" /> ECMWF
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--global-text-color);">
                 <input type="checkbox" name="model-toggle" value="nbm" aria-label="NBM" /> NBM
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--global-text-color);">
                 <input type="checkbox" name="model-toggle" value="all" aria-label="Combined" checked /> Combined
             </label>
         </div>
         <div id="units-toggle"
-            style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid  #ccc; border-radius: 6px; background-color: var(background-color, #fff); color: var(color, #333);">
-            <span style="font-weight: 600; color: var(color, #333);">Units:</span>
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--global-dark-border-color); border-radius: 6px; background-color: var(--global-bg-color); color: var(--global-text-color);">
+            <span style="font-weight: 600; color: var(--global-text-color);">Units:</span>
             <div class="info-circle"
                 style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: #ccc; color:  #fff; font-size: 12px; font-weight: bold; cursor: help;">
                 ?
@@ -142,25 +142,25 @@ author_profile: true
                     Switch between metric (C, m) and imperial (F, ft) for all plots.
                 </div>
             </div>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--global-text-color);">
                 <input type="radio" name="units-toggle" value="metric" aria-label="Metric" checked /> Metric
             </label>
-            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--global-text-color);">
                 <input type="radio" name="units-toggle" value="imperial" aria-label="Imperial" /> Imperial
             </label>
-            <!-- <label style="display: inline-flex; align-items: center; gap: 4px; color: var(color, #333);">
+            <!-- <label style="display: inline-flex; align-items: center; gap: 4px; color: var(--global-text-color);">
                 <input type="radio" name="units-toggle" value="stupid" aria-label="Stupid" /> Stupid
             </label> -->
         </div>
-        <div id="last-update" style="font-size: 0.80em; color: var(color, #666); margin-top: 8px; opacity: 0.5;">
+        <div id="last-update" style="font-size: 0.80em; color: var(--global-fig-caption-color); margin-top: 8px; opacity: 0.5;">
             <!-- Last model update time will be populated here -->
         </div>
     </div>
 
-    <div style="border: 1px solid  #ccc; border-radius: 6px; padding: 12px; background-color: var(background-color, #fff); min-width: 280px; margin-left: auto;"
+    <div style="border: 1px solid var(--global-dark-border-color); border-radius: 6px; padding: 12px; background-color: var(--global-bg-color); min-width: 280px; margin-left: auto;"
         class="weather-links-container">
         <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px;">
-            <h4 style="margin: 0; font-size: 1em; color: var(color, #333);">Quick Links</h4>
+            <h4 style="margin: 0; font-size: 1em; color: var(--global-text-color);">Quick Links</h4>
             <div class="info-circle"
                 style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background-color: #ccc; color:  #fff; font-size: 12px; font-weight: bold; cursor: help;">
                 ?
@@ -187,13 +187,13 @@ author_profile: true
                 justify-content: center;
                 border-radius: 50%;
                 background-color: rgba(255, 255, 255, 0.9);
-                border: 1px solid var(border-color, #ccc);
+                border: 1px solid #ccc;
                 transition: background-color 0.2s, color 0.2s;
             }
 
             .plot-info-button:hover {
-                background-color: var(border-color, #ccc);
-                color: var(background-color, #fff);
+                background-color: #999;
+                color: #fff;
             }
 
             .plot-info-tooltip {
@@ -300,16 +300,13 @@ author_profile: true
 
 
 Some weather modeling I've done to determine whether it'll be undercast in the mountains. The
-<a href="/weather/details/">model details page</a> covers how the models are built and how well they actually do
-(honestly: not that well — undercast is rare and hard to predict). TLDR; it's undercast only a handful of times per year
+<a href="/weather/details/">model details page</a> covers how the models are built and how well they actually do. TLDR;
+it's undercast only a handful of times per year
 on Mt. Washington.
 
-<details style="margin-bottom: 20px;">
-    <summary style="cursor: pointer; font-weight: 600; color: var(color, #333); user-select: none;">Quick
-        Overview
-    </summary>
-    <div
-        style="margin-top: 12px; padding: 12px; background-color: var(background-color, #f9f9f9); border-left: 3px solid var(border-color, #ccc); color: var(color, #666);">
+<details>
+    <summary>Quick Overview</summary>
+    <div>
         This site uses atmospheric model data from NOAA's <a href="https://rapidrefresh.noaa.gov/hrrr/"
             target="_blank">HRRR</a>, <a href="https://rapidrefresh.noaa.gov/" target="_blank">RAP</a>, <a
             href="https://www.ncei.noaa.gov/products/weather-climate-models/north-american-mesoscale"
@@ -325,78 +322,78 @@ on Mt. Washington.
                 <thead>
                     <tr>
                         <th
-                            style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0); font-size: 0.9em;">
+                            style="border: 1px solid var(--global-border-color); padding: 8px; font-size: 0.9em;">
                             Model</th>
                         <th
-                            style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0); font-size: 0.9em;">
+                            style="border: 1px solid var(--global-border-color); padding: 8px; font-size: 0.9em;">
                             Forecast Range (Hours)</th>
                         <th
-                            style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0); font-size: 0.9em;">
+                            style="border: 1px solid var(--global-border-color); padding: 8px; font-size: 0.9em;">
                             Spatial Resolution</th>
                         <th
-                            style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0); font-size: 0.9em;">
+                            style="border: 1px solid var(--global-border-color); padding: 8px; font-size: 0.9em;">
                             Strengths</th>
                         <th
-                            style="border: 1px solid var(border-color, #ccc); padding: 8px; background-color: var(background-color, #f0f0f0); font-size: 0.9em;">
+                            style="border: 1px solid var(--global-border-color); padding: 8px; font-size: 0.9em;">
                             Weaknesses</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">HRRR</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-48</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">3 km</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">High temporal resolution,
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">HRRR</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">0-48</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">3 km</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">High temporal resolution,
                             good for short-term forecasts</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Limited range, may struggle
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">Limited range, may struggle
                             with longer-term trends</td>
                     </tr>
                     <tr>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">NAM</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-60</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">3 km</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Good for medium-range
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">NAM</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">0-60</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">3 km</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">Good for medium-range
                             forecasts, covers larger areas</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Lower resolution compared
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">Lower resolution compared
                             to
                             HRRR, less accurate for local events</td>
                     </tr>
                     <tr>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">GFS</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-120</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">13 km</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Long-range forecasts,
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">GFS</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">0-120</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">13 km</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">Long-range forecasts,
                             global
                             coverage</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Coarser resolution, may
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">Coarser resolution, may
                             miss
                             localized weather phenomena</td>
                     </tr>
                     <tr>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">RAP</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-48</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">13 km</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Hourly regional refresh
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">RAP</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">0-48</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">13 km</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">Hourly regional refresh
                             (HRRR's parent model)</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Coarser than HRRR,
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">Coarser than HRRR,
                             short range only</td>
                     </tr>
                     <tr>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">ECMWF</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-48</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">~0.25° (~28 km)</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Highly skilled global
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">ECMWF</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">0-48</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">~0.25° (~28 km)</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">Highly skilled global
                             dynamics and thermodynamics</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">No cloud fields in open
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">No cloud fields in open
                             data; 3-hourly steps</td>
                     </tr>
                     <tr>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">NBM</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">0-48</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">~2.5 km</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Calibrated blend; direct
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">NBM</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">0-48</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">~2.5 km</td>
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">Calibrated blend; direct
                             ceiling &amp; visibility, incl. probabilistic</td>
-                        <td style="border: 1px solid var(border-color, #ccc); padding: 8px;">Surface fields only
+                        <td style="border: 1px solid var(--global-border-color); padding: 8px;">Surface fields only
                             (no upper-air); blends can smooth extremes</td>
                     </tr>
                 </tbody>
@@ -529,6 +526,113 @@ on Mt. Washington.
         font-weight: 600;
         font-size: 1.3em;
     }
+
+    /* How well the forecast above actually does. Folded away by default: it is
+       the second question a visitor has, not the first. */
+    #model-performance {
+        border: 1px solid var(--global-border-color, #ccc);
+        border-radius: 8px;
+        padding: 0 16px;
+        margin: 0 0 22px 0;
+        color: var(--global-text-color, #333);
+    }
+
+    #model-performance>summary {
+        cursor: pointer;
+        font-weight: 600;
+        padding: 12px 0;
+    }
+
+    #model-performance .mp-body {
+        padding-bottom: 14px;
+    }
+
+    #model-performance .mp-lead {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 4px 0 14px 0;
+    }
+
+    #model-performance .mp-lead button {
+        font: inherit;
+        font-size: 0.9em;
+        padding: 5px 11px;
+        border-radius: 999px;
+        border: 1px solid var(--global-border-color, #ccc);
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+    }
+
+    #model-performance .mp-lead button[aria-pressed="true"] {
+        border-color: #4C72B0;
+        background: #4C72B0;
+        color: #fff;
+    }
+
+    #model-performance .mp-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    #model-performance .mp-stat {
+        border: 1px solid var(--global-dark-border-color, #eee);
+        border-radius: 6px;
+        padding: 10px 12px;
+    }
+
+    #model-performance .mp-stat .mp-num {
+        font-size: 1.5em;
+        font-weight: 700;
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+    }
+
+    #model-performance .mp-stat .mp-lab {
+        font-size: 0.78em;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--global-fig-caption-color, #777);
+        margin-top: 3px;
+    }
+
+    #model-performance table.mp-cm {
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+        margin-bottom: 6px;
+    }
+
+    #model-performance table.mp-cm th,
+    #model-performance table.mp-cm td {
+        border: 1px solid var(--global-dark-border-color, #eee);
+        padding: 7px 12px;
+        text-align: right;
+    }
+
+    #model-performance table.mp-cm th {
+        font-weight: 600;
+        font-size: 0.85em;
+        color: var(--global-fig-caption-color, #777);
+        text-align: left;
+    }
+
+    #model-performance table.mp-cm td.mp-hit {
+        background: rgba(76, 114, 176, 0.16);
+        font-weight: 700;
+    }
+
+    #model-performance .mp-note {
+        font-size: 0.88em;
+        color: var(--global-fig-caption-color, #666);
+        margin: 10px 0 0 0;
+    }
+
+    #model-performance .mp-scroll {
+        overflow-x: auto;
+    }
 </style>
 
 <div id="undercast-headline" hidden>
@@ -540,12 +644,25 @@ on Mt. Washington.
     <div class="uh-foot" id="uh-foot"></div>
 </div>
 
+<details id="model-performance" hidden>
+    <summary>Model performance</summary>
+    <div class="mp-body">
+        <p style="margin:0 0 4px 0; font-size:0.92em;">Measured on a held-out year the model never trained on, at the
+            same thresholds the forecast above uses. Pick how far ahead:</p>
+        <div class="mp-lead" id="mp-lead" role="group" aria-label="Forecast lead"></div>
+        <div class="mp-stats" id="mp-stats"></div>
+        <div class="mp-scroll">
+            <table class="mp-cm" id="mp-cm"></table>
+        </div>
+        <p class="mp-note" id="mp-note"></p>
+    </div>
+</details>
+
 <div id="plot8" style="width:96%;display:inline-block;"></div>
 <div id="plot9" style="width:96%;display:inline-block;"></div>
 
-<details id="individual-params-details" open style="margin-bottom: 20px;">
-    <summary style="cursor: pointer; font-weight: 600; color: var(color, #333); user-select: none;">Individual
-        Parameters</summary>
+<details id="individual-params-details" open>
+    <summary>Individual Parameters</summary>
     <div class="wx-plot-grid">
         <div id="plot1"></div>
         <div id="plot2"></div>
@@ -574,8 +691,10 @@ on Mt. Washington.
 <script src="/assets/js/weather-plots.js"></script>
 
 <div
-    style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(border-color, #ccc); font-size: 0.85em; color: var(color, #999); text-align: center;">
+    style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--global-border-color); font-size: 0.85em; color: var(--global-fig-caption-color); text-align: center;">
     <p>Atmospheric models produced and provided by the National Oceanic and Atmospheric Administration (NOAA), and
         accessed via the <a href="https://herbie.readthedocs.io/en/stable/#" target="_blank"
-            style="color: var(border-color, #999);">Herbie</a> python package. Machine learning datasets utilized Mt. Washington webcams (<a href="https://mountwashington.org/" target="_blank" style="color: var(border-color, #999);">MWOB</a>).</p>
+            style="color: var(--global-link-color);">Herbie</a> python package. Machine learning datasets utilized Mt.
+        Washington webcams (<a href="https://mountwashington.org/" target="_blank"
+            style="color: var(--global-link-color);">MWOB</a>).</p>
 </div>
