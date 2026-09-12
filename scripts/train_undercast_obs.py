@@ -122,7 +122,9 @@ MIN_POS_FOR_LEAD_THRESHOLD = 25
 # structurally short of the short-range models, so requiring all six would throw
 # every one of them away. Requiring instead "every source that could reach this
 # lead" keeps them, and teaches the model to answer from a subset.
-SOURCE_MAX_LEAD_H = {"hrrr": 48, "rap": 51, "nam": 84,
+# nam is 60, not its documented 84: the product Herbie serves publishes hourly to
+# 60 h and nothing beyond (probed). See RUN_SPECS in fetch_nwp_at_obs.
+SOURCE_MAX_LEAD_H = {"hrrr": 48, "rap": 51, "nam": 60,
                      "gfs": 120, "ecmwf": 144, "nbm": 192}
 
 

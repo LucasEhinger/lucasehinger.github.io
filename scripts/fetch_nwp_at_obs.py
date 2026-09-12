@@ -191,10 +191,21 @@ RUN_SPECS = {
              "long_max": 48, "step": 1, "min_fxx": 1},
     "rap": {"runs": range(24), "max": 21, "long_runs": (3, 9, 15, 21),
             "long_max": 51, "step": 1, "min_fxx": 1},
-    "nam": {"runs": (0, 6, 12, 18), "max": 84, "step": 1, "min_fxx": 1},
+    # max was 84 here, from NAM's documented range, and that is wrong for the
+    # product Herbie actually serves: probing the 2026-02-10 12Z run found hourly
+    # fields 36..60 and NOTHING from 61..84. The 3-hourly extension to 84 h lives
+    # in a different product file. Declaring 84 made candidate_runs believe 72 h
+    # was reachable, propose fxx=71, find nothing, and leave the column blank --
+    # measured 8% fill at lead 72 before this was corrected.
+    "nam": {"runs": (0, 6, 12, 18), "max": 60, "step": 1, "min_fxx": 1},
     "gfs": {"runs": (0, 6, 12, 18), "max": 120, "step": 1, "min_fxx": 1},
+    # NBM's extended runs publish 3-HOURLY past 36 h, probed: 36, 39, 42 ... 99,
+    # with no 1 h spacing anywhere above 36. step=1 throughout asked for hours
+    # that do not exist (10-20% fill past 48 h). step_long/step_long_after say
+    # where the grid coarsens.
     "nbm": {"runs": range(24), "max": 36, "long_runs": (0, 6, 12, 18),
-            "long_max": 192, "step": 1, "min_fxx": 1},
+            "long_max": 192, "step": 1, "step_long": 3, "step_long_after": 36,
+            "min_fxx": 1},
     # fxx 0 is the IFS analysis, which is the best possible "~1 h" sample.
     "ecmwf": {"runs": (0, 6, 12, 18), "max": 90, "long_runs": (0, 12),
               "long_max": 144, "step": 3, "min_fxx": 0},
@@ -210,10 +221,24 @@ RUN_SPECS = {
 # auditable. Every other model is hourly and snaps to itself.
 VALID_STEP = {"ecmwf": 3}
 
+# ...and the same thing, but only past a certain lead. NBM is hourly to 36 h and
+# 3-hourly beyond, so at long leads it inherits exactly ECMWF's problem: a run
+# exists only at 00/06/12/18, which forces the lead to satisfy
+# back == H (mod 6), and past 36 h the lead must ALSO be a multiple of 3. Those
+# two have no common solution unless H is itself a multiple of 3, so two thirds of
+# observations could never be served at long range however many runs were tried.
+# Snapping the valid time to the model's own 3-hourly grid costs at most 1 h of
+# offset -- the same trade already accepted for ECMWF -- and is what makes NBM
+# usable past 48 h at all.
+VALID_STEP_LONG = {"nbm": (36, 3)}
 
-def snap_valid(model, valid):
+
+def snap_valid(model, valid, target_lead=0):
     """Nearest valid time this model can actually produce (<= 1 h away)."""
     step = VALID_STEP.get(model, 1)
+    after_step = VALID_STEP_LONG.get(model)
+    if after_step and target_lead > after_step[0]:
+        step = max(step, after_step[1])
     if step == 1:
         return valid
     off = valid.hour % step
@@ -257,7 +282,10 @@ def candidate_runs(model, valid, target_lead, max_tries=5, max_slack=LEAD_SLACK_
     out = []
     for back in range(0, spec.get("long_max", spec["max"]) + 1):
         init = valid - timedelta(hours=back)
-        if init.hour not in runs or back < spec["min_fxx"] or back % spec["step"]:
+        step = spec["step"]
+        if back > spec.get("step_long_after", 10 ** 9):
+            step = spec.get("step_long", step)
+        if init.hour not in runs or back < spec["min_fxx"] or back % step:
             continue
         normal_max, long_max = lead_limits(model, init)
         if back > (long_max if init.hour in long_runs else normal_max):
@@ -329,7 +357,7 @@ def _impl(task):
                 row[lab] = ""
             if model_valid < MODEL_START[model]:
                 continue
-            mv = snap_valid(model, model_valid)
+            mv = snap_valid(model, model_valid, target_lead)
             h, init, fxx = open_herbie(model, mv, target_lead, tmp, max_slack)
             if h is None:
                 continue
