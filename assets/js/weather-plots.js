@@ -341,10 +341,43 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
   // The strip: one bar per forecast hour, height = probability, filled where the
   // model actually calls it. Showing the probability as well as the call makes a
   // near-miss visible instead of rounding it away to "no".
+  //
+  // Laid out on a UNIFORM time grid, not one bar per published point, and that
+  // distinction became load-bearing when the panel started reaching six days. A
+  // published hour needs every source expected at its lead, so the series is
+  // legitimately holed -- a live run reached 138 h with 33 of 89 hours published,
+  // contiguous to 78 h and patchy after. One bar per published point spaces those
+  // evenly, so a four-day gap renders the same width as a three-hour one and the
+  // strip quietly claims a forecast it does not have. Unpublished slots are drawn
+  // as explicit gaps instead: the axis stays linear and the holes stay visible.
   stripEl.innerHTML = "";
   const maxP = Math.max(0.05, ...pts.map((d) => d.p || 0));
-  pts.forEach((d) => {
+  const byHour = new Map(pts.map((d) => [d.h, d]));
+  // The grid's step is whatever the run actually sampled -- 3 h at the time of
+  // writing, but read from the data rather than assumed, because it is a property
+  // of the slowest source's cadence and has changed before.
+  let step = 0;
+  for (let i = 1; i < pts.length; i += 1) {
+    const gap = pts[i].h - pts[i - 1].h;
+    if (gap > 0 && (step === 0 || gap < step)) step = gap;
+  }
+  if (!step) step = 3;
+  const slots = [];
+  for (let h = pts[0].h; h <= pts[pts.length - 1].h; h += step) slots.push(h);
+  slots.forEach((h) => {
+    const d = byHour.get(h);
     const bar = document.createElement("div");
+    if (!d) {
+      // Not "probability zero" -- no forecast at all. Styled as a faint full-height
+      // band so it cannot be misread as a confident quiet hour.
+      bar.className = "uh-bar uh-gap";
+      bar.style.height = "100%";
+      bar.title =
+        `${fmt(new Date(base.getTime() + h * 3600 * 1000))} — no forecast: a ` +
+        `weather model expected at this hour did not report`;
+      stripEl.appendChild(bar);
+      return;
+    }
     bar.className = "uh-bar" + (d.hit ? " uh-hit" : "");
     const frac = d.p === null ? 0.06 : Math.max(0.06, (d.p || 0) / maxP);
     bar.style.height = `${Math.round(frac * 100)}%`;
@@ -362,10 +395,12 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
   axisEl.appendChild(leftLab);
   axisEl.appendChild(rightLab);
 
-  // How much to trust it, at the lead that actually matters here. Skill was
-  // measured at 1, 24 and 48 h; quote the nearest measured lead to the window
-  // being described rather than a single pooled number, because precision falls
-  // from about 0.5 to about 0.28 across that range.
+  // How much to trust it, at the lead that actually matters here. Skill is measured
+  // at the seven ladder leads -- 1, 24, 48, 72, 96, 120 and 144 h -- and the nearest
+  // measured one to the window being described is quoted rather than a single pooled
+  // number, because precision falls from about 0.74 to about 0.08 across that range.
+  // Pooling it would be close to meaningless. The leads are read from the JSON, not
+  // listed here, so a retrain that changes the ladder needs no change to this file.
   const skill = (cur.model && cur.model.skill_by_lead) || {};
   const leads = Object.keys(skill).map(Number).sort((a, b) => a - b);
   const target = runs.length ? runs[0].from.h : pts[Math.floor(pts.length / 2)].h;

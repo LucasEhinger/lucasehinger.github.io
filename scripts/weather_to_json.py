@@ -471,11 +471,17 @@ def process_forecast_data(args):
 
 CURRENT_MODEL_DIR = "files/weather/models/obs"
 # Combined source, Gradient Boosting, per-lead thresholds. Chosen by measurement,
-# not preference: on the hand-labeled webcam days -- the only holdout scored
-# against a human looking at a photograph -- it beats the deployed 2-of-3 vote by
-# F1 +0.090 [+0.010, +0.175] on a paired day-block bootstrap, and beats XGBoost
-# by +0.084 [+0.002, +0.181]. On the base-rate holdout it ties both. See
-# scripts/compare_undercast_ensembles.py.
+# and the measurement is weaker than it used to look. Re-run on the seven-lead
+# data, the paired day-block bootstrap says: a clear win over Random Forest on the
+# hand-labeled webcam days -- the only holdout scored against a person looking at a
+# photograph -- at F1 +0.123 [+0.038, +0.210]; a tie with XGBoost at -0.013
+# [-0.081, +0.054]; and against the deployed 2-of-3 vote, ambiguous, +0.043
+# [-0.001, +0.087] on the webcam days and -0.020 [-0.041, -0.000] on the held-out
+# year, where the vote is fractionally AHEAD. An earlier version of this comment
+# claimed a decisive +0.090 over the vote; that was measured on three leads and
+# does not survive seven. It is kept because it is the best ranker at every
+# horizon, is not beaten as a decider, and one model is simpler to serve than a
+# vote between three. See scripts/headline_choice_ci.py.
 CURRENT_SOURCE = "all"
 CURRENT_ALGO = "Gradient Boosting"
 # Below this share of the model's features actually present, refuse to publish a
@@ -500,6 +506,27 @@ CURRENT_REQUIRES_SOURCES = ("hrrr", "nam", "gfs", "rap", "ecmwf", "nbm")
 # handles perfectly well. Imported rather than redefined -- two copies of this
 # table drifting apart is precisely how the forecast would silently become a
 # forecast of something else.
+
+
+def current_model_max_lead(default=48.0):
+    """The longest lead the DEPLOYED model carries a threshold for.
+
+    This is the model's own statement about its reach, read off the artifact
+    rather than hard-coded, and it governs two things that used to disagree: how
+    far each source is FETCHED, and which forecast hours are published. Before, a
+    separate hard-coded ceiling of 48 h gated publishing, so a retrain that added
+    ladder thresholds out to 144 h changed nothing anyone could see -- the model
+    knew about six days and the serving path threw five of them away. Anything a
+    retrain can reach must be read from the retrain.
+    """
+    try:
+        with open(f"{CURRENT_MODEL_DIR}/model_metadata_{CURRENT_SOURCE}.json") as fh:
+            by = (json.load(fh)[CURRENT_ALGO].get("threshold_by_lead") or {})
+        return max(float(k) for k in by) if by else float(default)
+    except Exception as exc:
+        print(f"  could not read the model's trained leads ({type(exc).__name__}); "
+              f"falling back to {default:.0f} h")
+        return float(default)
 
 
 def build_current_features(weather_df, date_str):
@@ -540,11 +567,16 @@ def build_current_features(weather_df, date_str):
 def _lead_threshold(meta_algo, lead_h):
     """Threshold for an arbitrary forecast hour, interpolated between the trained ones.
 
-    Thresholds were fitted at leads 1, 24 and 48 only; the page forecasts every
-    hour in between. Interpolating rather than snapping avoids a visible step in
-    the published series at an arbitrary hour. For this model the three values
-    are 0.775 / 0.780 / 0.725, so the choice barely moves anything -- it is about
-    not introducing an artefact.
+    Thresholds are fitted at the seven ladder leads -- 1, 24, 48, 72, 96, 120 and
+    144 h -- while the page forecasts every hour in between. Interpolating rather
+    than snapping avoids a visible step in the published series at an arbitrary
+    hour. That now matters more than it did: the deployed values run 0.88 / 0.835 /
+    0.805 / 0.815 / 0.735 / 0.78 / 0.62, so the cut falls by a quarter across the
+    ladder where the old three-lead model moved it by 0.05.
+
+    Outside the fitted range np.interp clamps to the end values rather than
+    extrapolating, which is the safe direction, but it is not relied on: hours past
+    the longest trained lead are refused outright in predict_current_model.
     """
     import numpy as np
 
@@ -556,12 +588,19 @@ def _lead_threshold(meta_algo, lead_h):
     return float(np.interp(float(lead_h), leads, vals))
 
 
-def predict_current_model(weather_df, date_str, max_fxx):
+def predict_current_model(weather_df, date_str, max_fxx=None):
     """Undercast probability and call per forecast hour, from the current model.
 
     Deliberately additive: the legacy per-source, per-algorithm outputs are left
     exactly as they were, so nothing that exists today can break if this path
     fails. It raises on any problem and the caller drops the key.
+
+    `max_fxx=None` means the model's own trained leads decide how far it publishes,
+    which is the only ceiling that should exist. It used to be passed the minimum
+    of three legacy per-source fetch grids -- 48 h -- which silently outranked the
+    model: after the ladder retrain raised its reach to 144 h, every hour past 48
+    was still nulled here. The argument is kept for tests that need to pin a
+    ceiling explicitly.
     """
     import joblib
     import numpy as np
@@ -658,10 +697,12 @@ def predict_current_model(weather_df, date_str, max_fxx):
             continue
         h = int(h)
         xs.append(h)
-        if h > max_fxx or not bool(usable.iloc[i]):
-            # Either past where every source still has data, or an hour only some
-            # of them reported. Both leave the combined model without its inputs.
-            # Null, not a guess.
+        if (max_fxx is not None and h > max_fxx) or not bool(usable.iloc[i]):
+            # An hour only some of the sources expected at its lead reported --
+            # which leaves the combined model without its inputs -- or a caller
+            # pinned an explicit ceiling. Null, not a guess. Hours past the
+            # model's own trained leads are already excluded from `usable` above,
+            # so that case does not need a second ceiling here.
             ys.append(None)
             ps.append(None)
             ts.append(None)
@@ -910,6 +951,78 @@ def results_to_dataframe(results, locations, date_str):
     return df
 
 
+# Herbie's name for each source, against the name the training code uses.
+HERBIE_NAME = {"hrrr": "hrrr", "rap": "rap", "nam": "nam",
+               "gfs": "gfs", "ecmwf": "ifs", "nbm": "nbm"}
+# How far each source was fetched BEFORE long leads were served. Out to here the
+# grid is left exactly as it was, because the legacy per-source panels read the
+# same lists and none of them should move; past here it goes 3-hourly. Kept as
+# explicit history rather than a single NEAR_H, because the cadences differ: GFS
+# was already 2-hourly out to 120 h and NAM to 60, so a flat 48 h boundary would
+# have QUIETLY DROPPED their odd hours (50, 52, 56, 58...) while appearing to add
+# reach. Caught by asserting no source loses an hour; see test_serving_reach.py.
+LEGACY_LAST_H = {"hrrr": 48, "rap": 48, "nam": 60, "gfs": 120,
+                 "ecmwf": 48, "nbm": 48}
+
+
+def forecast_hour_grids(horizon=None):
+    """The forecast hours to fetch from each source, keyed by Herbie model name.
+
+    Out to NEAR_H every source is sampled on the union of a 2-hourly and a 3-hourly
+    grid. The 3-hourly part is not cosmetic: ECMWF open data publishes 3-hourly and
+    everything else was on a 2-hourly grid, so the only hours where ALL SIX reported
+    were multiples of 6 -- and the combined model, which is defined only where every
+    source expected at that lead reports, could honestly be evaluated at just nine
+    points across two days. Adding the odd multiples of three brings that to
+    seventeen, for about 17% more downloads.
+
+    Past NEAR_H the grid is 3-hourly, and that is forced rather than chosen. Beyond
+    48 h an hour is publishable only if every source that can still REACH it
+    reports, and ECMWF is always one of those, so an hour that is not a multiple of
+    three can never carry ECMWF and can never be published. Sampling it would buy
+    downloads and no forecasts.
+
+    How far each source goes is the lower of two caps:
+
+      * its own reach, from train_undercast_obs.SOURCE_MAX_LEAD_H -- the TRAINING
+        contract, deliberately NOT MODEL_MAX_LEAD_H, which is what the product
+        publishes. NAM runs to 84 h and GFS to 384, but the model was trained
+        expecting NAM absent past 60 h and GFS past 120. Handing it a real value
+        where every training row carried a fill marker is train/serve skew, so the
+        product's extra reach is deliberately left unused.
+      * `horizon`, the deployed model's longest trained lead, because an hour the
+        model will refuse is an hour not worth downloading. This is what cuts NBM
+        from its 192 h training reach to 144.
+
+    This used to stop at 48 h for HRRR, RAP, NBM *and ECMWF*, which is why the
+    ladder retrain changed nothing visible: the model gained thresholds out to
+    144 h while the two sources that can actually reach 144 h were never fetched
+    past 48. GFS and NAM already carried their full grids -- for them it was the
+    publishing ceiling, not the fetch, throwing the long hours away.
+    """
+    from train_undercast_obs import SOURCE_MAX_LEAD_H
+
+    if horizon is None:
+        horizon = current_model_max_lead()
+
+    grids = {}
+    for src, herbie in HERBIE_NAME.items():
+        legacy = LEGACY_LAST_H[src]
+        reach = SOURCE_MAX_LEAD_H[src]
+        # GFS and NAM keep their full product grids whatever the model's horizon:
+        # the legacy per-source panels read these same lists and must not shrink.
+        if src not in ("gfs", "nam"):
+            reach = int(min(reach, horizon))
+        near = min(reach, legacy)
+        if src == "ecmwf":
+            hours = set(range(0, near + 1, 3))  # IFS is 3-hourly throughout
+        else:
+            hours = set(range(0, near + 1, 2)) | set(range(0, near + 1, 3))
+        hours |= {h for h in range(0, reach + 1, 3) if h > near}
+        grids[herbie] = sorted(hours)
+    return grids
+
+
 if __name__ == "__main__":
     # The most recent 6-hourly slot, lagged by two hours before rounding down.
     #
@@ -953,23 +1066,17 @@ if __name__ == "__main__":
             "%Y-%m-%d %H:%M"
         )
 
-    # Every model is sampled on the union of a 2-hourly and a 3-hourly grid.
-    #
-    # The 3-hourly part is not cosmetic. ECMWF open data publishes 3-hourly and
-    # everything else was on a 2-hourly grid, so the only hours where ALL SIX
-    # reported were multiples of 6 -- and the combined model, which is defined
-    # only where every source reports, could honestly be evaluated at just nine
-    # points across two days. Adding the odd multiples of three to the others
-    # brings that to seventeen, at the cost of about 17% more downloads.
-    def _grid(last):
-        return sorted(set(range(0, last + 1, 2)) | set(range(0, last + 1, 3)))
-
-    FXX_LIST = _grid(48)
-    FXX_LIST_GFS = _grid(120)
-    FXX_LIST_NAM = _grid(60)
-    FXX_LIST_ECMWF = list(range(0, 48 + 1, 3))  # IFS open data is 3-hourly
-    FXX_LIST_NBM = _grid(48)
-    FXX_LIST_RAP = _grid(48)  # RAP hourly; standard product runs to 21 h
+    # The forecast hours to ask of each model, reaching as far as the deployed
+    # model was trained (see forecast_hour_grids).
+    GRIDS = forecast_hour_grids()
+    FXX_LIST = GRIDS["hrrr"]
+    FXX_LIST_GFS = GRIDS["gfs"]
+    FXX_LIST_NAM = GRIDS["nam"]
+    FXX_LIST_ECMWF = GRIDS["ifs"]
+    FXX_LIST_NBM = GRIDS["nbm"]
+    FXX_LIST_RAP = GRIDS["rap"]
+    print(f"Forecast-hour grid: {sum(len(v) for v in GRIDS.values())} source-hours, "
+          f"reaching {max(max(v) for v in GRIDS.values())} h")
 
     # One index lookup per model to find its newest published run, then every
     # forecast hour for that model is asked of THAT run at a correspondingly
@@ -996,7 +1103,14 @@ if __name__ == "__main__":
         # is probed at a middling lead: long enough to reject a run that is still
         # uploading, short enough that every cycle has it.
         probe = max(fxx_list) if model == "rap" else min(max(fxx_list), 18)
-        probe = min(probe, MODEL_MAX_LEAD_H.get(model, 48))
+        # Leave room for at least one step back. resolve_run ADDS the offset to the
+        # probe, so probing at the product maximum rejects every run except the very
+        # newest -- and for RAP the newest is usually a short cycle, which is the
+        # case this probe exists to skip. Extending RAP's grid from 48 to 51 h tripped
+        # exactly this: the probe went to 51, every candidate asked for 54+ h, and
+        # "no published run found within 30 h" left RAP empty for the whole run.
+        step = RUN_STEP_H.get(model, 6)
+        probe = min(probe, MODEL_MAX_LEAD_H.get(model, 48) - step)
         run_date, offset = resolve_run(model, date_str, probe_fxx=probe)
         cap = MODEL_MAX_LEAD_H.get(model, 48)
         kept = [f for f in fxx_list if f + offset <= cap]
@@ -1241,10 +1355,10 @@ if __name__ == "__main__":
     # key is absent, which is the correct behaviour for "we do not know".
     try:
         weather_df = results_to_dataframe(results, [LOCATIONS[0]], date_str)
-        predictions_output["current"] = predict_current_model(
-            weather_df, date_str,
-            max_fxx=min(max(FXX_LIST), max(FXX_LIST_GFS), max(FXX_LIST_NAM)),
-        )
+        # No max_fxx: the model's trained leads are the ceiling. Passing the
+        # legacy grids' minimum here capped the panel at 48 h no matter what the
+        # model could do.
+        predictions_output["current"] = predict_current_model(weather_df, date_str)
         print("[current model] published as predictions_all.json['current']")
     except Exception as exc:
         import traceback

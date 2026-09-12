@@ -507,6 +507,21 @@ on Mt. Washington.
         background-color: #C44E52;
     }
 
+    /* No forecast for this hour, as distinct from a forecast of no undercast. A
+       faint hatch rather than a short bar, because a short bar reads as a
+       confident quiet hour and this is the opposite: the panel reaches six days
+       but only publishes an hour where every model expected at it reported. */
+    #undercast-headline .uh-bar.uh-gap {
+        background-color: transparent;
+        background-image: repeating-linear-gradient(
+            45deg,
+            var(--global-border-color, #d6d9dd) 0 1px,
+            transparent 1px 4px
+        );
+        opacity: 0.55;
+        border-radius: 0;
+    }
+
     #undercast-headline .uh-axis {
         display: flex;
         justify-content: space-between;

@@ -387,11 +387,57 @@ download.
 
 **Sequencing, which matters.** The serving path refuses to apply the model past
 the longest lead it was *trained* at, read from `threshold_by_lead` in the
-metadata. So today, with a model trained at 1/24/48, hours past 48 h are nulled
-even though the source guard would now accept them; after a retrain on the ladder
-they start publishing with no further code change. `test_lead_aware_guard.py` pins
-both halves of that, because the relaxed source rule on its own would happily hand
-the 48 h model a 144 h row and publish a confident number.
+metadata. So with a model trained at 1/24/48, hours past 48 h are nulled even
+though the source guard would accept them. `test_lead_aware_guard.py` pins both
+halves of that, because the relaxed source rule on its own would happily hand the
+48 h model a 144 h row and publish a confident number.
+
+**"...and then they start publishing with no further code change" was wrong.**
+That is what this section used to claim, and the retrain proved it false. The
+model-side refusal was only one of three ceilings, and lifting it revealed the
+other two:
+
+  * `predict_current_model` was CALLED with
+    `max_fxx=min(max(FXX_LIST), max(FXX_LIST_GFS), max(FXX_LIST_NAM))` — 48 h — a
+    hard-coded number that silently outranked the model's own trained leads.
+  * ECMWF and NBM, the only two sources that reach past 120 h, were never FETCHED
+    past 48 h. Even with every ceiling lifted the rows could not have existed.
+
+So the ladder retrain raised the model's reach to 144 h and changed nothing anyone
+could see: the panel kept publishing 48 h, every test passed, and the details page
+said forecasts now reached six days. **A model's reach is not a property of the
+model alone.** Both ceilings now derive from `current_model_max_lead()`, which
+reads `threshold_by_lead` off the artifact:
+
+  * `max_fxx` defaults to `None`, meaning "the model's trained leads decide".
+  * `forecast_hour_grids()` fetches each source to
+    `min(SOURCE_MAX_LEAD_H[src], horizon)` — the TRAINING reach, deliberately not
+    `MODEL_MAX_LEAD_H`, which is what the product publishes. NAM runs to 84 h and
+    GFS to 384, but the model was trained expecting NAM absent past 60 h; handing
+    it a real value where every training row carried a fill marker is train/serve
+    skew. This is also what cuts NBM from its 192 h training reach to 144.
+
+Out to 48 h the grids are unchanged, because the legacy per-source panels read the
+same lists. The additions are ECMWF 48 -> 144, NBM 48 -> 144 and RAP 48 -> 51,
+3-hourly past 48 h — forced, not chosen, since every long lead expects ECMWF and
+ECMWF is 3-hourly, so an hour that is not a multiple of three can never publish.
+Cost: 238 -> 303 source-hours per run, 1.27x. Publishable hours go from 17 to 49.
+
+`test_serving_reach.py` pins it, and exists because `test_lead_aware_guard.py`
+could not have caught any of this — it proved the guard accepts long leads by
+passing `max_fxx=400`, pinning open the very ceiling that was the bug. **A test
+that disables a limit cannot discover that the limit is wrong.** The new test
+checks the default path, and two live faults found while writing it are now
+properties:
+
+  * A flat 48 h boundary for the 3-hourly rule quietly DROPPED NAM's 50, 52, 56
+    and 58 h while appearing only to add reach. Hence `LEGACY_LAST_H` per source
+    and an assertion that no source loses an hour.
+  * Extending RAP's grid to 51 h broke RAP's run resolution: `resolve_run` adds its
+    step-back offset to the probe lead, so probing at RAP's 51 h maximum asked for
+    54 h and rejected every cycle — "no published run found within 30 h", RAP empty
+    for the whole run, and every hour at 48 h and under nulled with it. The probe
+    is now capped at `MODEL_MAX_LEAD_H - RUN_STEP_H`.
 
 **What this does not fix.** Still 175 independent undercast days — more leads means
 more rows of the same events. It buys lead coverage and missing-source robustness,
@@ -463,8 +509,10 @@ python3 scripts/probe_model_fxx_grid.py
 ```bash
 python3 scripts/test_serving_features.py    # served features == trained features
 python3 scripts/test_lead_aware_guard.py    # partial-source hours, no extrapolation
+python3 scripts/test_serving_reach.py       # the panel reaches as far as the model
+python3 scripts/test_merge_lead_scope.py    # a lead-scoped merge touches one lead
 node scripts/test_weather_page_js.mjs       # figure URLs exist; CM arithmetic adds up
-node scripts/test_undercast_panel.mjs       # all six headline-panel render states
+node scripts/test_undercast_panel.mjs       # headline-panel states, gaps included
 ```
 
 ### Still open
@@ -473,8 +521,15 @@ node scripts/test_undercast_panel.mjs       # all six headline-panel render stat
       picks each model's newest complete run, which fixed the empty-ECMWF bug,
       but it still picks one run per model for the whole job. Training used
       `candidate_runs()` / `snap_valid()` in `fetch_nwp_at_obs.py` to choose, for
-      each target valid time, whatever run covered it best. Doing the same here
-      is what would take the panel from ~27 h of coverage to the full 48.
+      each target valid time, whatever run covered it best.
+      **The ~27 h symptom this item used to describe is gone** — measured 2026-09-12,
+      the panel reaches 138 h and fills every 3-hourly step out to 48 — so what is
+      left is the narrower version: a source whose newest run is N hours old loses
+      the last N hours of its ladder, because `fxx + offset` then exceeds its
+      maximum. That is exactly why the same run published 138 h and not 144 (ECMWF
+      six hours stale) and why RAP dropped its 51 h hour. Per-hour resolution would
+      recover those ends. Lower value than it looked: it now buys the last few hours
+      of each source rather than half the panel.
 - [ ] **Retire the legacy path** — the per-source/per-algorithm series in
       `weather_to_json.py`, `files/weather/models/`, `regen_weather_csv.yml` and
       `train_undercast_models.py` — once `current` has run clean for a while.

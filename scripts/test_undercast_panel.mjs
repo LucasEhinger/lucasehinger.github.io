@@ -47,7 +47,8 @@ const run = (label, payload, ds) => {
   console.log('   verdict:', nodes['uh-verdict'].textContent);
   console.log('   when   :', nodes['uh-when'].textContent);
   console.log('   bars   :', nodes['uh-strip'].children.length,
-              'filled:', nodes['uh-strip'].children.filter(b=>/uh-hit/.test(b.className)).length);
+              'filled:', nodes['uh-strip'].children.filter(b=>/uh-hit/.test(b.className)).length,
+              'gaps:', nodes['uh-strip'].children.filter(b=>/uh-gap/.test(b.className)).length);
   console.log('   axis   :', nodes['uh-axis'].children.map(c=>c.textContent).join('  ->  '));
   console.log('   foot   :', nodes['uh-foot'].textContent.slice(0,200));
 };
@@ -95,3 +96,37 @@ run('no undercast', { current: neg, date_str: neg.date_str }, '1');
 run('model did not run', { date_str: nowISO(-1) }, '1');
 run('nulls beyond max lead', { current: { x:[0,2,4], y:[null,null,null], probability:[null,null,null], model:{} }, date_str: nowISO(-1) }, '1');
 run('serving path failed', { current: { status:'unavailable', reason:'ECMWF is only 0% populated' }, date_str: nowISO(-1) }, '1');
+
+// A HOLED series, which is what a real long-lead run looks like: past about three
+// days an hour is published only where every source expected at it reported. The
+// strip must stay on a uniform time grid, so a 24 h hole is 8 slots wide rather
+// than collapsing to one bar -- otherwise the gap renders the same width as a
+// 3 h step and the panel silently claims a forecast it does not have.
+const holed = synth([0.02, 0.05, 0.31, 0.66, 0.81, 0.79, 0.22, 0.08, 0.04]);
+holed.x = [3, 6, 9, 12, 15, 18, 21, 24, 48];  // a 24 h hole before the last point
+holed.date_str = nowISO(-1);
+run('holed long-lead series', { current: holed, date_str: holed.date_str }, '1');
+{
+  const kids = nodes['uh-strip'].children;
+  const gaps = kids.filter((b) => /uh-gap/.test(b.className)).length;
+  // 3..48 by 3 = 16 slots, 9 of them published, so 7 gaps.
+  if (kids.length !== 16 || gaps !== 7) {
+    console.log(`\nFAIL: holed series rendered ${kids.length} slots with ${gaps} ` +
+                `gaps; expected 16 and 7 (a uniform 3 h grid from 3 h to 48 h)`);
+    process.exit(1);
+  }
+  // Height cannot be the distinguishing mark: bars are normalised to the run's
+  // peak, so the most likely hour is legitimately full height too. What separates a
+  // gap is the class (a transparent hatch rather than a solid fill) and a title that
+  // says no forecast rather than a percentage.
+  const badGap = kids.find(
+    (b) => /uh-gap/.test(b.className) &&
+           (/uh-hit/.test(b.className) || !/no forecast/.test(b.title || ''))
+  );
+  if (badGap) {
+    console.log(`\nFAIL: a no-forecast gap is styled or labelled as a forecast: ` +
+                `class="${badGap.className}" title="${badGap.title}"`);
+    process.exit(1);
+  }
+  console.log('   ok     : 16 uniform slots, 7 drawn as explicit no-forecast gaps');
+}
