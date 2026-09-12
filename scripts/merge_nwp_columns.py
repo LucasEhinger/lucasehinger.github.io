@@ -233,6 +233,13 @@ def main():
     p.add_argument("--target-dir", default="files/weather/csv/obs")
     p.add_argument("--min-coverage", type=float, default=0.99)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--shards", nargs="*", type=int, default=None, metavar="N",
+                   help="Repair only these shard numbers. Without it every target "
+                        "shard must have a source counterpart, which is right for "
+                        "a full re-fetch and wrong for fixing two throttled "
+                        "shards. Naming them is the opt-in: the guard against "
+                        "silently leaving shards stale still applies to the ones "
+                        "listed, and the rest are reported as untouched.")
     p.add_argument("--accept-empty-columns", nargs="*", default=[],
                    metavar="COL",
                    help="Columns the model does not publish at the re-fetched "
@@ -246,6 +253,15 @@ def main():
     targets = sorted(glob.glob(os.path.join(a.target_dir, "nwp_obs_shard_*.csv")))
     if not targets:
         raise SystemExit(f"no shards in {a.target_dir}")
+    if a.shards:
+        want = {f"nwp_obs_shard_{int(n):03d}.csv" for n in a.shards}
+        targets = [t for t in targets if os.path.basename(t) in want]
+        missing = want - {os.path.basename(t) for t in targets}
+        if missing:
+            raise SystemExit(f"no such target shard(s): {sorted(missing)}")
+        print(f"repairing {len(targets)} named shard(s); the other "
+              f"{len(glob.glob(os.path.join(a.target_dir, 'nwp_obs_shard_*.csv'))) - len(targets)} "
+              f"are deliberately untouched")
 
     pairs = []
     for t in targets:

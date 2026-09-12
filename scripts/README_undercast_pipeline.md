@@ -497,6 +497,24 @@ node scripts/test_undercast_panel.mjs       # all six headline-panel render stat
       it ties the full 213 within 0.008 on every measure and cuts the fetch from
       141 GRIB fields to 100. Depth 2 remains a wash (+0.004 base-rate, −0.000
       webcam, both containing zero). See `undercast_capacity.py`.
+- [ ] **NBM is short in two shards at long lead** — shards 110 (leads 72/96/120/
+      144) and 107 (lead 72) sit well below the per-lead median: shard 110 fills
+      13-26% where the median is 23-45%. About 216 rows, 0.22% of the long-lead
+      NBM cells and ~0.3% of the combined model's training set. Found by a
+      per-shard fill scan, NOT by job status: the ladder run 34667500541 reported
+      success on all 122 jobs and still produced this. Run that scan after any
+      fetch; job success is not data completeness.
+      It is a transient fetch failure, not an archive gap — 3,947 of 3,982 2022
+      observations at 72 h do have NBM, and 30 of the 35 that do not are in shard
+      110. Repair with `--models nbm --leads 72 96 120 144` for those two shards,
+      then `merge_nwp_columns.py --shards 107 110`.
+      **Blocked on a fetcher bug:** a local repair run hangs, both shards at the
+      identical task index, with zero CPU and no open sockets. The archive is
+      fine — a known-good NBM run resolves in 0.4 s — so it is something in
+      `fetch_nwp_at_obs.py`, not upstream. Not diagnosed.
+      The committed model was trained BEFORE this repair, so it is unaffected;
+      whoever fixes this should know the model and the shards will then differ by
+      those ~216 rows until the next retrain.
 - [ ] **`cape_ecmwf` is 12.7% populated** — the alias is `:cape:` and ECMWF renamed
       it `mucape` in 2025. `vvel_700/850/925mb_ecmwf` and `dpt_2m_ecmwf` sit at
       exactly 40.8%, so probably one shared cause.
