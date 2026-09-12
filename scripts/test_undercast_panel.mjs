@@ -7,9 +7,14 @@
 // panel exists. This pulls the two functions straight out of weather-plots.js,
 // runs them against a stub DOM, and prints what each state renders.
 //
-//   node scripts/test_undercast_panel.mjs <positive-payload.json> <negative-payload.json>
+//   node scripts/test_undercast_panel.mjs
+//   node scripts/test_undercast_panel.mjs <positive.json> <negative.json>
 //
-// The payload files are whatever predict_current_model() returns; any saved
+// With no arguments it synthesises the two payloads from the served model's own
+// metadata, so the test is runnable from a fresh checkout. It used to REQUIRE two
+// payload files, which meant the only way to run it was to have a pair of saved
+// forecasts lying around -- and when those were lost the test could not run at
+// all. Pass paths to use real ones instead; any saved
 // predictions_all.json["current"] block will do.
 
 import fs from 'fs';
@@ -47,13 +52,44 @@ const run = (label, payload, ds) => {
   console.log('   foot   :', nodes['uh-foot'].textContent.slice(0,200));
 };
 
-const pos = JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+// Build a payload of the shape predict_current_model() returns. The skill block
+// is read from the real metadata so the trust sentence in the footer is exercised
+// against the numbers the site actually quotes.
+const synth = (probs) => {
+  const meta = JSON.parse(
+    fs.readFileSync('files/weather/models/obs/model_metadata_all.json', 'utf8')
+  )['Gradient Boosting'];
+  const skill = {};
+  for (const [lead, v] of Object.entries(meta.baserate_by_lead)) {
+    skill[lead] = {
+      precision: Number(v.precision.toFixed(3)),
+      recall: Number(v.recall.toFixed(3)),
+      roc_auc: Number(v.roc_auc.toFixed(3)),
+    };
+  }
+  const thr = 0.775;
+  return {
+    status: 'ok',
+    x: probs.map((_, i) => 3 + i * 3),
+    y: probs.map((pr) => (pr === null ? null : (pr >= thr ? 1 : 0))),
+    probability: probs,
+    threshold: thr,
+    model: { source: 'all', algorithm: 'Gradient Boosting',
+             label: 'Combined (Gradient Boosting)', skill_by_lead: skill },
+  };
+};
+const load = (arg, probs) =>
+  arg ? JSON.parse(fs.readFileSync(arg, 'utf8')) : synth(probs);
+
+const pos = load(process.argv[2],
+                 [0.02, 0.05, 0.31, 0.66, 0.81, 0.79, 0.22, 0.08, 0.04]);
 const nowISO = (off) => { const d=new Date(Date.now()+off*3600*1000); return d.toISOString().slice(0,16).replace('T',' '); };
 pos.date_str = nowISO(-1);
 run('undercast expected (Mt Washington)', { current: pos, date_str: pos.date_str }, '1');
 run('other summit', { current: pos, date_str: pos.date_str }, '2');
 
-const neg = JSON.parse(fs.readFileSync(process.argv[3],'utf8'));
+const neg = load(process.argv[3],
+                 [0.01, 0.03, 0.05, 0.09, 0.12, 0.07, 0.04, 0.02, 0.02]);
 neg.date_str = nowISO(-1);
 run('no undercast', { current: neg, date_str: neg.date_str }, '1');
 run('model did not run', { date_str: nowISO(-1) }, '1');
