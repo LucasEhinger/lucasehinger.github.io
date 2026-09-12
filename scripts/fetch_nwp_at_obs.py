@@ -7,22 +7,36 @@ Herbie init to 00:00 UTC of the label date and took fxx 1-8 -- i.e. fields valid
 row was labeled against. Here the valid time is the observation's own time, and
 the (init, fxx) pair is solved for per model.
 
-Three leads are sampled at every observation:
+A LADDER of leads is sampled at every observation, from near-analysis out to six
+days:
 
-    ~1 h   near-analysis. What the model thought was happening essentially now.
-    ~24 h  day-ahead. The forecast a hiker would actually plan on.
-    ~48 h  two-day. Where the site's forecast is least trustworthy.
+    ~1 h    near-analysis. What the model thought was happening essentially now.
+    ~24 h   day-ahead. The forecast a hiker would actually plan on.
+    ~48 h   two-day. As far as the short-range models reach.
+    72 h    HRRR and RAP are gone past here; NAM is the shortest still standing.
+    96 h    NAM is gone too.
+    120 h   GFS's last hour in RUN_SPECS.
+    144 h   ECMWF's ceiling, and the end of the ladder. Past it only NBM reaches,
+            and a single-source forecast of a mesoscale inversion six days out is
+            not worth the download.
 
 These are targets, not guarantees. NAM and GFS only run four times a day, so
 their "~1 h" sample is whatever the 00/06/12/18 cycle can reach -- 1 to 6 hours
 depending on the observation's hour. The lead actually achieved is written to
 each row as lead_<model>, so nothing downstream has to assume it got 1 h.
 
-Having all three on the SAME event is what separates the two explanations for
-the project's poor scores: if skill is decent at 1 h and collapses by 24 h, the
-models can resolve the inversion and just cannot predict it; if it is poor at
-1 h too, they never resolve it at all. The page currently asserts the latter
-without having measured it.
+Having every lead on the SAME event does two jobs. It separates the two
+explanations for the project's poor scores: if skill is decent at 1 h and
+collapses by 24 h, the models can resolve the inversion and just cannot predict
+it; if it is poor at 1 h too, they never resolve it at all.
+
+And past 48 h it is the only way to teach the combined model to work with a
+SUBSET of the sources. Below 48 h every row has all six, so a model trained only
+on those rows has never once seen a source absent -- and the live page, which
+waits on ECMWF publishing late and 3-hourly, meets exactly that situation every
+run. Rows at 72 h and beyond are structurally short of the short-range models, so
+training on them is what makes a partial-source forecast something the model has
+seen before rather than something it has to extrapolate into.
 
 Each model publishes runs on its own cadence and each run has its own maximum
 lead, so a nominal 24 h lead resolves to a different (init, fxx) for HRRR (runs
@@ -33,7 +47,8 @@ tried in order until one is actually present in the archive. The lead that was
 really used is written to the row, so nothing downstream has to assume.
 
 Output is one plain CSV per shard, one row per (observation, lead), with every
-model's columns side by side -- the shape ``train_undercast_models.py`` expects.
+model's columns side by side -- blank for any model that could not reach that
+row's lead within LEAD_SLACK_H -- the shape ``train_undercast_models.py`` expects.
 Deliberately uncompressed: git zlib-compresses blobs anyway, so .gz saves nothing
 on the first commit but makes every re-run store a whole new copy instead of a
 delta (measured: +33 MB per re-run as .gz vs +0.8 MB as raw CSV).
@@ -41,6 +56,12 @@ delta (measured: +33 MB per re-run as .gz vs +0.8 MB as raw CSV).
 Usage:
     python3 scripts/fetch_nwp_at_obs.py --sample files/weather/obs/nwp_sample.csv \\
         --output-dir files/weather/csv/obs --num-shards 44 --shard 0 --workers 6
+
+To EXTEND shards that already hold the 1/24/48 ladder, pass the full ladder with
+--resume: the pairs already on disk are kept as-is and only the new leads are
+downloaded, so the 73,635 rows fetched so far are not re-fetched.
+
+    python3 scripts/fetch_nwp_at_obs.py --resume --num-shards 44 --shard 0
 """
 import argparse
 import csv
@@ -68,7 +89,29 @@ from weather_to_csv import (  # noqa: E402
 )
 from herbie import Herbie  # noqa: E402
 
-TARGET_LEADS = (1, 24, 48)
+# Leads sampled at every observation. Beyond 48 h the short-range models simply
+# cannot reach, so those rows carry a SUBSET of the sources -- which is the point:
+# a model trained only on all-six rows has never seen a source missing, and cannot
+# be trusted the first time one is late. See LEAD_SLACK_H.
+TARGET_LEADS = (1, 24, 48, 72, 96, 120, 144)
+
+# How far a model's ACHIEVED forecast hour may sit from the lead its row claims.
+#
+# candidate_runs() walks outward to the nearest achievable lead, which is right
+# when the gap is small -- NBM's long cycles run only 00/06/12/18Z, so a 48 h
+# valid time is honestly served by a 42 h or 54 h sample -- and badly wrong when
+# it is large. Without a cap, asking for 120 h hands back HRRR's 48 h ceiling and
+# writes it into a row labelled 120 h. The achieved lead is recorded in
+# lead_<model>, but train_undercast_obs drops every lead_* column from the
+# features, so the model cannot tell: it would learn that "120 h" forecasts are
+# unusually sharp, and then meet real 120 h data in production.
+#
+# 12 h is measured, not guessed. Across the existing 73,635 rows it rejects
+# exactly one thing -- HRRR's pre-2021 era ceilings substituted at lead 48, which
+# is 40.4% of HRRR's cells at that lead -- and leaves every other model untouched
+# (NBM's routine 7-12 h offsets survive, which is intended). See
+# prune_lead_substitutions.py to apply it to shards already on disk.
+LEAD_SLACK_H = 12
 
 # Herbie's model name for each of our source labels. "ecmwf" columns come from
 # the IFS open-data product, which Herbie calls "ifs".
@@ -110,6 +153,36 @@ def lead_limits(model, init):
             if init < cutoff:
                 return normal, long_
     return spec["max"], spec.get("long_max", spec["max"])
+
+
+def max_reachable_lead(model, valid):
+    """The longest forecast hour this model could publish for `valid`, any cycle.
+
+    Separate from LEAD_SLACK_H, because a gap between the requested lead and the
+    achieved one has two very different causes:
+
+      * RUN CADENCE -- the model can reach this far, but no cycle lands exactly
+        there, so the nearest run is a few hours off. NBM's extended cycles fire
+        only 00/06/12/18Z, so a 48 h valid time is honestly served by a 42 h
+        sample, and 86% of NBM's 48 h cells are such offsets. Legitimate; the
+        slack tolerance is what bounds it.
+      * MODEL CEILING -- the model cannot forecast this far at all. HRRR in 2015
+        stopped at 15 h, so a 2015 row asking for 48 h was being filled with a
+        15 h forecast. No tolerance makes that a 48 h forecast.
+
+    Only the second is a misrepresentation, and only this function can tell them
+    apart: the achieved lead cannot, because candidate_runs prefers the fresher
+    run on a tie and so usually lands BELOW the target even when the model could
+    comfortably reach it.
+    """
+    spec = RUN_SPECS[model]
+    best = 0
+    for hour in set(spec["runs"]):
+        init = valid.replace(hour=hour)
+        normal_max, long_max = lead_limits(model, init)
+        reach = long_max if hour in set(spec.get("long_runs", ())) else normal_max
+        best = max(best, reach)
+    return best
 
 # runs: UTC hours that produce a cycle. long_runs reach long_max instead of max.
 # step: forecast-hour granularity (IFS open data publishes 3-hourly only).
@@ -155,7 +228,7 @@ for _label, _spec in variables.items():
     MODEL_VARS.setdefault(_m, []).append(_label)
 
 
-def candidate_runs(model, valid, target_lead, max_tries=5):
+def candidate_runs(model, valid, target_lead, max_tries=5, max_slack=LEAD_SLACK_H):
     """(init, fxx) pairs for `model` valid at `valid`, closest lead first.
 
     When the requested lead is beyond what this model/era can produce the list
@@ -163,8 +236,22 @@ def candidate_runs(model, valid, target_lead, max_tries=5):
     asked for 24 h gets HRRR's 15 h ceiling instead of nothing. The row records
     the lead it actually got, so training sees the truth rather than a label
     claiming 24 h.
+
+    Two independent conditions bound that walk, and passing max_slack=None lifts
+    both to restore the old unbounded behaviour:
+
+      * the model must be able to REACH `target_lead` at all -- see
+        max_reachable_lead -- otherwise it is dropped from the row rather than
+        substituted with a shorter forecast;
+      * the run actually chosen must land within `max_slack` hours of the target.
+
+    A row's lead is a promise about sharpness that nothing downstream re-checks,
+    because train_undercast_obs drops every lead_* column from the features. See
+    LEAD_SLACK_H.
     """
     spec = RUN_SPECS[model]
+    if max_slack is not None and target_lead > max_reachable_lead(model, valid):
+        return []   # ceiling-limited: no run of this model reaches this lead
     runs = set(spec["runs"])
     long_runs = set(spec.get("long_runs", ()))
     out = []
@@ -174,6 +261,8 @@ def candidate_runs(model, valid, target_lead, max_tries=5):
             continue
         normal_max, long_max = lead_limits(model, init)
         if back > (long_max if init.hour in long_runs else normal_max):
+            continue
+        if max_slack is not None and abs(back - target_lead) > max_slack:
             continue
         out.append((init, back))
     # closest to the requested lead; on a tie prefer the fresher (shorter) run
@@ -203,9 +292,9 @@ def _retry(fn, tries=4, base=1.5):
     return None, False
 
 
-def open_herbie(model, valid, target_lead, save_dir):
+def open_herbie(model, valid, target_lead, save_dir, max_slack=LEAD_SLACK_H):
     """First archived run that lands near `target_lead`, or (None, None, None)."""
-    for init, fxx in candidate_runs(model, valid, target_lead):
+    for init, fxx in candidate_runs(model, valid, target_lead, max_slack=max_slack):
         h, _ = _retry(lambda: Herbie(
             init.strftime("%Y-%m-%d %H:%M"), model=HERBIE_MODEL[model],
             fxx=fxx, save_dir=save_dir, verbose=False,
@@ -220,7 +309,7 @@ def open_herbie(model, valid, target_lead, save_dir):
 
 
 def _impl(task):
-    valid_utc, target_lead, meta, models = task
+    valid_utc, target_lead, meta, models, max_slack = task
     valid = datetime.strptime(valid_utc, "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
     # Observations land at :45-:59; model fields are valid on the hour. Round to
     # the nearest hour -- within ~9 minutes of the observation either way.
@@ -241,7 +330,7 @@ def _impl(task):
             if model_valid < MODEL_START[model]:
                 continue
             mv = snap_valid(model, model_valid)
-            h, init, fxx = open_herbie(model, mv, target_lead, tmp)
+            h, init, fxx = open_herbie(model, mv, target_lead, tmp, max_slack)
             if h is None:
                 continue
             row[f"lead_{model}"] = fxx
@@ -343,6 +432,11 @@ def main():
     p.add_argument("--shard", type=int, default=0)
     p.add_argument("--workers", type=int, default=6)
     p.add_argument("--leads", type=int, nargs="+", default=list(TARGET_LEADS))
+    p.add_argument("--lead-slack", type=int, default=LEAD_SLACK_H,
+                   help="drop a model from a row when the forecast hour it can "
+                        "actually reach is more than this many hours from the "
+                        "row's lead, instead of substituting it. -1 restores the "
+                        "old unbounded behaviour.")
     p.add_argument("--limit", type=int, default=0,
                    help="cap to about N (observation, lead) tasks, chosen spread "
                         "evenly across the shard's date range so every model's "
@@ -356,6 +450,8 @@ def main():
                         "shards with merge_nwp_columns.py. Requires a different "
                         "--output-dir.")
     a = p.parse_args()
+    if a.lead_slack is not None and a.lead_slack < 0:
+        a.lead_slack = None
     if set(a.models) != set(MODEL_VARS) and \
             os.path.abspath(a.output_dir) == os.path.abspath("files/weather/csv/obs"):
         p.error("--models with the default --output-dir would overwrite the "
@@ -425,7 +521,8 @@ def main():
         for lead in a.leads:
             if (o["valid_utc"], str(lead)) in done:
                 continue
-            tasks.append((o["valid_utc"], lead, meta, list(a.models)))
+            tasks.append((o["valid_utc"], lead, meta, list(a.models),
+                          a.lead_slack))
     print(f"shard {a.shard}/{a.num_shards}: {len(obs)} observations, "
           f"{len(tasks)} (obs, lead) tasks to fetch -> {out_path}")
     if not tasks:

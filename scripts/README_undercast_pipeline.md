@@ -314,6 +314,97 @@ come from training rows where each source was fetched at whatever lead it needed
 -- but a single 6-hourly job cannot reproduce that. Closing the gap means
 resolving runs per forecast hour, not once per job.
 
+### Forecasting past 48 h: the lead ladder
+
+The three leads sampled at every observation (1 / 24 / 48 h) had a consequence
+nobody designed: **every training row carries all six sources**, because below
+48 h all six can reach. `rows_for_source("all")` therefore required all six, and
+the live guard required all six, and so the panel went quiet the moment one source
+was late. ECMWF is late every run — it publishes behind the others and only
+3-hourly — which is why coverage stopped near 27 h instead of 48.
+
+Dropping ECMWF would have worked and cost the single most important feature in
+the model (`dRH_925_850_ecmwf`, top of the importance ranking). The better fix is
+to make the model *tolerant* of a missing source rather than independent of it,
+and the leads themselves are how you teach that:
+
+    1 h  24 h  48 h   all six reach
+    72 h            HRRR (48) and RAP (51) cannot
+    96 h            NAM (84) cannot either
+    120 h           GFS's ceiling in RUN_SPECS
+    144 h           ECMWF's ceiling, and the end of the ladder
+
+Past 48 h the short-range models are *structurally* absent, so rows at 72 h and
+beyond are exactly the partial-source rows the live page meets every run. Training
+on them makes a partial forecast something the model has seen rather than
+something it extrapolates into.
+
+The ladder stops at 144 h on purpose. Past it only NBM reaches, and a
+single-source forecast of a mesoscale inversion six days out is not worth the
+download.
+
+**Three things had to change together.**
+
+1. `fetch_nwp_at_obs.TARGET_LEADS` grew to the ladder. Extending shards already on
+   disk needs no re-fetch: `--resume` keeps the `(obs, lead)` pairs present and
+   downloads only the new leads. Cost is about 1.7x the GRIB reads per
+   observation, not 2.3x, because the short-range models contribute nothing past
+   48 h.
+
+2. **A substitution guard**, which is the part that would have silently poisoned
+   everything. `candidate_runs()` deliberately walks outward to the nearest
+   achievable forecast hour — right when the gap is run cadence (NBM's extended
+   cycles fire only 00/06/12/18Z, so a 42 h sample honestly serves a 48 h valid
+   time, and 86% of NBM's 48 h cells are such offsets) and badly wrong when the
+   gap is the model's ceiling. Unguarded, asking for 120 h hands back HRRR's 48 h
+   forecast and writes it into a row labelled 120 h. Nothing downstream can
+   notice: the achieved hour is recorded in `lead_<model>`, but `_is_lead_col`
+   drops every `lead_*` column from the features, so the model would learn that
+   120 h forecasts are unusually sharp and then meet real 120 h data in
+   production.
+
+   Two independent conditions now bound the walk — `max_reachable_lead()` for "can
+   this model reach that far at all", and `LEAD_SLACK_H = 12` for "is the nearest
+   cycle close enough". The 12 h figure is measured, not chosen: across the 73,635
+   rows on disk it rejects exactly one thing, HRRR's pre-2021 era ceilings
+   substituted at lead 48, and leaves every other model's cadence offsets intact.
+
+   That fault is already in the data, so `prune_lead_substitutions.py` applies the
+   guard retroactively with no downloads — the achieved hour is in the CSV, so the
+   offending cells can just be emptied. Measured: the combined model loses 27 of
+   31,876 rows (0.08%), HRRR's loses 17,405 of 73,336 (23.7%). **Expect HRRR's
+   published skill to fall after this.** Its 0.868 AUC was partly earned on 15-36 h
+   forecasts sitting in rows labelled 24 h and 48 h; removing them is the
+   correction, not a regression.
+
+3. **`rows_for_source("all")` relaxed** from "all six present" to "every source
+   that could reach this row's lead present" (`sources_expected_at`). At 1/24/48 h
+   the two rules are provably identical — verified to return the same row index on
+   the current data — so this is a no-op until the ladder data arrives.
+   `weather_to_json` imports the same function rather than restating the table,
+   because two copies of it drifting apart is exactly how the forecast would
+   quietly become a forecast of something else.
+
+**Sequencing, which matters.** The serving path refuses to apply the model past
+the longest lead it was *trained* at, read from `threshold_by_lead` in the
+metadata. So today, with a model trained at 1/24/48, hours past 48 h are nulled
+even though the source guard would now accept them; after a retrain on the ladder
+they start publishing with no further code change. `test_lead_aware_guard.py` pins
+both halves of that, because the relaxed source rule on its own would happily hand
+the 48 h model a 144 h row and publish a confident number.
+
+**What this does not fix.** Still 175 independent undercast days — more leads means
+more rows of the same events. It buys lead coverage and missing-source robustness,
+not statistical power. See `undercast_capacity.py`.
+
+**One design consequence to decide deliberately.** Missingness now encodes lead
+almost perfectly (HRRR present iff lead <= 48 h). The model is currently
+lead-agnostic on purpose — `target_lead_h` is not a feature, and declining
+sharpness is handled with per-lead thresholds instead — so after this it learns its
+own lead through the back door. That may be an improvement, since it could
+self-calibrate rather than leaning on thresholds, but the "lead-agnostic model plus
+per-lead thresholds" story on the details page stops being true.
+
 ### Still open
 
 - [ ] **Resolve runs per forecast HOUR, not once per job.** `resolve_run()` now
@@ -328,3 +419,14 @@ resolving runs per forecast hour, not once per job.
       Keeping both is deliberate for now: it is the fallback.
 - [ ] **Watch the first few scheduled runs.** The `[current model]` lines in the
       Actions log report feature coverage; below 80% it refuses to publish.
+- [ ] **Fetch the ladder, then retrain.** The code is in; the data is not. Run
+      `fetch_nwp_at_obs.py --resume` across the shards to add leads 72-144, then
+      `prune_lead_substitutions.py --apply`, then retrain. Nothing past 48 h
+      publishes until that happens, by design.
+- [ ] **Trim the model** — 40 features and depth 2 instead of 213 and depth 3.
+      Measured as free on both holdouts (every interval contains zero) and worth
+      it anyway: 48 GRIB fields per run instead of 141. See
+      `undercast_capacity.py` and the details page.
+- [ ] **`cape_ecmwf` is 12.7% populated** — the alias is `:cape:` and ECMWF renamed
+      it `mucape` in 2025. `vvel_700/850/925mb_ecmwf` and `dpt_2m_ecmwf` sit at
+      exactly 40.8%, so probably one shared cause.
