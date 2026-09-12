@@ -92,40 +92,50 @@ def per_source_performance(df, sources, out_dir, models_dir):
     """
     common = ue.split_rows(df, "all", SPLIT)
     y = ue.truth(common, SPLIT)
-    rows = []
+    # Every algorithm, not the best of them. A "best of three" bar hides the thing
+    # worth seeing: the three are within a hair of each other everywhere, which is
+    # why the page stopped serving a vote between them.
+    scores = {}
     for s in sources:
         pre, models, _ = ue.load_artifacts(s, models_dir)
         proba = ue.probabilities(common, s, pre, models)
-        best = max(MODEL_NAMES, key=lambda n: roc_auc_score(y, proba[n]))
-        rows.append((s, roc_auc_score(y, proba[best]),
-                     max(average_precision_score(y, proba[n]) for n in MODEL_NAMES),
-                     best))
-    rows.sort(key=lambda t: -t[1])
-    labels = [TITLE[s] for s, *_ in rows]
+        scores[s] = {n: (roc_auc_score(y, proba[n]),
+                         average_precision_score(y, proba[n])) for n in MODEL_NAMES}
+    order = sorted(sources,
+                   key=lambda s: -max(scores[s][n][0] for n in MODEL_NAMES))
+    labels = [TITLE[s] for s in order]
     base_rate = float(np.mean(y))
-    x = np.arange(len(rows))
+    x = np.arange(len(order))
+    width = 0.8 / len(MODEL_NAMES)
+    palette = {"XGBoost": "#4C72B0", "Random Forest": "#DD8452",
+               "Gradient Boosting": "#55A868"}
 
-    fig, ax = plt.subplots(1, 2, figsize=(11.4, 4.4), dpi=160)
-    ax[0].bar(x, [r[1] for r in rows], color="#4C72B0")
+    fig, ax = plt.subplots(1, 2, figsize=(12.6, 4.6), dpi=160)
+    for i, n in enumerate(MODEL_NAMES):
+        off = (i - (len(MODEL_NAMES) - 1) / 2) * width
+        ax[0].bar(x + off, [scores[s][n][0] for s in order], width,
+                  color=palette[n], label=n)
+        ax[1].bar(x + off, [scores[s][n][1] for s in order], width,
+                  color=palette[n], label=n)
     ax[0].axhline(0.5, ls="--", c=GREY, lw=1, label="no skill = 0.5")
     ax[0].set_ylim(0.5, 1.0)
     ax[0].set_ylabel("ROC-AUC")
     ax[0].set_title("Ranking ability", fontsize=12, loc="left", color=INK, pad=8)
-    ax[0].legend(loc="lower right", fontsize=8.5, frameon=False)
-    ax[1].bar(x, [r[2] for r in rows], color="#55A868")
+    ax[0].legend(loc="lower right", fontsize=8, frameon=False)
     ax[1].axhline(base_rate, ls="--", c=GREY, lw=1,
                   label=f"base rate = {base_rate:.3f}")
-    ax[1].set_ylim(0, max(r[2] for r in rows) * 1.35)
+    ax[1].set_ylim(0, max(scores[s][n][1] for s in order
+                          for n in MODEL_NAMES) * 1.35)
     ax[1].set_ylabel("PR-AUC")
     ax[1].set_title("Precision–recall area", fontsize=12, loc="left", color=INK, pad=8)
-    ax[1].legend(loc="upper right", fontsize=8.5, frameon=False)
+    ax[1].legend(loc="upper right", fontsize=8, frameon=False)
     for a in ax:
         a.set_xticks(x)
         a.set_xticklabels(labels, rotation=30, ha="right")
         a.grid(axis="y", color="#e6e8eb", lw=0.8)
         a.set_axisbelow(True)
         despine(a)
-    fig.suptitle("Per-source undercast skill on the held-out year (best of three algorithms)",
+    fig.suptitle("Per-source undercast skill on the held-out year, by algorithm",
                  fontsize=12.5, color=INK, x=0.005, ha="left")
     fig.text(0.995, -0.06,
              f"Unsampled holdout, {len(y):,} hours every source covers, "
@@ -140,17 +150,30 @@ def per_source_performance(df, sources, out_dir, models_dir):
 
 
 def roc_pr_curves(df, source, out_dir, models_dir):
+    """One figure per algorithm, so the page can switch between them.
+
+    These used to be three curves on one pair of axes. At this much overlap that
+    is a thicket rather than a comparison -- the three algorithms are within 0.03
+    AUC of each other, so the lines sit on top of one another and the only legible
+    information is the legend. Separate panels let each curve be read on its own,
+    and the numbers in the per-source bars above carry the comparison.
+    """
+    for algo in MODEL_NAMES:
+        _roc_pr_one(df, source, algo, out_dir, models_dir)
+
+
+def _roc_pr_one(df, source, algo, out_dir, models_dir):
     r = ue.score_split(df, source, SPLIT, models_dir)
     y = r["y"]
     base_rate = float(np.mean(y))
     fig, ax = plt.subplots(1, 2, figsize=(11.4, 4.5), dpi=160)
-    for n in MODEL_NAMES:
+    for n in [algo]:
         p = r["proba"][n]
         fpr, tpr, _ = roc_curve(y, p)
-        ax[0].plot(fpr, tpr, color=COLORS[n], lw=1.8,
+        ax[0].plot(fpr, tpr, color=COLORS[n], lw=2.0,
                    label=f"{SHORT_NAME[n]} (AUC {roc_auc_score(y, p):.3f})")
         prec, rec, _ = precision_recall_curve(y, p)
-        ax[1].plot(rec, prec, color=COLORS[n], lw=1.8,
+        ax[1].plot(rec, prec, color=COLORS[n], lw=2.0,
                    label=f"{SHORT_NAME[n]} (AP {average_precision_score(y, p):.3f})")
     ax[0].plot([0, 1], [0, 1], ls="--", c=GREY, lw=1)
     ax[0].set_xlabel("false positive rate")
@@ -168,13 +191,14 @@ def roc_pr_curves(df, source, out_dir, models_dir):
         a.grid(color="#e6e8eb", lw=0.8)
         a.set_axisbelow(True)
         despine(a)
-    fig.suptitle(f"Undercast discrimination on the held-out year — {TITLE[source]} model",
-                 fontsize=12.5, color=INK, x=0.005, ha="left")
+    fig.suptitle(f"Undercast discrimination on the held-out year — {TITLE[source]} "
+                 f"model, {algo}", fontsize=12.5, color=INK, x=0.005, ha="left")
     fig.text(0.995, -0.06,
              f"The precision axis is the honest one: at a {100*base_rate:.1f}% base rate, "
              "high recall costs precision quickly.", ha="right", fontsize=8.5, color=GREY)
     fig.tight_layout()
-    p = os.path.join(out_dir, "roc_pr_curves.png")
+    slug = algo.lower().replace(" ", "_")
+    p = os.path.join(out_dir, f"roc_pr_curves_{source}_{slug}.png")
     fig.savefig(p, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     print(f"  {p}")
@@ -202,15 +226,15 @@ def confusion_panels(df, source, out_dir, models_dir):
     y, thr = r["y"], r["thresholds"]
     preds = {n: (r["proba"][n] >= thr[n]).astype(int) for n in MODEL_NAMES}
     votes = np.sum([preds[n] for n in MODEL_NAMES], axis=0)
-    preds["2 of 3 (deployed)"] = (votes >= 2).astype(int)
+    preds["2 of 3 (the vote)"] = (votes >= 2).astype(int)
 
     fig, axes = plt.subplots(1, 4, figsize=(14, 4.2), dpi=160)
-    for ax, name in zip(axes, list(MODEL_NAMES) + ["2 of 3 (deployed)"]):
+    for ax, name in zip(axes, list(MODEL_NAMES) + ["2 of 3 (the vote)"]):
         p = precision_score(y, preds[name], zero_division=0)
         rc = recall_score(y, preds[name])
         head = name if name.startswith("2 of") else f"{SHORT_NAME[name]}  (thr {thr[name]:.2f})"
         draw_cm(ax, y, preds[name], f"{head}\nP {p:.2f}  ·  R {rc:.2f}")
-    fig.suptitle(f"{TITLE[source]} model on the held-out year, at deployed thresholds",
+    fig.suptitle(f"{TITLE[source]} model on the held-out year, at F1-optimal thresholds",
                  fontsize=12.5, color=INK, x=0.005, ha="left")
     fig.text(0.995, -0.04,
              f"{len(y):,} observations, {int(y.sum())} undercast ({100*y.mean():.1f}%). "
@@ -276,24 +300,38 @@ def headline_confusion(df, out_dir, models_dir):
 
 
 def top_features(source, out_dir, models_dir, n=15):
+    """Importances for every algorithm, not just XGBoost.
+
+    All three expose feature_importances_, and they do not agree -- a tree
+    ensemble's importance is a statement about which splits that particular fit
+    chose, not about the atmosphere. Showing only one invited reading it as the
+    latter. The deployed model is Gradient Boosting, so its panel is the one that
+    describes what the site actually serves.
+    """
     pre, models, _ = ue.load_artifacts(source, models_dir)
     names = tidy(pre.get_feature_names_out())
-    imp = np.asarray(models["XGBoost"].feature_importances_)
-    assert len(names) == len(imp), f"{len(names)} names vs {len(imp)} importances"
-    order = np.argsort(imp)[::-1][:min(n, len(imp))][::-1]
-    fig, ax = plt.subplots(figsize=(8.2, 6), dpi=160)
-    ax.barh([names[i] for i in order], [imp[i] for i in order], color="#4C72B0")
-    ax.set_xlabel("XGBoost feature importance (gain share)", fontsize=10)
-    ax.set_title(f"Top {len(order)} features — {TITLE[source]} model",
-                 fontsize=12, loc="left", color=INK, pad=8)
-    ax.grid(axis="x", color="#e6e8eb", lw=0.8)
-    ax.set_axisbelow(True)
-    despine(ax)
-    fig.tight_layout()
-    p = os.path.join(out_dir, f"top_features_{source}.png")
-    fig.savefig(p, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
-    print(f"  {p}")
+    palette = {"XGBoost": "#4C72B0", "Random Forest": "#DD8452",
+               "Gradient Boosting": "#55A868"}
+    for algo in MODEL_NAMES:
+        imp = np.asarray(models[algo].feature_importances_)
+        assert len(names) == len(imp), \
+            f"{source}/{algo}: {len(names)} names vs {len(imp)} importances"
+        order = np.argsort(imp)[::-1][:min(n, len(imp))][::-1]
+        fig, ax = plt.subplots(figsize=(8.2, 6), dpi=160)
+        ax.barh([names[i] for i in order], [imp[i] for i in order],
+                color=palette[algo])
+        ax.set_xlabel(f"{algo} feature importance (gain share)", fontsize=10)
+        ax.set_title(f"Top {len(order)} features — {TITLE[source]} model, {algo}",
+                     fontsize=12, loc="left", color=INK, pad=8)
+        ax.grid(axis="x", color="#e6e8eb", lw=0.8)
+        ax.set_axisbelow(True)
+        despine(ax)
+        fig.tight_layout()
+        slug = algo.lower().replace(" ", "_")
+        p = os.path.join(out_dir, f"top_features_{source}_{slug}.png")
+        fig.savefig(p, bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+        print(f"  {p}")
 
 
 def main():
