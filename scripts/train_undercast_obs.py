@@ -111,6 +111,33 @@ SENTINEL_CEILING_M = 19000.0
 # threshold to two decimal places.
 MIN_POS_FOR_LEAD_THRESHOLD = 25
 
+# How far each source reaches, in forecast hours. Mirrors RUN_SPECS in
+# fetch_nwp_at_obs (and MODEL_MAX_LEAD_H in weather_to_json, which is about the
+# live archive rather than the training one).
+#
+# This is what makes the combined model usable past 48 h. Below 48 h every row
+# carries all six sources, so a model trained only on those rows has never seen a
+# source absent -- and the live job, waiting on ECMWF to publish late and
+# 3-hourly, meets that situation every run. Rows at 72 h and beyond are
+# structurally short of the short-range models, so requiring all six would throw
+# every one of them away. Requiring instead "every source that could reach this
+# lead" keeps them, and teaches the model to answer from a subset.
+SOURCE_MAX_LEAD_H = {"hrrr": 48, "rap": 51, "nam": 84,
+                     "gfs": 120, "ecmwf": 144, "nbm": 192}
+
+
+def sources_expected_at(lead_h):
+    """Sources that can reach `lead_h`, so whose absence is a real gap.
+
+    At 48 h and below this is all six, which is exactly the old behaviour -- so
+    nothing about the existing model changes.
+    """
+    try:
+        lead = float(lead_h)
+    except (TypeError, ValueError):
+        return list(MODEL_SOURCES)
+    return [m for m in MODEL_SOURCES if SOURCE_MAX_LEAD_H[m] >= lead]
+
 # Columns whose emptiness is a physical statement ("no cloud") rather than a gap.
 # GRIB only defines cloud geometry where cloud exists.
 CLOUD_PRESSURE = re.compile(r"_pres(_|$)", re.I)
@@ -408,13 +435,29 @@ def rows_for_source(df, source):
 
     Outside a model's archive window its columns are entirely blank, so those
     rows teach it nothing -- but they are perfectly good rows for whichever model
-    DOES cover them. "all" requires every source present, which is both the only
-    honest way to train a combined model and the only situation it can be used in.
+    DOES cover them.
+
+    For "all" the bar used to be every one of the six, on the grounds that it was
+    the only situation the combined model could be used in. That was true while
+    the only leads sampled were 1, 24 and 48 h, and it is what made the live page
+    go quiet whenever one source was late. Past 48 h the short-range models cannot
+    reach at all, so the bar is now every source that COULD reach this row's lead.
+    At 48 h and below the two rules agree exactly.
     """
     if source == "all":
+        # Not "every source" but "every source that could have reached this row's
+        # lead" -- see sources_expected_at. Identical at 1/24/48 h, where all six
+        # are expected; past 48 h it keeps rows the old rule discarded entirely.
         mask = np.ones(len(df), dtype=bool)
-        for m in MODEL_SOURCES:
-            mask &= df[f"lead_{m}"].notna().to_numpy()
+        present = {m: df[f"lead_{m}"].notna().to_numpy() for m in MODEL_SOURCES}
+        leads = df["target_lead_h"].to_numpy()
+        for lead in np.unique(leads):
+            at_lead = leads == lead
+            need = sources_expected_at(lead)
+            ok = np.ones(len(df), dtype=bool)
+            for m in need:
+                ok &= present[m]
+            mask &= ~at_lead | ok
         return df[mask]
     return df[df[f"lead_{source}"].notna()]
 

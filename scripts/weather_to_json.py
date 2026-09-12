@@ -493,6 +493,13 @@ MIN_FEATURE_COVERAGE = 0.80
 # aggregate, because one missing source out of six is easy to lose in an average.
 MIN_SOURCE_POPULATED = 0.30
 CURRENT_REQUIRES_SOURCES = ("hrrr", "nam", "gfs", "rap", "ecmwf", "nbm")
+# Which of those a given forecast hour is actually required to have. Mirrors
+# train_undercast_obs.sources_expected_at: the model is trained on rows carrying
+# every source that could REACH that lead, not on rows carrying all six, so the
+# serving guard has to ask the same question or it will reject hours the model
+# handles perfectly well. Imported rather than redefined -- two copies of this
+# table drifting apart is precisely how the forecast would silently become a
+# forecast of something else.
 
 
 def build_current_features(weather_df, date_str):
@@ -560,6 +567,8 @@ def predict_current_model(weather_df, date_str, max_fxx):
     import numpy as np
     import pandas as pd
 
+    from train_undercast_obs import sources_expected_at
+
     meta_path = f"{CURRENT_MODEL_DIR}/model_metadata_{CURRENT_SOURCE}.json"
     with open(meta_path) as fh:
         meta = json.load(fh)
@@ -585,28 +594,55 @@ def predict_current_model(weather_df, date_str, max_fxx):
     # fxx=3 exists only because ECMWF reported it, and every other source is
     # blank on that row -- while fxx=50 has GFS and nothing else.
     #
-    # The combined model was trained only on rows where all six sources reported
-    # (rows_for_source("all") requires it), and every numeric carries a
-    # missingness indicator, so a row missing five sources does not fail: it
-    # produces a calm, confident-looking number out of almost nothing. The first
-    # live run published exactly that -- a repeated 0.095 at every odd hour.
-    # Those rows are nulled, the same as hours past the model's reach.
+    # Every numeric carries a missingness indicator, so a row missing five sources
+    # does not fail: it produces a calm, confident-looking number out of almost
+    # nothing. The first live run published exactly that -- a repeated 0.095 at
+    # every odd hour. Those rows are nulled, the same as hours past the model's
+    # reach.
+    #
+    # What counts as missing is lead-dependent, because the model is trained on
+    # rows carrying every source that could REACH that lead (see
+    # train_undercast_obs.sources_expected_at). At +6 h that is all six and a gap
+    # is a fault; at +96 h HRRR cannot be there and its absence is the normal case
+    # the model was trained for.
+    # Required per ROW, because which sources are expected depends on how far
+    # ahead that row reaches: at +6 h all six should be there, at +96 h the
+    # short-range models cannot be and their absence is not a fault.
     usable = pd.Series(True, index=X.index)
+    leads = pd.to_numeric(
+        weather_df.loc[X.index, "fxx"], errors="coerce").fillna(0.0).astype(float)
     for src in CURRENT_REQUIRES_SOURCES:
         cols = [c for c in wanted if c.endswith(f"_{src}")]
         if not cols:
             continue
         filled_row = X[cols].notna().mean(axis=1)
-        usable &= filled_row >= MIN_SOURCE_POPULATED
+        expected = leads.map(lambda h: src in sources_expected_at(h))
+        # Only hold a row against this source where the source could reach it.
+        usable &= (filled_row >= MIN_SOURCE_POPULATED) | ~expected
         print(f"[current model]   {src:6s} {len(cols):3d} columns, "
               f"{float(X[cols].notna().to_numpy().mean()):.0%} populated overall, "
-              f"{int((filled_row >= MIN_SOURCE_POPULATED).sum())}/{len(X)} rows usable")
-    print(f"[current model] {int(usable.sum())}/{len(X)} forecast hours have every "
-          f"source reporting")
+              f"{int(((filled_row >= MIN_SOURCE_POPULATED) | ~expected).sum())}"
+              f"/{len(X)} rows usable "
+              f"(expected at {int(expected.sum())} of them)")
+    # Past the longest lead the model was TRAINED at, sources_expected_at returns
+    # an empty list -- which would leave such a row with no source requirement at
+    # all and let it publish. Extrapolating a model beyond its training leads is
+    # not something to do by accident, so those rows are rejected explicitly.
+    trained_leads = [float(k) for k in
+                     (meta[CURRENT_ALGO].get("threshold_by_lead") or {})]
+    max_trained = max(trained_leads) if trained_leads else 48.0
+    beyond = leads > max_trained
+    if bool(beyond.any()):
+        print(f"[current model] {int(beyond.sum())} hours are past the longest "
+              f"trained lead ({max_trained:.0f} h) and will be nulled")
+    usable &= ~beyond
+    print(f"[current model] {int(usable.sum())}/{len(X)} forecast hours carry every "
+          f"source expected at their lead")
     if not usable.any():
         raise RuntimeError(
-            "no forecast hour has all six sources reporting; the combined model "
-            "cannot be applied to any of them. Publishing nothing instead."
+            "no forecast hour carries the sources expected at its lead; the "
+            "combined model cannot be applied to any of them. Publishing nothing "
+            "instead."
         )
 
     pre = joblib.load(f"{CURRENT_MODEL_DIR}/preprocessor_{CURRENT_SOURCE}.pkl")

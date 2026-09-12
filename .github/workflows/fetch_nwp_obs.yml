@@ -1,7 +1,14 @@
 name: Fetch NWP at Observation Times
 
-# Downloads forecast fields valid AT each summit observation time, for three
-# leads (~1 h, ~24 h, ~48 h), from every model whose archive covers that date.
+# Downloads forecast fields valid AT each summit observation time, for a ladder of
+# leads (~1 h through 144 h), from every model whose archive covers that date AND
+# that can actually reach that lead -- see LEAD_SLACK_H in fetch_nwp_at_obs.py.
+#
+# Past 48 h the short-range models drop out by construction, which is the point:
+# those partial-source rows are what teach the combined model to forecast when one
+# source is late. Adding them to shards that already hold 1/24/48 needs no
+# re-fetch -- this job always passes --resume, so the pairs already committed are
+# kept and only the missing leads are downloaded.
 #
 # This replaces the date-based sampling the old regen_weather_csv.yml job used,
 # which pinned the Herbie init to 00Z and took fxx 1-8 -- fields valid 8pm-3am
@@ -40,10 +47,10 @@ on:
         description: "Worker processes per shard. Downloads are network-bound, but the NOAA S3 buckets throttle -- going much above 6 mostly buys 503s."
         default: "6"
       leads:
-        description: "Target forecast leads in hours, space separated"
-        default: "1 24 48"
+        description: "Target forecast leads in hours, space separated. Pass the FULL ladder even when extending: --resume skips whatever is already committed, so listing 1/24/48 costs nothing and self-heals any gaps in them."
+        default: "1 24 48 72 96 120 144"
       limit:
-        description: "Max (observation, lead) tasks per shard. 0 = no cap."
+        description: "Max (observation, lead) tasks per shard. 0 = no cap. Safe for a rehearsal: --resume keeps every row already committed, so a capped run only ADDS rows. Use with `only` to rehearse one shard."
         default: "0"
       only:
         description: "Run just these matrix entries, e.g. 0-19. Blank = all. Use WITH the same `shards` value as the real run so the sharding math is identical and the rows stay resume-compatible."
@@ -266,17 +273,23 @@ jobs:
           if [ -n "${{ github.event.inputs.models }}" ]; then
             git commit -m "Re-fetch ${{ github.event.inputs.models }} at summit observation times"
           else
-            git commit -m "Fetch NWP fields at summit observation times (3 leads)"
+            git commit -m "Fetch NWP fields at summit observation times (leads: ${{ github.event.inputs.leads }})"
           fi
-          # The 6-hourly weather workflow can land on master mid-run, so rebase
-          # onto the latest remote and retry rather than failing the job.
+          # Rebase onto whatever branch this run was dispatched against, not a
+          # hardcoded master: this workflow is run on a feature branch while a
+          # lead-ladder fetch is in progress, and rebasing a branch's data commit
+          # onto master would drag master's history into it -- or fail outright.
+          BRANCH="${GITHUB_REF_NAME}"
+          echo "pushing to $BRANCH"
+          # The 6-hourly weather workflow can land mid-run, so rebase onto the
+          # latest remote and retry rather than failing the job.
           for attempt in 1 2 3 4 5; do
-            if git push; then
+            if git push origin "HEAD:$BRANCH"; then
               echo "Pushed on attempt $attempt."
               exit 0
             fi
-            echo "Push rejected (attempt $attempt); rebasing onto latest master..."
-            git pull --rebase origin master
+            echo "Push rejected (attempt $attempt); rebasing onto latest $BRANCH..."
+            git pull --rebase origin "$BRANCH"
           done
           echo "Failed to push after multiple attempts." >&2
           exit 1
