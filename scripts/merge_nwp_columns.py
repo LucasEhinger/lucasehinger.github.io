@@ -38,6 +38,10 @@ import sys
 import tempfile
 
 KEY = ("valid_utc", "target_lead_h")
+# How much lower the source's cell fill may be than the target's before the merge
+# is refused. Small but non-zero: a model genuinely retiring one field should not
+# block an otherwise good re-fetch.
+FILL_TOLERANCE = 0.01
 
 
 def model_columns(header, models):
@@ -64,6 +68,22 @@ def merge_shard(src_path, dst_path, models, min_coverage, dry_run):
     cols = model_columns(header, models)
     if not cols:
         raise SystemExit(f"no columns for {models} in {dst_path}")
+
+    # Cell-level fill, not just row presence. `coverage` below counts rows the
+    # source HAS; it says nothing about whether the cells in those rows carry
+    # values. A throttled re-fetch produces a source with every row present and a
+    # fraction of the cells empty, which sails past the row check and then blanks
+    # good data, because the splice below is an unconditional assignment.
+    value_cols = [c for c in cols if not c.startswith(("lead_", "meta_"))]
+
+    def filled(rows):
+        if not rows or not value_cols:
+            return 0.0
+        n = sum(1 for row in rows for c in value_cols
+                if (row.get(c) or "") not in ("", "nan"))
+        return n / (len(rows) * len(value_cols))
+
+    target_filled = filled(target)
 
     updated = missing = 0
     conflicts = []
@@ -97,6 +117,24 @@ def merge_shard(src_path, dst_path, models, min_coverage, dry_run):
             f"{missing} rows carrying the OLD values while the rest are new, "
             f"which is worse than either file alone. Refusing.")
 
+    # A re-fetch should fill at least as many cells as it replaces. Less means the
+    # download was throttled, not that the model stopped publishing -- and the
+    # splice would delete the difference. Deliberate blanking is not done here
+    # (see prune_lead_substitutions.py), so a drop is always a fault.
+    source_filled = filled([source[k] for k in
+                            (tuple(row[j] for j in KEY) for row in target)
+                            if k in source])
+    if source_filled + 1e-9 < target_filled - FILL_TOLERANCE:
+        raise SystemExit(
+            f"{os.path.basename(dst_path)}: the source fills only "
+            f"{100*source_filled:.1f}% of {models} cells where the target already "
+            f"has {100*target_filled:.1f}%. Splicing it in would BLANK the "
+            f"difference, which is data loss, not a re-fetch. Almost always a "
+            f"throttled download -- re-run the partial fetch with --resume until "
+            f"its fill rate matches. Refusing.")
+
+    print(f"    cell fill for {models}: target {100*target_filled:.1f}% -> "
+          f"source {100*source_filled:.1f}%")
     if not dry_run:
         d = os.path.dirname(dst_path) or "."
         fd, tmp = tempfile.mkstemp(dir=d, suffix=".tmp")
