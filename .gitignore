@@ -51,6 +51,15 @@ files/weather/models/obs/*
 !files/weather/models/obs/model_metadata_*.json
 !files/weather/models/obs/baseline_rules.json
 !files/weather/models/obs/ensemble_comparison.json
+# Three small JSONs that /weather/details/ FETCHES at page load. An ignored copy
+# works locally and leaves the chart empty on the deployed site, which is a
+# failure mode with no local symptom at all.
+#   feature_importances.json    9 KB - scripts/export_feature_importances.py
+#   confusion_by_lead.json     14 KB - scripts/export_confusion_by_lead.py
+#   redundancy_histogram.json   3 KB - scripts/undercast_redundancy.py
+!files/weather/models/obs/feature_importances.json
+!files/weather/models/obs/confusion_by_lead.json
+!files/weather/models/obs/redundancy_histogram.json
 
 # ...and the two artifacts the LIVE page actually loads. weather_to_json.py runs
 # in CI from a fresh checkout, so the model it serves has to be in the repo. Only

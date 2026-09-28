@@ -2,12 +2,19 @@
 """Does the combined undercast model have more capacity than its data supports?
 
 The combined model reads 213 features. That number invites a fair objection: the
-training split holds 13,305 rows, so the model looks wide relative to its data.
+training split holds 31,009 rows, so the model looks wide relative to its data.
 The objection is even stronger than the row count suggests, because rows are not
 independent observations here -- each undercast hour is sampled once per forecast
 lead, and consecutive hours of one cloud deck are one weather event. Counted in
 events the training set holds 175 undercast days, which is under one event per
 feature.
+
+The other half of that ratio is deflated too, and it is NOT measured here: the
+213 columns are six weather models' worth of the same quantities, and collapse to
+82 distinct ones, of which only about 30-80 are independent directions. See
+``undercast_redundancy.py``. Read this script's feature-budget table with that in
+mind -- trimming from 213 is not trimming duplicates, because the importance
+ranking has already skipped most of them.
 
 So this script asks whether that costs anything measurable, along three axes:
 

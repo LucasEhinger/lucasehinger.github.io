@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
 """Train undercast classifiers on the per-observation forecast dataset.
 
-Supersedes ``train_undercast_models.py``, which learned from 589 hand-labeled
-DATES with forecast fields sampled at the wrong time of day. This reads the
-output of ``fetch_nwp_at_obs.py``: one row per (observation, forecast lead), with
-fields valid at the observation's own time, ~3,500 positives instead of 24.
+Reads the output of ``fetch_nwp_at_obs.py``: one row per (observation, forecast
+lead), with fields valid at the observation's own time.
 
-Four things are done differently, each because the old way was actively wrong.
+Four design choices, each because the obvious alternative is actively wrong.
 
 1. MISSING IS NOT THE MEDIAN.
    GRIB omits cloud ceiling/base/top where there is no cloud, so those cells
    arrive as nan -- and nan means CLEAR, which is about the most informative
    state there is for undercast. Verified on the rehearsal data: rows with a nan
    HRRR ceiling have a median low-cloud cover of 0.0%, rows with a number have
-   39.9%. The old pipeline ran SimpleImputer(strategy="median") over these, which
-   recoded every clear-sky row as "ceiling at 1,582 m" -- the opposite of the
-   truth. Here every numeric gets a constant out-of-range fill plus a
+   39.9%. Median imputation would recode every clear-sky row as "ceiling at
+   1,582 m" -- the opposite of the truth. Here every numeric gets a constant out-of-range fill plus a
    missingness indicator, and the cloud-geometry columns additionally get an
    explicit _no_cloud flag distinguishing "model says no cloud" (nan in the CSV)
    from "never fetched" (empty in the CSV). Those are different facts and the

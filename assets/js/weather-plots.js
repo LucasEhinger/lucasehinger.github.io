@@ -240,6 +240,10 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
   const stripEl = document.getElementById("uh-strip");
   const axisEl = document.getElementById("uh-axis");
   const footEl = document.getElementById("uh-foot");
+  const legendEl = document.getElementById("uh-legend");
+  if (legendEl) legendEl.hidden = false;
+  const keyNoteEl = document.getElementById("uh-key-note");
+  if (keyNoteEl) keyNoteEl.hidden = false;
 
   // The undercast model is trained on Mount Washington summit observations and
   // is not transferable to the other summits, which have no observer writing
@@ -261,6 +265,11 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
     stripEl.innerHTML = "";
     axisEl.innerHTML = "";
     footEl.textContent = "";
+    // The key describes a strip that is not being drawn.
+    const legendOut = document.getElementById("uh-legend");
+    if (legendOut) legendOut.hidden = true;
+    const noteOut = document.getElementById("uh-key-note");
+    if (noteOut) noteOut.hidden = true;
     el.hidden = false;
     return;
   }
@@ -285,6 +294,7 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
       hit: cur.y[i] === 1,
       known: cur.y[i] !== null && cur.y[i] !== undefined,
       p: cur.probability ? cur.probability[i] : null,
+      thr: cur.threshold ? cur.threshold[i] : null,
       when: new Date(base.getTime() + h * 3600 * 1000),
     }))
     .filter((d) => d.known && d.when.getTime() >= nowMs - 3600 * 1000);
@@ -351,8 +361,23 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
   // strip quietly claims a forecast it does not have. Unpublished slots are drawn
   // as explicit gaps instead: the axis stays linear and the holes stay visible.
   stripEl.innerHTML = "";
-  const maxP = Math.max(0.05, ...pts.map((d) => d.p || 0));
+  // Bar height is the score as a FRACTION OF THAT HOUR'S THRESHOLD, not of the
+  // largest score in the window, and not of 1.
+  //
+  // Everything measured about this model is binary at a per-lead cut -- precision,
+  // recall, F1, the confusion matrices. Nothing establishes that the raw score is
+  // a calibrated probability; it is a gradient-boosted margin with no calibration
+  // step, and ROC-AUC only says the scores RANK correctly. Drawing height as
+  // score/maxP made the tallest bar full height whatever it was, so a 0.66 score
+  // under a 0.76 threshold filled the strip while the headline said "no undercast".
+  // Against the threshold, full height means "at the point where it would fire",
+  // which is a ranking statement the measurements actually support, and it is
+  // comparable between runs.
   const byHour = new Map(pts.map((d) => [d.h, d]));
+  // Top of the strip, as a multiple of the threshold. Kept in step with the
+  // --uh-top-ratio custom property that positions the dashed line.
+  const UH_TOP_RATIO = 1.25;
+  stripEl.style.setProperty("--uh-line-pct", `${(100 / UH_TOP_RATIO).toFixed(2)}%`);
   // The grid's step is whatever the run actually sampled -- 3 h at the time of
   // writing, but read from the data rather than assumed, because it is a property
   // of the slowest source's cadence and has changed before.
@@ -368,32 +393,129 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
     const d = byHour.get(h);
     const bar = document.createElement("div");
     if (!d) {
-      // Not "probability zero" -- no forecast at all. Styled as a faint full-height
-      // band so it cannot be misread as a confident quiet hour.
+      // No forecast for this hour: the slot is left blank. It still gets an
+      // element, because the bars are flex children sharing the width evenly and
+      // skipping one would slide every later hour out from under its own tick.
       bar.className = "uh-bar uh-gap";
-      bar.style.height = "100%";
-      bar.title =
-        `${fmt(new Date(base.getTime() + h * 3600 * 1000))} — no forecast: a ` +
-        `weather model expected at this hour did not report`;
+      bar.style.height = "0";
       stripEl.appendChild(bar);
       return;
     }
     bar.className = "uh-bar" + (d.hit ? " uh-hit" : "");
-    const frac = d.p === null ? 0.06 : Math.max(0.06, (d.p || 0) / maxP);
-    bar.style.height = `${Math.round(frac * 100)}%`;
+    // The strip is taller than the threshold -- the line sits at 1/UH_TOP_RATIO of
+    // the way up, leaving headroom above it, so a firing hour can show HOW far
+    // over it went instead of flattening against the ceiling.
+    const ratio = d.p === null || !d.thr ? null : d.p / d.thr;
+    const frac = ratio === null
+      ? 0.06
+      : Math.max(0.06, Math.min(UH_TOP_RATIO, ratio) / UH_TOP_RATIO);
+    // One decimal, not a whole percent. The strip is 56 px tall, so 1% is half a
+    // pixel and rounding to integers snaps a near-miss onto the threshold line: an
+    // hour at 99.5% of its threshold rounds from 79.6% to 80%, which is exactly
+    // where the line sits, and the bar then reads as having reached it.
+    bar.style.height = `${(frac * 100).toFixed(1)}%`;
     bar.title =
       `${fmt(d.when)} — ` +
-      (d.p === null ? "no probability" : `${Math.round(d.p * 100)}% model score`) +
+      (ratio === null
+        ? "no score"
+        : `score ${d.p.toFixed(2)} against a threshold of ${d.thr.toFixed(2)} ` +
+          `(${Math.round(ratio * 100)}% of the way there)`) +
       (d.hit ? " — undercast called" : "");
     stripEl.appendChild(bar);
   });
+  // Ticks at local midnight and noon across the whole span, positioned by TIME
+  // rather than spaced evenly, so they line up with the bars above them. Two
+  // labels at the ends said nothing about where Wednesday was in a six-day strip.
   axisEl.innerHTML = "";
-  const leftLab = document.createElement("span");
-  leftLab.textContent = fmt(pts[0].when);
-  const rightLab = document.createElement("span");
-  rightLab.textContent = fmt(pts[pts.length - 1].when);
-  axisEl.appendChild(leftLab);
-  axisEl.appendChild(rightLab);
+  const t0 = pts[0].when.getTime();
+  const t1 = pts[pts.length - 1].when.getTime();
+  const span = Math.max(1, t1 - t0);
+  const dayFmt = (d) =>
+    d.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short" });
+  // hourCycle h23, not hour12:false -- en-US renders midnight as "24" under the
+  // latter, which would tick correctly (24 % 12 === 0) and then label it "12 PM".
+  const hourOf = (d) =>
+    Number(d.toLocaleString("en-US", {
+      timeZone: "America/New_York", hour: "numeric", hourCycle: "h23",
+    }));
+
+  // Pick the coarsest spacing that still gives a useful number of ticks, rather
+  // than a fixed step: the strip is the same width whether it covers 12 hours or
+  // six days, so a step that reads well at one span collides at the other.
+  const collect = (stepH) => {
+    const out = [];
+    for (let t = t0; t <= t1; t += 3600000) {
+      const d = new Date(t);
+      const h = hourOf(d);
+      if (h % stepH === 0 && (!out.length || t - out[out.length - 1].t > 3600000)) {
+        out.push({ t: t, d: d, h: h });
+      }
+    }
+    return out;
+  };
+  // The budget comes from the axis's real width, not a fixed count: at desktop
+  // width a six-day strip has room for noon AND midnight (about 12 labels), while
+  // on a phone the same 12 would overlap, so it drops to midnight only.
+  //
+  // 64 px per label, measured rather than guessed: a tick label is only a time
+  // ("12 AM", 41 px) because the day names live on their own row, and a label near
+  // either end is pinned to the panel edge, which pushes it half a label (~20 px)
+  // toward its neighbour. 41 + 20 plus a small gap. 52 and 58 both let the end
+  // pair touch at a 1024 px window.
+  //
+  // The panel is still hidden here (it is revealed once everything is drawn), so
+  // the axis measures 0. It is shown for the one read -- no paint happens in
+  // between, so nothing flashes -- because estimating from the parent ran 5-10%
+  // wide, which is exactly the margin that decides whether noon fits.
+  const wasHidden = el.hidden;
+  el.hidden = false;
+  const avail = axisEl.clientWidth || 900;
+  el.hidden = wasHidden;
+  const maxTicks = Math.max(3, Math.floor(avail / 64));
+  let ticks = [];
+  for (const stepH of [3, 6, 12, 24]) {
+    ticks = collect(stepH);
+    if (ticks.length <= maxTicks) break;
+  }
+
+  // Two rows. The tick row carries bare times ("12 AM", "12 PM"); the day names sit
+  // on a row of their own, centred under the stretch of strip each day covers.
+  // Folding the day into the tick ("Wed 12 AM") made every midnight label twice as
+  // wide, which is what collided once noon was labelled too -- and on a phone it
+  // collided even with midnights alone.
+  ticks.forEach((tick) => {
+    const lab = document.createElement("span");
+    lab.className = "uh-tick";
+    lab.textContent = tick.h === 0 ? "12 AM" : tick.h === 12 ? "12 PM" :
+      tick.h > 12 ? `${tick.h - 12} PM` : `${tick.h} AM`;
+    const pct = ((tick.t - t0) / span) * 100;
+    lab.style.left = `${pct}%`;
+    // Anchor by POSITION, not by first/last child: the first tick is rarely at
+    // 0% (it is the first midnight or noon after the run starts), so clamping it
+    // by index shifts a mid-strip label away from the bar it labels.
+    if (pct < 6) { lab.style.transform = "none"; lab.classList.add("uh-tick-start"); }
+    else if (pct > 94) { lab.style.transform = "translateX(-100%)"; lab.classList.add("uh-tick-end"); }
+    axisEl.appendChild(lab);
+  });
+
+  // Day names: one per local day, centred on the part of that day the strip
+  // actually shows. A sliver of a day at either end (under ~30 px) is left
+  // unnamed rather than crammed against its neighbour.
+  let dayStart = t0;
+  for (let t = t0; t <= t1 + 3600000; t += 3600000) {
+    const end = t > t1 || hourOf(new Date(t)) === 0 ? Math.min(t, t1) : null;
+    if (end === null || end <= dayStart) continue;
+    const a = ((dayStart - t0) / span) * 100;
+    const b = ((end - t0) / span) * 100;
+    if (((b - a) / 100) * avail >= 30) {
+      const day = document.createElement("span");
+      day.className = "uh-day";
+      day.textContent = dayFmt(new Date(dayStart + 1));
+      day.style.left = `${(a + b) / 2}%`;
+      axisEl.appendChild(day);
+    }
+    dayStart = end;
+  }
 
   // How much to trust it, at the lead that actually matters here. Skill is measured
   // at the seven ladder leads -- 1, 24, 48, 72, 96, 120 and 144 h -- and the nearest
@@ -500,18 +622,6 @@ function loadWeatherPlots(
         data.low_cloud_layer_percent_hrrr.x.slice(0, 5)
       );
 
-      // Convert ML prediction time values
-      let convertedDatesML;
-      try {
-        convertedDatesML = convertTimeToDateTime(
-          data_ML.XGBoost_hrrr.x,
-          data_ML.date_str || dateStr
-        );
-      } catch (err) {
-        console.error("Error converting ML dates:", err);
-        convertedDatesML = data_ML.XGBoost_hrrr.x;
-      }
-
       // Update last model update time display
       const lastUpdateEl = document.getElementById("last-update");
       if (lastUpdateEl) {
@@ -589,19 +699,6 @@ function loadWeatherPlots(
           },
           extra || {}
         );
-      };
-      const predTrace = (key, name, color, model, dash) => {
-        const d = data_ML[key];
-        if (!d || !d.y) return null;
-        return {
-          x: convertedDatesML,
-          y: d.y,
-          mode: "lines+markers",
-          type: "scatter",
-          name,
-          line: { dash, color },
-          marker: { symbol: modelMarkers[model] },
-        };
       };
       const pushTruthy = (arr, items) => items.forEach((t) => t && arr.push(t));
       // Render a plot, or hide its container entirely when it has no traces for
@@ -1448,258 +1545,6 @@ function loadWeatherPlots(
       }
       renderOrHide("plot7", plot7Traces, layout7);
 
-      // Plot 8: Undercast Probability
-      const c8 = defaultColors;
-      const mlColors = {
-        xgb: c8[0],
-        rf: c8[1],
-        gbdt: c8[2],
-        consensus: c8[3],
-      };
-
-      const trace8_xgb_hrrr = {
-        x: convertedDatesML,
-        y: data_ML.XGBoost_hrrr.y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "HRRR (XGBoost)",
-        line: { color: mlColors.xgb },
-        marker: { symbol: modelMarkers.hrrr },
-      };
-
-      const trace8_rf_hrrr = {
-        x: convertedDatesML,
-        y: data_ML["Random Forest_hrrr"].y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "HRRR (Random Forest)",
-        line: { dash: "dash", color: mlColors.rf },
-        marker: { symbol: modelMarkers.hrrr },
-      };
-
-      const trace8_gbdt_hrrr = {
-        x: convertedDatesML,
-        y: data_ML["Gradient Boosting_hrrr"].y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "HRRR (Gradient Boosting)",
-        line: { dash: "dot", color: mlColors.gbdt },
-        marker: { symbol: modelMarkers.hrrr },
-      };
-
-      const trace8_consensus_hrrr = {
-        x: convertedDatesML,
-        y: data_ML.consensus_hrrr.y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "HRRR (Consensus)",
-        line: { dash: "longdash", color: mlColors.consensus },
-        marker: { symbol: modelMarkers.hrrr },
-      };
-
-      const trace8_xgb_nam = {
-        x: convertedDatesML,
-        y: data_ML.XGBoost_nam.y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "NAM (XGBoost)",
-        line: { color: mlColors.xgb },
-        marker: { symbol: modelMarkers.nam },
-      };
-
-      const trace8_rf_nam = {
-        x: convertedDatesML,
-        y: data_ML["Random Forest_nam"].y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "NAM (Random Forest)",
-        line: { dash: "dash", color: mlColors.rf },
-        marker: { symbol: modelMarkers.nam },
-      };
-
-      const trace8_gbdt_nam = {
-        x: convertedDatesML,
-        y: data_ML["Gradient Boosting_nam"].y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "NAM (Gradient Boosting)",
-        line: { dash: "dot", color: mlColors.gbdt },
-        marker: { symbol: modelMarkers.nam },
-      };
-
-      const trace8_consensus_nam = {
-        x: convertedDatesML,
-        y: data_ML.consensus_nam.y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "NAM (Consensus)",
-        line: { dash: "longdash", color: mlColors.consensus },
-        marker: { symbol: modelMarkers.nam },
-      };
-
-      const trace8_xgb_gfs = {
-        x: convertedDatesML,
-        y: data_ML.XGBoost_gfs.y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "GFS (XGBoost)",
-        line: { color: mlColors.xgb },
-        marker: { symbol: modelMarkers.gfs },
-      };
-
-      const trace8_rf_gfs = {
-        x: convertedDatesML,
-        y: data_ML["Random Forest_gfs"].y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "GFS (Random Forest)",
-        line: { dash: "dash", color: mlColors.rf },
-        marker: { symbol: modelMarkers.gfs },
-      };
-
-      const trace8_gbdt_gfs = {
-        x: convertedDatesML,
-        y: data_ML["Gradient Boosting_gfs"].y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "GFS (Gradient Boosting)",
-        line: { dash: "dot", color: mlColors.gbdt },
-        marker: { symbol: modelMarkers.gfs },
-      };
-
-      const trace8_consensus_gfs = {
-        x: convertedDatesML,
-        y: data_ML.consensus_gfs.y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "GFS (Consensus)",
-        line: { dash: "longdash", color: mlColors.consensus },
-        marker: { symbol: modelMarkers.gfs },
-      };
-
-      const trace8_xgb_all = {
-        x: convertedDatesML,
-        y: data_ML.XGBoost_all.y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "All (XGBoost)",
-        line: { color: mlColors.xgb },
-        marker: { symbol: modelMarkers.all },
-      };
-
-      const trace8_rf_all = {
-        x: convertedDatesML,
-        y: data_ML["Random Forest_all"].y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "All (Random Forest)",
-        line: { dash: "dash", color: mlColors.rf },
-        marker: { symbol: modelMarkers.all },
-      };
-
-      const trace8_gbdt_all = {
-        x: convertedDatesML,
-        y: data_ML["Gradient Boosting_all"].y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "All (Gradient Boosting)",
-        line: { dash: "dot", color: mlColors.gbdt },
-        marker: { symbol: modelMarkers.all },
-      };
-
-      const trace8_consensus_all = {
-        x: convertedDatesML,
-        y: data_ML.consensus_all.y,
-        mode: "lines+markers",
-        type: "scatter",
-        name: "All (Consensus)",
-        line: { dash: "longdash", color: mlColors.consensus },
-        marker: { symbol: modelMarkers.all },
-      };
-
-      const layout8 = {
-        title: {
-          text: "Undercast Prediction (Consensus)",
-          font: { color: textColor },
-        },
-        xaxis: { ...axisStyle("", textColor) },
-        yaxis: {
-          ...axisStyle("", textColor),
-          range: [-0.5, 1.5],
-          tickmode: "array",
-          tickvals: [1, 0],
-          ticktext: ["Undercast", "Not Undercast"],
-          tickangle: 90,
-        },
-        legend: { font: { color: textColor } },
-        showlegend: true,
-      };
-
-      const plot8Traces = [];
-      if (showHRRR) plot8Traces.push(trace8_consensus_hrrr);
-      if (showNAM) plot8Traces.push(trace8_consensus_nam);
-      if (showGFS) plot8Traces.push(trace8_consensus_gfs);
-      if (showRAP)
-        pushTruthy(plot8Traces, [
-          predTrace("consensus_rap", "RAP (Consensus)", mlColors.consensus, "rap", "longdash"),
-        ]);
-      if (showECMWF)
-        pushTruthy(plot8Traces, [
-          predTrace("consensus_ecmwf", "ECMWF (Consensus)", mlColors.consensus, "ecmwf", "longdash"),
-        ]);
-      if (showNBM)
-        pushTruthy(plot8Traces, [
-          predTrace("consensus_nbm", "NBM (Consensus)", mlColors.consensus, "nbm", "longdash"),
-        ]);
-      if (showALL) plot8Traces.push(trace8_consensus_all);
-      renderOrHide("plot8", plot8Traces, layout8);
-
-      // Plot 9: Undercast Probability (Other Models)
-      const layout9 = {
-        title: {
-          text: "Undercast Prediction (Individual Models)",
-          font: { color: textColor },
-        },
-        xaxis: { ...axisStyle("", textColor) },
-        yaxis: {
-          ...axisStyle("", textColor),
-          range: [-0.5, 1.5],
-          tickmode: "array",
-          tickvals: [1, 0],
-          ticktext: ["Undercast", "Not Undercast"],
-          tickangle: 90,
-        },
-        legend: { font: { color: textColor } },
-        showlegend: true,
-      };
-
-      const plot9Traces = [];
-      if (showHRRR) {
-        plot9Traces.push(trace8_xgb_hrrr, trace8_rf_hrrr, trace8_gbdt_hrrr);
-      }
-      if (showNAM) {
-        plot9Traces.push(trace8_xgb_nam, trace8_rf_nam, trace8_gbdt_nam);
-      }
-      if (showGFS) {
-        plot9Traces.push(trace8_xgb_gfs, trace8_rf_gfs, trace8_gbdt_gfs);
-      }
-      [
-        ["rap", showRAP, "RAP"],
-        ["ecmwf", showECMWF, "ECMWF"],
-        ["nbm", showNBM, "NBM"],
-      ].forEach(([src, show, label]) => {
-        if (!show) return;
-        pushTruthy(plot9Traces, [
-          predTrace("XGBoost_" + src, label + " (XGBoost)", mlColors.xgb, src, "solid"),
-          predTrace("Random Forest_" + src, label + " (Random Forest)", mlColors.rf, src, "dash"),
-          predTrace("Gradient Boosting_" + src, label + " (Gradient Boosting)", mlColors.gbdt, src, "dot"),
-        ]);
-      });
-      if (showALL) {
-        plot9Traces.push(trace8_xgb_all, trace8_rf_all, trace8_gbdt_all);
-      }
-      renderOrHide("plot9", plot9Traces, layout9);
-
       // Plot 10: Precipitation
       const c9 = defaultColors;
 
@@ -2071,9 +1916,10 @@ function attachPlotInfoTooltips() {
       "Elevation at which temperature reaches 0°C (32°F) - important for rain/snow line. If 0, then freezing point is at sea level.",
     plot7:
       "Horizontal visibility at surface level - affected by fog, precipitation, and haze.",
-    plot8:
-      "Probability of undercast conditions - when clouds form below summit elevation.",
-    plot9:
+    // This text describes PRECIPITATION, and was keyed to plot9 -- the individual-
+    // models undercast chart -- while plot10, the precipitation plot, had no entry
+    // at all. Re-keyed to plot10 when plots 8 and 9 were removed.
+    plot10:
       `Accumulated precipitation and precipitation rate at the surface. Units adjust based on selection (${
         unit === "imperial" ? "inches" : unit === "stupid" ? "fempto-parsecs" : "millimeters"
       }).`,

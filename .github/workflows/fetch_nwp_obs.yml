@@ -10,10 +10,6 @@ name: Fetch NWP at Observation Times
 # re-fetch -- this job always passes --resume, so the pairs already committed are
 # kept and only the missing leads are downloaded.
 #
-# This replaces the date-based sampling the old regen_weather_csv.yml job used,
-# which pinned the Herbie init to 00Z and took fxx 1-8 -- fields valid 8pm-3am
-# local, the night before the noon image each row was labeled against.
-#
 # Inputs are committed, so a run needs no setup:
 #   files/weather/obs/nwp_sample.csv    which observation times to fetch
 # Build it first if it is stale:

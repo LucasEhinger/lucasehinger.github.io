@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Download NWP forecast fields valid AT each summit observation time.
 
-Replaces the date-based sampling in ``weather_to_csv.py``, which pinned every
-Herbie init to 00:00 UTC of the label date and took fxx 1-8 -- i.e. fields valid
-01-08 UTC, which is 8pm-3am local, the night BEFORE the noon webcam image the
-row was labeled against. Here the valid time is the observation's own time, and
-the (init, fxx) pair is solved for per model.
+The valid time is the observation's own time, and the (init, fxx) pair is
+solved for per model -- a fixed init and forecast hour would sample the
+atmosphere at a different time of day from the one the label describes.
 
 A LADDER of leads is sampled at every observation, from near-analysis out to six
 days:
@@ -48,7 +46,7 @@ really used is written to the row, so nothing downstream has to assume.
 
 Output is one plain CSV per shard, one row per (observation, lead), with every
 model's columns side by side -- blank for any model that could not reach that
-row's lead within LEAD_SLACK_H -- the shape ``train_undercast_models.py`` expects.
+row's lead within LEAD_SLACK_H -- the shape ``train_undercast_obs.py`` reads.
 Deliberately uncompressed: git zlib-compresses blobs anyway, so .gz saves nothing
 on the first commit but makes every re-run store a whole new copy instead of a
 delta (measured: +33 MB per re-run as .gz vs +0.8 MB as raw CSV).
@@ -80,11 +78,11 @@ from datetime import datetime, timedelta, timezone
 warnings.filterwarnings("ignore")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-# Importing weather_to_csv also installs its two hang guards: a default socket
+# Importing nwp_fields also installs its two hang guards: a default socket
 # timeout, and an os.system wrapper that adds --max-time to Herbie's curl calls
 # (Herbie shells out with no timeout, so a dead socket otherwise blocks a worker
 # forever, unkillable).
-from weather_to_csv import (  # noqa: E402
+from nwp_fields import (  # noqa: E402
     LOCATIONS, sample_nearest, try_load, variables,
 )
 from herbie import Herbie  # noqa: E402

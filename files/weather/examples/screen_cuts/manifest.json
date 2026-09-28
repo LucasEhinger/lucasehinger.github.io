@@ -1,0 +1,961 @@
+{
+ "cuts": [
+  {
+   "key": "cover",
+   "label": "deck is BKN or OVC"
+  },
+  {
+   "key": "visibility",
+   "label": "visibility > 40 SM"
+  },
+  {
+   "key": "lid",
+   "label": "no lid overhead below 5,000 ft"
+  },
+  {
+   "key": "depth",
+   "label": "deck top >= 500 ft below the summit"
+  },
+  {
+   "key": "lowest",
+   "label": "lowest layer overhead >= 1,000 ft"
+  }
+ ],
+ "groups": [
+  {
+   "key": "passes",
+   "title": "Passes every cut",
+   "rule": "the screen calls these undercast",
+   "n_days": 23,
+   "n_undercast": 16,
+   "days": [
+    {
+     "date": "2024-06-06",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 50.0,
+      "depth_below_ft": 788.0,
+      "overhead_ceiling_ft": 10000.0,
+      "overhead_lowest_ft": 10000.0,
+      "tops_ft": 5500.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-06-06_tower.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-08-29",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 80.0,
+      "depth_below_ft": 1288.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 5000.0,
+      "tops_ft": 5000.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-08-29_tower.jpg",
+      "observatory": "2024-08-29_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-09-06",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 80.0,
+      "depth_below_ft": 1288.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 15000.0,
+      "tops_ft": 5000.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-09-06_tower.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-09-28",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 80.0,
+      "depth_below_ft": 988.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 18000.0,
+      "tops_ft": 5300.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-09-28_tower.jpg",
+      "observatory": "2024-09-28_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-09-29",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 80.0,
+      "depth_below_ft": 2788.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 18000.0,
+      "tops_ft": 3500.0,
+      "n_layers": 2.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-09-29_tower.jpg",
+      "observatory": "2024-09-29_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-10-02",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 75.0,
+      "depth_below_ft": 1488.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 8000.0,
+      "tops_ft": 4800.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-10-02_tower.jpg",
+      "observatory": "2024-10-02_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-12-18",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 90.0,
+      "depth_below_ft": 588.0,
+      "overhead_ceiling_ft": 18000.0,
+      "overhead_lowest_ft": 10000.0,
+      "tops_ft": 5700.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-12-18_tower.jpg",
+      "observatory": "2024-12-18_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-12-22",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 90.0,
+      "depth_below_ft": 1488.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 20000.0,
+      "tops_ft": 4800.0,
+      "n_layers": 2.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-12-22_tower.jpg",
+      "observatory": "2024-12-22_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2025-01-18",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 50.0,
+      "depth_below_ft": 1288.0,
+      "overhead_ceiling_ft": 5000.0,
+      "overhead_lowest_ft": 3500.0,
+      "tops_ft": 5000.0,
+      "n_layers": 2.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-01-18_tower.jpg",
+      "observatory": "2025-01-18_observatory.jpg"
+     },
+     "blended": [
+      "tower"
+     ]
+    },
+    {
+     "date": "2025-01-19",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 130.0,
+      "depth_below_ft": 2288.0,
+      "overhead_ceiling_ft": 10000.0,
+      "overhead_lowest_ft": 8000.0,
+      "tops_ft": 4000.0,
+      "n_layers": 3.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-01-19_tower.jpg",
+      "observatory": "2025-01-19_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2025-02-24",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 130.0,
+      "depth_below_ft": 1288.0,
+      "overhead_ceiling_ft": 13000.0,
+      "overhead_lowest_ft": 6000.0,
+      "tops_ft": 5000.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-02-24_tower.jpg",
+      "observatory": "2025-02-24_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2025-10-21",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 100.0,
+      "depth_below_ft": 988.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 2000.0,
+      "tops_ft": 5300.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-10-21_tower.jpg",
+      "observatory": "2025-10-21_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2025-10-28",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 130.0,
+      "depth_below_ft": 1288.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 18000.0,
+      "tops_ft": 5000.0,
+      "n_layers": 2.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-10-28_tower.jpg",
+      "observatory": "2025-10-28_observatory.jpg"
+     },
+     "blended": [
+      "observatory"
+     ]
+    },
+    {
+     "date": "2025-11-02",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 130.0,
+      "depth_below_ft": 1288.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 1000.0,
+      "tops_ft": 5000.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-11-02_tower.jpg",
+      "observatory": "2025-11-02_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2025-11-15",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 130.0,
+      "depth_below_ft": 1788.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 8000.0,
+      "tops_ft": 4500.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-11-15_tower.jpg",
+      "observatory": "2025-11-15_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2025-11-19",
+     "undercast": true,
+     "screen_label": "undercast",
+     "failed": [],
+     "fields": {
+      "vis_sm": 130.0,
+      "depth_below_ft": 1488.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 20000.0,
+      "tops_ft": 4800.0,
+      "n_layers": 2.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-11-19_tower.jpg",
+      "observatory": "2025-11-19_observatory.jpg"
+     },
+     "blended": []
+    }
+   ]
+  },
+  {
+   "key": "cover",
+   "title": "Fails only: deck is BKN or OVC",
+   "rule": "fails this cut and no other",
+   "n_days": 29,
+   "n_undercast": 4,
+   "days": [
+    {
+     "date": "2024-09-07",
+     "undercast": true,
+     "screen_label": "ambiguous",
+     "failed": [
+      "cover"
+     ],
+     "fields": {
+      "vis_sm": 80.0,
+      "depth_below_ft": 1288.0,
+      "overhead_ceiling_ft": 22000.0,
+      "overhead_lowest_ft": 1000.0,
+      "tops_ft": 5000.0,
+      "n_layers": 2.0,
+      "max_cover": "SCT"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-09-07_tower.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-09-21",
+     "undercast": true,
+     "screen_label": "ambiguous",
+     "failed": [
+      "cover"
+     ],
+     "fields": {
+      "vis_sm": 70.0,
+      "depth_below_ft": 2288.0,
+      "overhead_ceiling_ft": 7000.0,
+      "overhead_lowest_ft": 7000.0,
+      "tops_ft": 4000.0,
+      "n_layers": 1.0,
+      "max_cover": "SCT"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-09-21_tower.jpg",
+      "observatory": "2024-09-21_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-10-06",
+     "undercast": true,
+     "screen_label": "ambiguous",
+     "failed": [
+      "cover"
+     ],
+     "fields": {
+      "vis_sm": 110.0,
+      "depth_below_ft": 2288.0,
+      "overhead_ceiling_ft": 22000.0,
+      "overhead_lowest_ft": 22000.0,
+      "tops_ft": 4000.0,
+      "n_layers": 1.0,
+      "max_cover": "SCT"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-10-06_tower.jpg",
+      "observatory": "2024-10-06_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2025-12-16",
+     "undercast": true,
+     "screen_label": "ambiguous",
+     "failed": [
+      "cover"
+     ],
+     "fields": {
+      "vis_sm": 90.0,
+      "depth_below_ft": 1788.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 1500.0,
+      "tops_ft": 4500.0,
+      "n_layers": 2.0,
+      "max_cover": "SCT"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-12-16_tower.jpg",
+      "observatory": "2025-12-16_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-05-25",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "cover"
+     ],
+     "fields": {
+      "vis_sm": 90.0,
+      "depth_below_ft": 788.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 1000.0,
+      "tops_ft": 5500.0,
+      "n_layers": 1.0,
+      "max_cover": "FEW"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-05-25_tower.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-08-30",
+     "undercast": false,
+     "screen_label": "ambiguous",
+     "failed": [
+      "cover"
+     ],
+     "fields": {
+      "vis_sm": 80.0,
+      "depth_below_ft": 1488.0,
+      "overhead_ceiling_ft": 22000.0,
+      "overhead_lowest_ft": 8000.0,
+      "tops_ft": 4800.0,
+      "n_layers": 1.0,
+      "max_cover": "SCT"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-08-30_tower.jpg",
+      "observatory": "2024-08-30_observatory.jpg"
+     },
+     "blended": []
+    }
+   ]
+  },
+  {
+   "key": "visibility",
+   "title": "Fails only: visibility > 40 SM",
+   "rule": "fails this cut and no other",
+   "n_days": 1,
+   "n_undercast": 0,
+   "days": [
+    {
+     "date": "2025-05-16",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "visibility"
+     ],
+     "fields": {
+      "vis_sm": 2.0,
+      "depth_below_ft": 2288.0,
+      "overhead_ceiling_ft": 6000.0,
+      "overhead_lowest_ft": 6000.0,
+      "tops_ft": 4000.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "observatory": "2025-05-16_observatory.jpg"
+     },
+     "blended": []
+    }
+   ]
+  },
+  {
+   "key": "lid",
+   "title": "Fails only: no lid overhead below 5,000 ft",
+   "rule": "fails this cut and no other",
+   "n_days": 1,
+   "n_undercast": 0,
+   "days": [
+    {
+     "date": "2024-07-23",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "lid"
+     ],
+     "fields": {
+      "vis_sm": 50.0,
+      "depth_below_ft": 1788.0,
+      "overhead_ceiling_ft": 3000.0,
+      "overhead_lowest_ft": 2000.0,
+      "tops_ft": 4500.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-07-23_tower.jpg",
+      "observatory": "2024-07-23_observatory.jpg"
+     },
+     "blended": []
+    }
+   ]
+  },
+  {
+   "key": "depth",
+   "title": "Fails only: deck top >= 500 ft below the summit",
+   "rule": "fails this cut and no other",
+   "n_days": 3,
+   "n_undercast": 0,
+   "days": [
+    {
+     "date": "2024-09-24",
+     "undercast": false,
+     "screen_label": "ambiguous",
+     "failed": [
+      "depth"
+     ],
+     "fields": {
+      "vis_sm": 100.0,
+      "depth_below_ft": 388.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 15000.0,
+      "tops_ft": 5900.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-09-24_tower.jpg",
+      "observatory": "2024-09-24_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-10-24",
+     "undercast": false,
+     "screen_label": "ambiguous",
+     "failed": [
+      "depth"
+     ],
+     "fields": {
+      "vis_sm": 90.0,
+      "depth_below_ft": 488.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 18000.0,
+      "tops_ft": 5800.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-10-24_tower.jpg",
+      "observatory": "2024-10-24_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-12-31",
+     "undercast": false,
+     "screen_label": "ambiguous",
+     "failed": [
+      "depth"
+     ],
+     "fields": {
+      "vis_sm": 90.0,
+      "depth_below_ft": 488.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 13000.0,
+      "tops_ft": 5800.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-12-31_tower.jpg",
+      "observatory": "2024-12-31_observatory.jpg"
+     },
+     "blended": []
+    }
+   ]
+  },
+  {
+   "key": "lowest",
+   "title": "Fails only: lowest layer overhead >= 1,000 ft",
+   "rule": "fails this cut and no other",
+   "n_days": 9,
+   "n_undercast": 0,
+   "days": [
+    {
+     "date": "2024-07-04",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "lowest"
+     ],
+     "fields": {
+      "vis_sm": 70.0,
+      "depth_below_ft": 988.0,
+      "overhead_ceiling_ft": 15000.0,
+      "overhead_lowest_ft": 0.0,
+      "tops_ft": 5300.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-07-04_tower.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-09-13",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "lowest"
+     ],
+     "fields": {
+      "vis_sm": 50.0,
+      "depth_below_ft": 2788.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 300.0,
+      "tops_ft": 3500.0,
+      "n_layers": 2.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-09-13_tower.jpg",
+      "observatory": "2024-09-13_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-12-24",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "lowest"
+     ],
+     "fields": {
+      "vis_sm": 60.0,
+      "depth_below_ft": 788.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 0.0,
+      "tops_ft": 5500.0,
+      "n_layers": 2.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-12-24_tower.jpg",
+      "observatory": "2024-12-24_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2025-02-03",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "lowest"
+     ],
+     "fields": {
+      "vis_sm": 100.0,
+      "depth_below_ft": 2488.0,
+      "overhead_ceiling_ft": 18000.0,
+      "overhead_lowest_ft": 0.0,
+      "tops_ft": 3800.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-02-03_tower.jpg",
+      "observatory": "2025-02-03_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2025-08-31",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "lowest"
+     ],
+     "fields": {
+      "vis_sm": 130.0,
+      "depth_below_ft": 1288.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 300.0,
+      "tops_ft": 5000.0,
+      "n_layers": 2.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-08-31_tower.jpg",
+      "observatory": "2025-08-31_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2025-09-19",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "lowest"
+     ],
+     "fields": {
+      "vis_sm": 100.0,
+      "depth_below_ft": 588.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 0.0,
+      "tops_ft": 5700.0,
+      "n_layers": 1.0,
+      "max_cover": "BKN"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2025-09-19_tower.jpg",
+      "observatory": "2025-09-19_observatory.jpg"
+     },
+     "blended": []
+    }
+   ]
+  },
+  {
+   "key": "multi",
+   "title": "Rejected by more than one cut",
+   "rule": "fails two or more",
+   "n_days": 47,
+   "n_undercast": 1,
+   "days": [
+    {
+     "date": "2024-11-19",
+     "undercast": true,
+     "screen_label": "clear",
+     "failed": [
+      "depth",
+      "lowest"
+     ],
+     "fields": {
+      "vis_sm": 90.0,
+      "depth_below_ft": 488.0,
+      "overhead_ceiling_ft": "",
+      "overhead_lowest_ft": 0.0,
+      "tops_ft": 5800.0,
+      "n_layers": 1.0,
+      "max_cover": "OVC"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-11-19_tower.jpg",
+      "observatory": "2024-11-19_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-06-13",
+     "undercast": false,
+     "screen_label": "ambiguous",
+     "failed": [
+      "cover",
+      "depth"
+     ],
+     "fields": {
+      "vis_sm": 80.0,
+      "depth_below_ft": 488.0,
+      "overhead_ceiling_ft": 18000.0,
+      "overhead_lowest_ft": 1000.0,
+      "tops_ft": 5800.0,
+      "n_layers": 1.0,
+      "max_cover": "SCT"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-06-13_tower.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-06-17",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "cover",
+      "visibility",
+      "depth"
+     ],
+     "fields": {
+      "vis_sm": 40.0,
+      "depth_below_ft": 288.0,
+      "overhead_ceiling_ft": 8000.0,
+      "overhead_lowest_ft": 2000.0,
+      "tops_ft": 6000.0,
+      "n_layers": 1.0,
+      "max_cover": "FEW"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-06-17_tower.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-06-18",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "cover",
+      "visibility",
+      "lid",
+      "lowest"
+     ],
+     "fields": {
+      "vis_sm": 30.0,
+      "depth_below_ft": 788.0,
+      "overhead_ceiling_ft": 500.0,
+      "overhead_lowest_ft": 500.0,
+      "tops_ft": 5500.0,
+      "n_layers": 1.0,
+      "max_cover": "FEW"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-06-18_tower.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-07-10",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "cover",
+      "visibility",
+      "depth"
+     ],
+     "fields": {
+      "vis_sm": 25.0,
+      "depth_below_ft": 288.0,
+      "overhead_ceiling_ft": 8000.0,
+      "overhead_lowest_ft": 4000.0,
+      "tops_ft": 6000.0,
+      "n_layers": 1.0,
+      "max_cover": "FEW"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-07-10_tower.jpg",
+      "observatory": "2024-07-10_observatory.jpg"
+     },
+     "blended": []
+    },
+    {
+     "date": "2024-07-14",
+     "undercast": false,
+     "screen_label": "clear",
+     "failed": [
+      "cover",
+      "visibility",
+      "lid",
+      "lowest"
+     ],
+     "fields": {
+      "vis_sm": 0.125,
+      "depth_below_ft": 788.0,
+      "overhead_ceiling_ft": 0.0,
+      "overhead_lowest_ft": 0.0,
+      "tops_ft": 5500.0,
+      "n_layers": 1.0,
+      "max_cover": "FEW"
+     },
+     "reported_deck": true,
+     "images": {
+      "tower": "2024-07-14_tower.jpg",
+      "observatory": "2024-07-14_observatory.jpg"
+     },
+     "blended": []
+    }
+   ]
+  }
+ ]
+}

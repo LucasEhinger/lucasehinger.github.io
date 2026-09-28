@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Read one grid point out of a GRIB field, in the grid's own coordinate system.
 
-This module exists because it used to be duplicated. `weather_to_csv.py` (which
-builds the training data) and `weather_to_json.py` (which serves the live page)
-each carried their own copy of `sample_nearest`, and when the longitude bug was
-found and fixed, only one copy got the fix. The consequence was that the models
+This module exists because it used to be duplicated. The training fetch and
+`weather_to_json.py` (which serves the live page) each carried their own copy of
+`sample_nearest`, and when the longitude bug was found and fixed, only one copy
+got the fix. The consequence was that the models
 were trained on one set of numbers and served another -- the exact failure the
 duplication made invisible.
 

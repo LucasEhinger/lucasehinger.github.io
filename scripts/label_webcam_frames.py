@@ -228,6 +228,62 @@ def process(cam, srcdir, outroot, limit, dry):
     print(f"  day-steps between frames: {sorted(steps.items())[:6]}")
 
     # one output image per date: prefer the frame with the strongest vote
+    #
+    # NOTE (2026-09-28) -- this choice was CORRECTED BY HAND AFTERWARDS, and
+    # re-running this script will undo that correction.
+    #
+    # The MWOBS timelapse crossfades continuously from one day to the next, so
+    # most frames are a 50/50-ish mix of two days. "Strongest OCR vote" often
+    # lands on one of those: the caption stays legible mid-fade while the scene
+    # behind it is two days superimposed. A scan found ~half of all date images
+    # were blends (tower 291/547, observatory 255/514).
+    #
+    # They were re-selected with a one-off script (not committed) that, for each
+    # blended date:
+    #   1. found the "clean" keyframes within +/-4 frames -- a frame that is NOT
+    #      well explained as a*prev + (1-a)*next (mean |residual| >= 5 on a
+    #      320x180 greyscale copy; mid-fade frames sit near 1);
+    #   2. OCR'd each candidate's caption with BOTH tesseract and macOS Vision
+    #      (a small Swift `visocr` helper, rebuilt for this -- see VISOCR above),
+    #      and kept only candidates whose own caption reads the target date.
+    #      Picking by visual similarity instead chose the NEIGHBOURING day on 50
+    #      of 414 dates (e.g. 2025-06-29 -> a 06-30 frame), which is why the
+    #      timestamp has to confirm it;
+    #   3. swapped to the confirmed frame with the most OCR votes.
+    # Result: 211 tower + 156 observatory dates swapped; 80 + 99 kept their
+    # blended image because no clean frame could be confirmed, and are flagged.
+    #
+    # Both are recorded in the manifests, in two columns this script does not
+    # write: `reselected_from` (the frame the date used to point at) and
+    # `blended` (1 = still a crossfade; the galleries mark these with an
+    # asterisk). ocr_votes/confidence still describe the ORIGINAL pick. The
+    # replaced images and the untouched manifests are backed up under
+    # files/weather/webcam/_replaced_blended_frames/.
+    #
+    # Hand labels were NOT changed: they were scored from the best image viewed
+    # by hand, not from these files.
+    #
+    # A second pass the same day checked every date image's caption against its
+    # date. Every date this script READ was right; the misdated ones were all
+    # dates it INFERRED from neighbours (`filled` = 1): 26 of 34 tower and 18 of
+    # 46 observatory captions named a different day, typically 2-10 days off
+    # (worst -74). Every timelapse frame was then OCR'd, and for each such date:
+    #   * a frame whose caption reads that date, lying between the frames of the
+    #     nearest confirmed dates either side, was swapped in (22, each caption
+    #     checked by eye; blended ones flagged as above);
+    #   * with no such frame, the image was removed, so the galleries show no
+    #     frame that day (22) -- the original is in the backup folder;
+    #   * the 3 tower dates whose caption could not be read and had no
+    #     confirming frame were kept.
+    #   Then, where a removed image's caption named a day with no image of
+    #   its own, a clean frame of that day was filed under it (tower
+    #   2025-04-02, 2025-07-20, 2025-09-06; `date_check` = refiled). The
+    #   2025-08-08 candidate's caption is a crossfade of 07 and 08, so it
+    #   was not used.
+    # Recorded in two more columns: `date_check` (swapped / removed /
+    # unconfirmed) and `caption_read` (what the old image's caption said). The
+    # manifests from before this pass are *_manifest.before_date_fix.csv in the
+    # backup folder. Filling gaps by neighbour inference is the weak step here.
     bydate = defaultdict(list)
     for i, d in enumerate(fixed):
         if d:

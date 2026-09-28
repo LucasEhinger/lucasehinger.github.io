@@ -63,11 +63,7 @@ def main():
     raw_needed = {c for c in wanted
                   if c not in time_f and not derived.search(c)
                   and not c.endswith("_no_cloud")}
-    # build_current_features aliases the suffixed HRRR name onto the unsuffixed
-    # fetch key, which the legacy preprocessors still need under its old name.
-    aliased = ({"boundary_layer_cloud_layer_hrrr"}
-               if "boundary_layer_cloud_layer" in desired else set())
-    dropped = sorted(raw_needed - desired - aliased)
+    dropped = sorted(raw_needed - desired)
     print(f"desired_columns covers {len(raw_needed - set(dropped))}/{len(raw_needed)} "
           f"raw columns the model needs")
     if dropped:

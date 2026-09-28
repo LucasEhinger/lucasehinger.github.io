@@ -15,9 +15,14 @@ downscaled, into files/weather/examples/observations/ where it can be served.
 Selection is deliberately not "the prettiest days":
   * every hand-labeled undercast day (Avg >= 0.5)
   * a seasonal spread of clear negatives (Avg == 0)
-  * the partial-agreement days (Avg == 0.25), where one camera showed undercast
-    and the other did not -- the cases that set the ceiling on what any
+  * a spread of the low-agreement days (0 < Avg < 0.5), where the two cameras
+    were scored differently -- the cases that set the ceiling on what any
     classifier can do
+
+Every day is SHOWN as a plain two-way verdict, though: the two-camera average is
+rounded to undercast (>= 0.5) or not, the same cut the model's evaluation uses.
+The low-agreement days are still selected for being hard, but they appear as the
+negatives they are counted as, not as a third "split" category.
 
 Usage:
     python3 scripts/build_observation_gallery.py --metar-cache <dir>
@@ -59,6 +64,26 @@ def load_hand(path):
             continue
         out[d] = {"avg": avg, "tower": str(r.get("Tower", "")),
                   "obs": str(r.get("Observatory", ""))}
+    return out
+
+
+def load_blended(webcam=WEBCAM):
+    """{camera: set of dates} whose date image is a crossfade of two days.
+
+    The MWOBS timelapse dissolves continuously from one day into the next, so many
+    frames are a mix of two days. The date images were re-selected on 2026-09-28
+    to use a clean frame wherever one exists whose own burned-in timestamp reads
+    that date (see the `reselected_from` column); where none could be confirmed the
+    blended image was kept and flagged `blended = 1` in <camera>_manifest.csv.
+    The galleries mark those with an asterisk rather than hide them.
+    """
+    out = {}
+    for cam in ("tower", "observatory"):
+        path = os.path.join(webcam, f"{cam}_manifest.csv")
+        out[cam] = set()
+        if os.path.exists(path):
+            with open(path, newline="") as fh:
+                out[cam] = {r["date"] for r in csv.DictReader(fh) if r.get("blended") == "1"}
     return out
 
 
@@ -155,7 +180,8 @@ def main():
     p.add_argument("--out-img", default=OUT_IMG)
     p.add_argument("--out-json", default=OUT_JSON)
     p.add_argument("--clear", type=int, default=12, help="how many clear days")
-    p.add_argument("--partial", type=int, default=6, help="how many split-verdict days")
+    p.add_argument("--partial", type=int, default=6,
+                   help="how many low-agreement days (0 < Avg < 0.5) to include")
     p.add_argument("--dry-run", action="store_true")
     a = p.parse_args()
 
@@ -166,13 +192,14 @@ def main():
     rec = load_record(RECORD, dates)
     print(f"selected {len(chosen)} days "
           f"({sum(1 for _, k in chosen if k=='undercast')} undercast, "
-          f"{sum(1 for _, k in chosen if k=='partial')} split, "
+          f"{sum(1 for _, k in chosen if k=='partial')} low-agreement, "
           f"{sum(1 for _, k in chosen if k=='clear')} clear)")
     print(f"METAR found for {len(metar)}/{len(dates)}; "
           f"record row for {len(rec)}/{len(dates)}")
 
     if not a.dry_run:
         os.makedirs(a.out_img, exist_ok=True)
+    blended = load_blended()
     entries, skipped = [], []
     for d, kind in chosen:
         t = copy_image("tower", d, a.out_img, a.dry_run)
@@ -182,11 +209,15 @@ def main():
             continue
         m = metar.get(d, {})
         r = rec.get(d, {})
+        # Shown two-way: `kind` records why the day was SELECTED, but the viewer
+        # gets the rounded verdict, so a low-agreement day is a plain negative.
+        verdict = 1.0 if hand[d]["avg"] >= 0.5 else 0.0
         entries.append({
-            "date": d, "kind": kind,
-            "hand_avg": hand[d]["avg"],
+            "date": d, "kind": "undercast" if verdict else "clear",
+            "hand_avg": verdict,
             "hand_tower": hand[d]["tower"], "hand_obs": hand[d]["obs"],
             "tower": t, "observatory": o,
+            "blended": [c for c in ("tower", "observatory") if d in blended[c]],
             "metar": m.get("metar", ""), "local_time": m.get("local_time", ""),
             "screen": r.get("label", ""), "vis_sm": r.get("vis_sm", ""),
             "max_cover": r.get("max_cover", ""), "tops_ft": r.get("tops_ft", ""),
@@ -209,9 +240,9 @@ def main():
     with open(a.out_json, "w") as fh:
         json.dump({"generated": datetime.now().strftime("%Y-%m-%d"),
                    "entries": entries}, fh, indent=1)
-    mb = sum(os.path.getsize(os.path.join(a.out_img, f))
-             for f in os.listdir(a.out_img)) / 1e6
-    print(f"wrote {a.out_json} and {len(entries)*2} images ({mb:.1f} MB)")
+    imgs = [e[c] for e in entries for c in ("tower", "observatory") if e[c]]
+    mb = sum(os.path.getsize(os.path.join(a.out_img, f)) for f in imgs) / 1e6
+    print(f"wrote {a.out_json} and {len(imgs)} images ({mb:.1f} MB)")
 
 
 if __name__ == "__main__":

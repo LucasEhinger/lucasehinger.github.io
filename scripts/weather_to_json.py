@@ -13,6 +13,7 @@ import pandas as pd
 import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
+import time
 import warnings
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -56,22 +57,15 @@ LOCATIONS = [
     {"name": "MtWashington", "lat": 44.27040, "lon": -71.30327},
 ]
 
-# Two models are served from this file at once, and the variable names below have
-# to satisfy both.
-#
-# The LEGACY models (files/weather/models/) were fitted on the unsuffixed name
-# "boundary_layer_cloud_layer", so renaming it here would make them throw on a
-# missing column. The CURRENT model (files/weather/models/obs/) was trained on
-# "boundary_layer_cloud_layer_hrrr". Rather than rename and break one side, the
-# fetch key stays as it is and build_current_features() aliases the suffixed name
-# onto it -- the two are the same field, fetched with identical GRIB aliases.
-#
-# "hgt_925mb_hrrr" (HRRR "prs" product only) and "boundary_layer_cloud_layer_nam"
-# (NAM never publishes it) are kept purely because the legacy preprocessors expect
-# the columns to exist. The current model does not use either.
+# Everything fetched for the live page: the fields the model needs (its training
+# list is scripts/nwp_fields.py; test_serving_features.py checks this one still
+# covers it) plus fields that are only plotted under "Individual Parameters" on
+# /weather/. "hgt_925mb_hrrr" (HRRR "prs" product only) and
+# "boundary_layer_cloud_layer_nam" (NAM never publishes it) are in the second
+# group: plotted, not used by the model.
 variables = {
     "cloud_top_hrrr": {"aliases": ["cloudTop", "nominalTop", "RETOP"], "model": "hrrr"},
-    "boundary_layer_cloud_layer": {
+    "boundary_layer_cloud_layer_hrrr": {
         "aliases": [
             "boundaryLayerCloudLayer",
             "TCDC:boundary layer cloud layer",
@@ -302,16 +296,89 @@ variables = {
 }
 
 
+# Retrieval is two different network operations with two different meanings, so
+# they get their own retry budgets. The index is small and cheap; the subset is a
+# byte-range read of the GRIB itself and is what buckles under load.
+INVENTORY_RETRIES = 3
+SUBSET_RETRIES = 3
+RETRY_BACKOFF_S = 1.5
+
+
+def _inventory_with_retry(hobj, tries=INVENTORY_RETRIES):
+    """This file's index, or None if the host would not serve it.
+
+    Kept separate from the subset download because losing the index is worse
+    than losing a field: without it there is no way to tell a field the product
+    does not publish from one the host refused, and the honest report is then
+    "failed", not "absent".
+    """
+    for attempt in range(tries):
+        try:
+            inv = hobj.inventory()
+            if inv is not None and len(inv):
+                return inv
+        except Exception:
+            pass
+        if attempt + 1 < tries:
+            time.sleep(RETRY_BACKOFF_S * (2 ** attempt))
+    return None
+
+
 def try_load(candidates, hobj=None):
-    """Try each candidate name with H.xarray and return the first successful DataArray."""
+    """Load the first candidate name this file actually carries.
+
+    Returns (DataArray, used_name, status), where status is one of:
+
+      "ok"      -- loaded.
+      "absent"  -- the index was read and carries none of these names. A real
+                   statement about the product: NBM stops publishing ceiling
+                   past 78 h, ECMWF never carries CAPE at all.
+      "failed"  -- the index says the field is in this file (or the index itself
+                   could not be read) and the download still did not produce it.
+
+    Telling those two apart is the entire point of this function. The previous
+    version caught every exception and returned None, so a throttled byte-range
+    request was indistinguishable from a field the model does not publish -- and
+    since absent columns are legal, the row gate quietly dropped whole forecast
+    hours instead of reporting a fetch problem. Measured on the 2026-09-15 12Z
+    run: pulled on its own, ECMWF returned 22 of 23 columns at F6, F12, F33 and
+    F60, and its index lookups were 47/47 clean; in the parallel fetch the same
+    hours came back with none. Nothing in the logs could distinguish that from
+    ECMWF simply not publishing those fields.
+
+    A name present in the index but failing to download falls through to the next
+    alias rather than failing outright, because the aliases are alternate spellings
+    of the same quantity and a different GRIB message may well read cleanly.
+    """
+    inv = _inventory_with_retry(hobj)
+    if inv is None:
+        return None, None, "failed"
+    try:
+        haystack = inv["search_this"].astype(str)
+    except Exception:
+        return None, None, "failed"
+
+    # Herbie matches these as regexes, so search the index the same way it does.
+    saw_candidate = False
     for name in candidates:
         try:
-            da = hobj.xarray(name)
-            if da is not None:
-                return da, name
-        except Exception:
+            present = bool(haystack.str.contains(name, regex=True, na=False).any())
+        except re.error:
+            present = False
+        if not present:
             continue
-    return None, None
+        saw_candidate = True
+        for attempt in range(SUBSET_RETRIES):
+            try:
+                da = hobj.xarray(name)
+                if da is not None:
+                    return da, name, "ok"
+            except Exception:
+                pass
+            if attempt + 1 < SUBSET_RETRIES:
+                time.sleep(RETRY_BACKOFF_S * (2 ** attempt))
+
+    return None, None, "failed" if saw_candidate else "absent"
 
 
 # How far back to look for a run that has actually published, and the maximum
@@ -322,7 +389,13 @@ def try_load(candidates, hobj=None):
 # of nulls. The combined model then ran on five sources where it was trained on
 # six.
 MAX_RUN_LOOKBACK_H = 30
-MODEL_MAX_LEAD_H = {"hrrr": 48, "rap": 51, "nam": 84, "gfs": 384, "ifs": 144, "nbm": 264}
+# NAM is 60, not its documented 84: the product Herbie serves stops at F60 (probed
+# 2026-09-28 against the 06Z run -- F60 present, F61/63/66/72/84 absent), which is
+# also why training's SOURCE_MAX_LEAD_H has it at 60. At 84 this was wrong twice:
+# a NAM run fetched a cycle back was asked for F61-F66 and lost them silently, and
+# the end-of-run check (PROBE_AT_END) asked every older run for a nonexistent F66+
+# and so found no NAM run at all.
+MODEL_MAX_LEAD_H = {"hrrr": 48, "rap": 51, "nam": 60, "gfs": 384, "ifs": 144, "nbm": 264}
 # How far back to step while hunting for a usable run, per model. Six hours is
 # the sensible default because the base grid is 6-hourly -- but RAP is the
 # exception that matters: its 00/06/12/18Z cycles stop at 21 h and only the
@@ -333,8 +406,50 @@ MODEL_MAX_LEAD_H = {"hrrr": 48, "rap": 51, "nam": 84, "gfs": 384, "ifs": 144, "n
 # forecast hour is shifted by whatever the offset turns out to be.
 RUN_STEP_H = {"rap": 3}
 
+# Models whose run check asks for the LAST hour the fetch will need, not a middling
+# one. A middling probe answers "has this run started publishing?", and ECMWF open
+# data publishes a run progressively over the better part of an hour: on the
+# 2026-09-28 06Z run, a fetch at 13:36 UTC passed an F18 probe, then lost 632 of
+# 1,127 ECMWF requests (56%) to hours not yet uploaded -- all 49 were present by
+# 14:00. ECMWF is required at every lead, so that took the panel from ~45 hours
+# to 20. Runs upload in lead order, so the last hour being present means the run
+# is complete for this fetch.
+#
+# Simply raising the probe would not do it. resolve_run adds the offset to the
+# probe, so an F138 probe asks the run 12 h back for F150 -- past ECMWF's 144 h
+# reach -- and only two candidates would ever be eligible: the same one-candidate
+# trap RAP fell into. The probe is therefore capped at the product maximum (the
+# ask_cap argument), so every older run is asked for the end of ITS reach and
+# stays eligible; the usual fxx + offset <= cap filter then trims the hours an
+# older run cannot supply.
+#
+# Applied to EVERY model. It started as ECMWF-only, on the argument that checking
+# the end costs freshness (a run is accepted later, so a model falls back a cycle
+# more often) and that nothing else had shown the failure. The very next fetch
+# disproved that: at 14:21 UTC NAM's 12Z run passed its F18 probe with F44-F60 still
+# unpublished, lost 504 of 984 requests (51%), and since NAM is required below 60 h
+# it blanked every hour from 30 h to 60 h. A forecast one cycle older is a far
+# smaller cost than a hole in the panel. For RAP this also subsumes the probe
+# ladder: every candidate is asked for F51, which the short 00/06/12/18Z cycles
+# never publish, so they are rejected and all the long cycles stay eligible.
+PROBE_AT_END = {"hrrr", "gfs", "nam", "rap", "ifs", "nbm"}
 
-def resolve_run(model, date_str, probe_fxx, max_back_h=MAX_RUN_LOOKBACK_H, step_h=None):
+
+# Herbie's own source order, per model. Every GRIB model here already prefers
+# AWS -- except NBM, whose default is ['nomads', 'aws'], and NOMADS rate-limits.
+# Measured on the 2026-09-15 12Z run: 20 of 65 NBM index lookups failed against
+# NOMADS and 1 of 65 against AWS, and each miss is silent, because try_load
+# cannot tell "this variable is not in the file" from "this request was
+# refused". That is what holed the panel past 78 h: NBM is required at every
+# lead, and losing a random third of its columns pushed it under
+# MIN_SOURCE_POPULATED at hours where the fields were demonstrably published.
+# The same lookups against AWS give 23/23 columns to 36 h, 18/23 to 78 h and
+# 9/23 to 144 h -- above the gate everywhere.
+_priority = {"nbm": ["aws", "nomads"]}
+
+
+def resolve_run(model, date_str, probe_fxx, max_back_h=MAX_RUN_LOOKBACK_H, step_h=None,
+                fallback=True, ask_cap=None):
     """The most recent run of `model` that has actually published IN FULL.
 
     Returns (run_date_str, offset_hours). An offset of 6 means "this model's
@@ -350,6 +465,13 @@ def resolve_run(model, date_str, probe_fxx, max_back_h=MAX_RUN_LOOKBACK_H, step_
 
     Availability is decided by whether Herbie can locate the GRIB, not by
     downloading it -- one cheap index lookup per model rather than per hour.
+
+    `ask_cap`, when given, caps the hour asked of each candidate at the product's
+    maximum lead instead of letting probe + offset run past it. With the probe set
+    to the LAST hour the fetch needs, that turns the check into "has this run
+    finished uploading everything we are about to ask of it?" -- and, because the
+    cap keeps every older run's ask inside its reach, every candidate stays
+    eligible rather than only the first one or two (see PROBE_AT_END).
     """
     base = datetime.strptime(date_str, "%Y-%m-%d %H:%M")
     _products = {"hrrr": "sfc", "ifs": "oper", "nbm": "co"}
@@ -361,7 +483,9 @@ def resolve_run(model, date_str, probe_fxx, max_back_h=MAX_RUN_LOOKBACK_H, step_
                 run.strftime("%Y-%m-%d %H:%M"),
                 model=model,
                 product=_products.get(model),
-                fxx=probe_fxx + offset,
+                fxx=(probe_fxx + offset if ask_cap is None
+                     else min(probe_fxx + offset, ask_cap)),
+                priority=_priority.get(model),
                 verbose=False,
             )
             if getattr(h, "grib", None):
@@ -371,6 +495,11 @@ def resolve_run(model, date_str, probe_fxx, max_back_h=MAX_RUN_LOOKBACK_H, step_
                 return run.strftime("%Y-%m-%d %H:%M"), offset
         except Exception:
             continue
+    if not fallback:
+        # The caller wants to try a different probe rather than accept the base
+        # time. Silent, because "this probe found nothing" is only news once the
+        # whole ladder has failed.
+        return None
     print(f"  {model}: no published run found within {max_back_h} h; "
           f"falling back to the base time and accepting the misses")
     return date_str, 0
@@ -398,6 +527,7 @@ def process_forecast_data(args):
                     model=model,
                     product=_products.get(model),
                     fxx=run_fxx,
+                    priority=_priority.get(model),
                     save_dir=tmp,
                 )
             except Exception as e:
@@ -433,17 +563,23 @@ def process_forecast_data(args):
                     candidates["aliases"] = processed
 
                     try:
-                        da, used_name = try_load(candidates["aliases"], h)
+                        da, used_name, status = try_load(candidates["aliases"], h)
                     except Exception as e:
                         results[lname][label] = {
                             "error": f"Connection error: {type(e).__name__}",
+                            "status": "failed",
                             "tried": candidates["aliases"],
                         }
                         continue
 
                     if da is None:
+                        # "absent" is a fact about the product and belongs in the
+                        # data as a gap; "failed" is a fact about this fetch and
+                        # needs to be visible, or it gets counted as a gap too.
                         results[lname][label] = {
-                            "error": "could not load variable",
+                            "error": ("not published in this file" if status == "absent"
+                                      else "retrieval failed"),
+                            "status": status,
                             "tried": candidates["aliases"],
                         }
                         continue
@@ -452,9 +588,11 @@ def process_forecast_data(args):
                     lon = loc.get("lon")
                     try:
                         value = sample_nearest(da, lat, lon)
-                        results[lname][label] = {"variable": used_name, "value": value}
+                        results[lname][label] = {"variable": used_name, "value": value,
+                                                 "status": "ok"}
                     except Exception as exc:
-                        results[lname][label] = {"variable": used_name, "error": str(exc)}
+                        results[lname][label] = {"variable": used_name, "error": str(exc),
+                                                 "status": "failed"}
 
                     try:
                         if hasattr(da, "close"):
@@ -552,11 +690,6 @@ def build_current_features(weather_df, date_str):
     valid = pd.to_datetime(valid, utc=True)
 
     raw = weather_df.drop(columns=["fxx", "month", "day"], errors="ignore").copy()
-    # Same field, two names: the legacy preprocessors want the unsuffixed one,
-    # this model was trained on the suffixed one. Fetched with identical aliases.
-    if "boundary_layer_cloud_layer" in raw.columns:
-        raw["boundary_layer_cloud_layer_hrrr"] = raw["boundary_layer_cloud_layer"]
-
     out = pd.DataFrame(time_features(valid), index=raw.index)
     built = normalize_weather_columns(raw, list(raw.columns))
     out = pd.concat([out, pd.DataFrame(built, index=raw.index)], axis=1)
@@ -591,16 +724,13 @@ def _lead_threshold(meta_algo, lead_h):
 def predict_current_model(weather_df, date_str, max_fxx=None):
     """Undercast probability and call per forecast hour, from the current model.
 
-    Deliberately additive: the legacy per-source, per-algorithm outputs are left
-    exactly as they were, so nothing that exists today can break if this path
-    fails. It raises on any problem and the caller drops the key.
+    Raises on any problem; the caller then publishes status "unavailable".
 
     `max_fxx=None` means the model's own trained leads decide how far it publishes,
-    which is the only ceiling that should exist. It used to be passed the minimum
-    of three legacy per-source fetch grids -- 48 h -- which silently outranked the
-    model: after the ladder retrain raised its reach to 144 h, every hour past 48
-    was still nulled here. The argument is kept for tests that need to pin a
-    ceiling explicitly.
+    which is the only ceiling that should exist. A hard-coded 48 h here once
+    silently outranked the model: after the ladder retrain raised its reach to
+    144 h, every hour past 48 was still nulled. The argument is kept for tests
+    that need to pin a ceiling explicitly.
     """
     import joblib
     import numpy as np
@@ -799,7 +929,7 @@ def results_to_dataframe(results, locations, date_str):
     desired_columns = [
         "fxx",
         "cloud_top_hrrr",
-        "boundary_layer_cloud_layer",
+        "boundary_layer_cloud_layer_hrrr",
         "low_cloud_layer_percent_hrrr",
         "middle_cloud_layer_percent_hrrr",
         "high_cloud_layer_percent_hrrr",
@@ -954,14 +1084,13 @@ def results_to_dataframe(results, locations, date_str):
 # Herbie's name for each source, against the name the training code uses.
 HERBIE_NAME = {"hrrr": "hrrr", "rap": "rap", "nam": "nam",
                "gfs": "gfs", "ecmwf": "ifs", "nbm": "nbm"}
-# How far each source was fetched BEFORE long leads were served. Out to here the
-# grid is left exactly as it was, because the legacy per-source panels read the
-# same lists and none of them should move; past here it goes 3-hourly. Kept as
-# explicit history rather than a single NEAR_H, because the cadences differ: GFS
-# was already 2-hourly out to 120 h and NAM to 60, so a flat 48 h boundary would
-# have QUIETLY DROPPED their odd hours (50, 52, 56, 58...) while appearing to add
+# How far each source is fetched at its full near-range cadence (2- and 3-hourly);
+# past here it goes 3-hourly. The "Individual Parameters" plots on /weather/ read
+# these hours. Per source rather than a single NEAR_H, because the cadences
+# differ: GFS is 2-hourly out to 120 h and NAM to 60, so a flat 48 h boundary
+# would QUIETLY DROP their odd hours (50, 52, 56, 58...) while appearing to add
 # reach. Caught by asserting no source loses an hour; see test_serving_reach.py.
-LEGACY_LAST_H = {"hrrr": 48, "rap": 48, "nam": 60, "gfs": 120,
+NEAR_LAST_H = {"hrrr": 48, "rap": 48, "nam": 60, "gfs": 120,
                  "ecmwf": 48, "nbm": 48}
 
 
@@ -1007,13 +1136,13 @@ def forecast_hour_grids(horizon=None):
 
     grids = {}
     for src, herbie in HERBIE_NAME.items():
-        legacy = LEGACY_LAST_H[src]
+        near_last = NEAR_LAST_H[src]
         reach = SOURCE_MAX_LEAD_H[src]
         # GFS and NAM keep their full product grids whatever the model's horizon:
-        # the legacy per-source panels read these same lists and must not shrink.
+        # the parameter plots read these same lists and must not shrink.
         if src not in ("gfs", "nam"):
             reach = int(min(reach, horizon))
-        near = min(reach, legacy)
+        near = min(reach, near_last)
         if src == "ecmwf":
             hours = set(range(0, near + 1, 3))  # IFS is 3-hourly throughout
         else:
@@ -1110,9 +1239,39 @@ if __name__ == "__main__":
         # exactly this: the probe went to 51, every candidate asked for 54+ h, and
         # "no published run found within 30 h" left RAP empty for the whole run.
         step = RUN_STEP_H.get(model, 6)
-        probe = min(probe, MODEL_MAX_LEAD_H.get(model, 48) - step)
-        run_date, offset = resolve_run(model, date_str, probe_fxx=probe)
         cap = MODEL_MAX_LEAD_H.get(model, 48)
+        probe = min(probe, cap - step)
+        # RAP gets a LADDER of probes, not one. The base time is always a multiple
+        # of six, so it is always one of the short 00/06/12/18Z cycles, which stop
+        # at 21 h -- offset 0 can therefore never legitimately satisfy an F48 probe.
+        # And resolve_run adds the offset to the probe, so 48 + 9 already exceeds
+        # RAP's 51 h reach: of the eleven offsets tried, exactly ONE (offset 3) can
+        # ever succeed. When that single run has not published to F51 yet, the loop
+        # falls through to the base time -- a short cycle -- and RAP goes empty from
+        # 22 h up, taking the whole near-term panel with it, because RAP is required
+        # below 51 h.
+        #
+        # Probing down a ladder keeps the older long cycles reachable. Each rung
+        # still has to clear 21 h, so short cycles are still rejected; a lower rung
+        # just settles for a staler run that covers less. F24 admits offsets 3, 9,
+        # 15, 21 and 27 -- five candidates instead of one -- and the fxx cap below
+        # then trims whatever that run cannot reach.
+        probes = [probe] if model != "rap" else [probe, 24]
+        # ...and a model in PROBE_AT_END is checked at the end of what it will be
+        # asked for, which replaces the middling probe entirely (see below).
+        ask_cap = None
+        if model in PROBE_AT_END:
+            probes, ask_cap = [max(fxx_list)], cap
+        resolved = None
+        for rung in probes:
+            resolved = resolve_run(model, date_str, probe_fxx=rung,
+                                   fallback=(rung == probes[-1]), ask_cap=ask_cap)
+            if resolved:
+                if rung != probes[0]:
+                    print(f"  {model}: no run covers F{probes[0]}; settled for one "
+                          f"published to F{rung}")
+                break
+        run_date, offset = resolved
         kept = [f for f in fxx_list if f + offset <= cap]
         if len(kept) < len(fxx_list):
             print(f"  {model}: dropped {len(fxx_list) - len(kept)} hours that would "
@@ -1147,6 +1306,32 @@ if __name__ == "__main__":
             print(f"\rProgress: {pct:3d}%", end="", flush=True)
 
         print()
+
+    # What try_load now distinguishes, reported. Without this the distinction is
+    # invisible and a throttled host still reads as a short model: "absent" is the
+    # product not publishing a field at this hour, which is legitimate and shows up
+    # as a gap; "failed" is this fetch losing a field the index said was there, and
+    # is a problem with the run rather than with the data.
+    status_tally = {}
+    for loc_data in results.values():
+        for label, per_fxx in loc_data.items():
+            model_name = str(variables.get(label, {}).get("model") or "?")
+            counts = status_tally.setdefault(model_name,
+                                             {"ok": 0, "absent": 0, "failed": 0})
+            for data in per_fxx.values():
+                st = (data or {}).get("status")
+                if st in counts:
+                    counts[st] += 1
+    print("Retrieval by model (ok / absent from the file / failed to download):")
+    for model_name in sorted(status_tally):
+        counts = status_tally[model_name]
+        total = sum(counts.values())
+        if not total:
+            continue
+        note = (f"   <-- {100 * counts['failed'] / total:.0f}% of requests lost"
+                if counts["failed"] else "")
+        print(f"  {model_name:6s} {counts['ok']:5d} ok  {counts['absent']:5d} absent  "
+              f"{counts['failed']:5d} failed{note}")
 
     # Save JSON files
     json_outdir = Path("files/weather")
@@ -1213,151 +1398,19 @@ if __name__ == "__main__":
             json.dump(_clean_for_json(json_results), f, indent=2)
         print(f"Saved results for {lname} to {json_path}")
 
-    # ML model loading and prediction
-    import joblib
-    import xgboost as xgb
-
-    ml_models = {"gfs", "hrrr", "nam", "rap", "ecmwf", "nbm", "all"}
-    # ml_models = {"nam", "all"}
-
-    # ml_models = {"all"}  # For testing purposes, only use "All" model
-    # Accumulate all predictions in a single output
+    # The forecast itself: one model, chosen by measurement (see
+    # predict_current_model).
     predictions_output = {
         "date_str": date_str,
         "run_time": datetime.now().astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M"),
     }
 
-    for ml_model in ml_models:
-
-        preprocess = joblib.load(f"files/weather/models/preprocessor_{ml_model}.pkl")
-        xgb_model = xgb.XGBClassifier()
-        xgb_model.load_model(f"files/weather/models/xgboost_best_f1_{ml_model}.json")
-        rf_model = joblib.load(f"files/weather/models/random_forest_best_f1_{ml_model}.pkl")
-        gb_model = joblib.load(f"files/weather/models/gradient_boosting_best_f1_{ml_model}.pkl")
-
-        with open(f"files/weather/models/model_metadata_{ml_model}.json") as f:
-            metadata = json.load(f)
-
-        weather_df = results_to_dataframe(results, [LOCATIONS[0]], date_str)
-        X_new = weather_df.drop(columns=["fxx"], errors="ignore")
-        if ml_model != "all":
-            model_suffix = ml_model.lower()
-            X_new = X_new[
-                [
-                    col
-                    for col in X_new.columns
-                    if col.endswith(f"_{model_suffix}") or col in ["month", "day"]
-                ]
-            ]
-        # Align to exactly the features the preprocessor was fit on. This makes the
-        # prediction robust whether the loaded model predates or postdates the
-        # ECMWF/NBM columns: unknown extras are dropped, features the model expects
-        # but that are absent become NaN (and are imputed downstream).
-        if hasattr(preprocess, "feature_names_in_"):
-            X_new = X_new.reindex(columns=list(preprocess.feature_names_in_))
-        X_new_preprocessed = preprocess.transform(X_new)
-
-        # Make predictions with all three models using their optimal thresholds
-        def _proba_from_model(model, X):
-            """Return probability-like scores for binary classification."""
-            if hasattr(model, "predict_proba"):
-                return model.predict_proba(X)[:, 1]
-            if hasattr(model, "decision_function"):
-                scores = model.decision_function(X)
-                return 1 / (1 + np.exp(-scores))
-            # Fallback: use predict outputs directly (assumed to be probability/regression scores)
-            preds = model.predict(X)
-            return np.clip(preds, 0, 1)
-
-        predictions = {}
-
-        # XGBoost
-        xgb_proba = _proba_from_model(xgb_model, X_new_preprocessed)
-        predictions["XGBoost"] = (xgb_proba >= metadata["XGBoost"]["threshold_best_f1"]).astype(int)
-
-        # Random Forest
-        rf_proba = _proba_from_model(rf_model, X_new_preprocessed)
-        predictions["Random Forest"] = (
-            rf_proba >= metadata["Random Forest"]["threshold_best_f1"]
-        ).astype(int)
-
-        # Gradient Boosting
-        gb_proba = _proba_from_model(gb_model, X_new_preprocessed)
-        predictions["Gradient Boosting"] = (
-            gb_proba >= metadata["Gradient Boosting"]["threshold_best_f1"]
-        ).astype(int)
-
-        # Create results DataFrame
-        results_df = pd.DataFrame(predictions)
-        results_df["consensus"] = (results_df.sum(axis=1) >= 2).astype(
-            int
-        )  # Majority vote (2+ models agree)
-
-        print(results_df.head())
-
-        xgboost_x = []
-        xgboost_y = []
-        rf_x = []
-        rf_y = []
-        gb_x = []
-        gb_y = []
-        consensus_x = []
-        consensus_y = []
-
-        # Determine max FXX for this model
-        if ml_model == "hrrr":
-            max_fxx = max(FXX_LIST)
-        elif ml_model == "gfs":
-            max_fxx = max(FXX_LIST_GFS)
-        elif ml_model == "nam":
-            max_fxx = max(FXX_LIST_NAM)
-        else:  # "all"
-            max_fxx = min(max(FXX_LIST), max(FXX_LIST_GFS), max(FXX_LIST_NAM))
-
-        for idx, row in results_df.iterrows():
-            fxx = weather_df.iloc[idx]["fxx"] if idx < len(weather_df) else idx
-            fxx_int = int(fxx)
-
-            # Check if fxx exceeds the model's max forecast hour
-            if fxx_int > max_fxx:
-                xgboost_val = None
-                rf_val = None
-                gb_val = None
-                consensus_val = None
-            else:
-                xgboost_val = int(row["XGBoost"])
-                rf_val = int(row["Random Forest"])
-                gb_val = int(row["Gradient Boosting"])
-                consensus_val = int(row["consensus"])
-
-            xgboost_x.append(fxx_int)
-            xgboost_y.append(xgboost_val)
-
-            rf_x.append(fxx_int)
-            rf_y.append(rf_val)
-
-            gb_x.append(fxx_int)
-            gb_y.append(gb_val)
-
-            consensus_x.append(fxx_int)
-            consensus_y.append(consensus_val)
-
-        predictions_output[f"XGBoost_{ml_model}"] = {"x": xgboost_x, "y": xgboost_y}
-        predictions_output[f"Random Forest_{ml_model}"] = {"x": rf_x, "y": rf_y}
-        predictions_output[f"Gradient Boosting_{ml_model}"] = {"x": gb_x, "y": gb_y}
-        predictions_output[f"consensus_{ml_model}"] = {"x": consensus_x, "y": consensus_y}
-
-    # The headline forecast: one model, chosen by measurement (see
-    # predict_current_model). Added ALONGSIDE the legacy outputs above rather
-    # than replacing them, and wrapped, so that a failure here -- a missing
-    # artifact, a renamed column, an unreadable GRIB -- costs the page its
-    # headline panel and nothing else. The front end hides the panel when the
-    # key is absent, which is the correct behaviour for "we do not know".
+    # Wrapped, so that a failure here -- a missing artifact, a renamed column,
+    # an unreadable GRIB -- costs the page its forecast panel and nothing else:
+    # the weather data above is already saved.
     try:
         weather_df = results_to_dataframe(results, [LOCATIONS[0]], date_str)
-        # No max_fxx: the model's trained leads are the ceiling. Passing the
-        # legacy grids' minimum here capped the panel at 48 h no matter what the
-        # model could do.
+        # No max_fxx: the model's trained leads are the ceiling.
         predictions_output["current"] = predict_current_model(weather_df, date_str)
         print("[current model] published as predictions_all.json['current']")
     except Exception as exc:

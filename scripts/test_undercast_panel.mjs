@@ -28,8 +28,14 @@ const grab = (name) => {
 const code = grab('parseRunTimeUTC') + '\n' + grab('renderUndercastHeadline');
 
 // minimal DOM
-const mk = (id) => ({ id, hidden:false, textContent:'', innerHTML:'', style:{}, title:'',
-  className:'', classList:{ toggle(c,on){ this._[c]=on; }, _:{} },
+const mk = (id) => ({ id, hidden:false, textContent:'', innerHTML:'', title:'',
+  // style carries setProperty because the strip sets --uh-line-pct through it;
+  // a bare object silently lacks the method and the render throws.
+  style:{ _props:{}, setProperty(k,v){ this._props[k]=v; },
+          getPropertyValue(k){ return this._props[k]; } },
+  className:'', classList:{ toggle(c,on){ this._[c]=on; },
+    add(c){ this._[c]=true; }, remove(c){ this._[c]=false; },
+    contains(c){ return !!this._[c]; }, _:{} },
   children:[], appendChild(c){ this.children.push(c); if(c.textContent) this.textContent += c.textContent; } });
 const nodes = {}; ['undercast-headline','uh-verdict','uh-when','uh-strip','uh-axis','uh-foot'].forEach(i=>nodes[i]=mk(i));
 global.document = { getElementById:(i)=>nodes[i]||null,
@@ -115,18 +121,31 @@ run('holed long-lead series', { current: holed, date_str: holed.date_str }, '1')
                 `gaps; expected 16 and 7 (a uniform 3 h grid from 3 h to 48 h)`);
     process.exit(1);
   }
-  // Height cannot be the distinguishing mark: bars are normalised to the run's
-  // peak, so the most likely hour is legitimately full height too. What separates a
-  // gap is the class (a transparent hatch rather than a solid fill) and a title that
-  // says no forecast rather than a percentage.
+  // A gap must draw NOTHING -- zero height, no fill, no tooltip. It still has to
+  // exist as an element, because the bars share the strip width as flex siblings
+  // and dropping one slides every later hour out from under its own axis tick.
+  // Height alone cannot identify a gap (a quiet hour is legitimately short), so
+  // the class carries the meaning and the other three properties are the contract.
   const badGap = kids.find(
     (b) => /uh-gap/.test(b.className) &&
-           (/uh-hit/.test(b.className) || !/no forecast/.test(b.title || ''))
+           (/uh-hit/.test(b.className) ||
+            (b.title || '') !== '' ||
+            String(b.style.height) !== '0')
   );
   if (badGap) {
-    console.log(`\nFAIL: a no-forecast gap is styled or labelled as a forecast: ` +
-                `class="${badGap.className}" title="${badGap.title}"`);
+    console.log(`\nFAIL: a no-forecast gap draws something: ` +
+                `class="${badGap.className}" height="${badGap.style.height}" ` +
+                `title="${badGap.title}"`);
     process.exit(1);
   }
-  console.log('   ok     : 16 uniform slots, 7 drawn as explicit no-forecast gaps');
+  // ...and a published hour must still draw something, or "empty gap" would pass
+  // trivially by rendering an empty strip.
+  const drawn = kids.filter((b) => !/uh-gap/.test(b.className));
+  const badBar = drawn.find((b) => !/%$/.test(String(b.style.height)));
+  if (drawn.length !== 9 || badBar) {
+    console.log(`\nFAIL: expected 9 drawn bars with percentage heights; got ` +
+                `${drawn.length}` + (badBar ? ` and one at height "${badBar.style.height}"` : ''));
+    process.exit(1);
+  }
+  console.log('   ok     : 16 uniform slots, 9 drawn, 7 left blank but still spacing the grid');
 }

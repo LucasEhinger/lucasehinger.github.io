@@ -48,8 +48,8 @@ import weather_to_json as wj  # noqa: E402
 from train_undercast_obs import SOURCE_MAX_LEAD_H, sources_expected_at  # noqa: E402
 
 
-def legacy_grid(src, last):
-    """What this source was fetched at before long leads were served."""
+def near_grid(src, last):
+    """The dense near-range hours the parameter plots on /weather/ read."""
     if src == "ecmwf":
         return sorted(range(0, last + 1, 3))  # IFS open data is 3-hourly
     return sorted(set(range(0, last + 1, 2)) | set(range(0, last + 1, 3)))
@@ -69,9 +69,9 @@ def main():
     fail = []
 
     # --- property 3 first: it is the one a careless edit trips ----------------
-    print("source | hours  max   lost vs the legacy grid")
+    print("source | hours  max   lost vs the near-range grid")
     for src, hours in by_src.items():
-        was = legacy_grid(src, wj.LEGACY_LAST_H[src])
+        was = near_grid(src, wj.NEAR_LAST_H[src])
         lost = sorted(set(was) - set(hours))
         print(f"{src:6s} | {len(hours):5d} {max(hours):4d}   {lost or '-'}")
         if lost:
@@ -92,10 +92,10 @@ def main():
         if short:
             fail.append(f"lead {lead:.0f} h: trained, but {','.join(short)} "
                         f"is not fetched that far")
-        # Past the legacy boundary an hour has to be hit exactly to be published:
+        # Past the near-range boundary an hour has to be hit exactly to be published:
         # there is no denser neighbour to interpolate a forecast from, only a
         # threshold. Inside it, 0/2/3-hourly sampling brackets every lead.
-        if lead > max(wj.LEGACY_LAST_H.values()) and len(exact) < len(need):
+        if lead > max(wj.NEAR_LAST_H.values()) and len(exact) < len(need):
             fail.append(f"lead {lead:.0f} h: past the dense part of the grid and "
                         f"not fetched exactly by {set(need) - set(exact)}")
 
@@ -128,13 +128,13 @@ def main():
             fail.append(f"{src}: asks for {skew} past the {train_cap} h the model "
                         f"was TRAINED to expect it at -- train/serve skew")
 
-    # Past the legacy boundary only multiples of three can ever be published,
+    # Past the near-range boundary only multiples of three can ever be published,
     # because every long lead expects ECMWF and ECMWF is 3-hourly.
     for src, hours in by_src.items():
         stray = [h for h in hours
-                 if h > wj.LEGACY_LAST_H[src] and h % 3 != 0]
+                 if h > wj.NEAR_LAST_H[src] and h % 3 != 0]
         if stray:
-            fail.append(f"{src}: fetches {stray} past {wj.LEGACY_LAST_H[src]} h, "
+            fail.append(f"{src}: fetches {stray} past {wj.NEAR_LAST_H[src]} h, "
                         f"which can never carry ECMWF and so can never publish")
 
     # --- property 1: no ceiling below the model's, with DEFAULT arguments -----

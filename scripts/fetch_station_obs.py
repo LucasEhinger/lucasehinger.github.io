@@ -28,7 +28,7 @@ Outputs (under files/weather/obs/):
 
 Both carry the undercast label for that date: undercast_tower / undercast_observatory
 / undercast_avg (raw 0/0.25/0.5/0.75/1 as scored) and is_undercast (avg >= 0.5,
-matching train_undercast_models.py).
+the same cut the model evaluation uses).
 
 Usage:
     python3 scripts/fetch_station_obs.py --sources iem ncei
@@ -129,7 +129,7 @@ def load_labels(path):
                 "undercast_tower": row.get("Tower", "").strip(),
                 "undercast_observatory": row.get("Observatory", "").strip(),
                 "undercast_avg": "" if avg is None else avg,
-                # Matches train_undercast_models.py: y = (is_undercast >= 0.5)
+                # Same cut as the model evaluation: undercast if avg >= 0.5
                 "is_undercast": "" if avg is None else int(avg >= 0.5),
             }
     return out

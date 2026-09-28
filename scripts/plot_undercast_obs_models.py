@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 """Performance figures for /weather/details/, from the per-observation pipeline.
 
-Replaces ``plot_undercast_models.py``, which drew its figures from the 589-day
-first pass: hand-labeled dates, forecast fields sampled at a fixed hour, 24
-positives, and out-of-fold predictions on a subsampled training set.
-
-Two things changed about what gets plotted, both because the old choice was
-misleading rather than merely dated:
+Two choices about what gets plotted, both because the obvious alternative is
+misleading:
 
   SCORED ON THE BASE-RATE HOLDOUT, NOT OUT-OF-FOLD.  Negatives were subsampled
   5:1 for training, so an out-of-fold confusion matrix is drawn against a ~17%
@@ -16,8 +12,8 @@ misleading rather than merely dated:
 
   FEATURE NAMES INCLUDE THE MISSINGNESS INDICATORS.  Every numeric column is
   paired with an indicator, so the model has two features per column and the
-  importance vector is twice as long as the column list. The old script assumed
-  otherwise and would have silently mislabeled the second half.
+  importance vector is twice as long as the column list. Assuming otherwise
+  silently mislabels the second half.
 
 Nothing is refit: the artifacts written by train_undercast_obs.py are loaded and
 applied, so these figures show the deployed models, not near-identical refits.
@@ -56,6 +52,14 @@ COLORS = {"XGBoost": "#4C72B0", "Random Forest": "#55A868",
 CLASS_LABELS = ["not undercast", "undercast"]
 TITLE = {s: ("combined" if s == "all" else s.upper()) for s in SOURCES}
 SPLIT = "holdout_baserate"
+# The three algorithms plus their consensus. Kept as one ordered tuple so the bar
+# layout, the palette and the legend cannot fall out of step with each other.
+# "Mean of 3", not "Consensus": the confusion matrices on the same page show a
+# 2-of-3 MAJORITY vote, and one page should not use one word for two different
+# objects. This is the average of the three probabilities -- see the comment in
+# per_source_performance for why an area axis forces that choice.
+CONSENSUS = "Mean of 3"
+SERIES = tuple(MODEL_NAMES) + (CONSENSUS,)
 
 
 def tidy(names):
@@ -108,57 +112,91 @@ def per_source_performance(df, sources, out_dir, models_dir):
     # Every algorithm, not the best of them. A "best of three" bar hides the thing
     # worth seeing: the three are within a hair of each other everywhere, which is
     # why the page stopped serving a vote between them.
+    #
+    # The fourth bar is the consensus of those three, and it is the MEAN of their
+    # probabilities rather than the 2-of-3 majority the page used to serve. That is
+    # forced by the axis, not a preference: a majority vote is a single operating
+    # point, so it has one precision and one recall and no curve behind it. Both
+    # metrics here are threshold-free areas under a ranking, and the ranking version
+    # of "what do the three agree on" is their average score. Scored this way the
+    # consensus is directly comparable to its own members, which a vote is not.
+    # compare_undercast_ensembles.py scores the same mean alongside the 1/2/3-of-3
+    # votes, so the two views stay consistent.
     scores = {}
     for s in sources:
         pre, models, _ = ue.load_artifacts(s, models_dir)
         proba = ue.probabilities(common, s, pre, models)
+        proba[CONSENSUS] = np.mean([proba[n] for n in MODEL_NAMES], axis=0)
         scores[s] = {n: (roc_auc_score(y, proba[n]),
-                         average_precision_score(y, proba[n])) for n in MODEL_NAMES}
-    order = sorted(sources,
-                   key=lambda s: -max(scores[s][n][0] for n in MODEL_NAMES))
+                         average_precision_score(y, proba[n])) for n in SERIES}
+    order = sorted(sources, key=lambda s: -max(scores[s][n][0] for n in SERIES))
     labels = [TITLE[s] for s in order]
     base_rate = float(np.mean(y))
     x = np.arange(len(order))
-    width = 0.8 / len(MODEL_NAMES)
+    width = 0.82 / len(SERIES)
     palette = {"XGBoost": "#4C72B0", "Random Forest": "#DD8452",
-               "Gradient Boosting": "#55A868"}
+               "Gradient Boosting": "#55A868", CONSENSUS: "#8172B3"}
 
-    fig, ax = plt.subplots(1, 2, figsize=(12.6, 4.6), dpi=160)
-    for i, n in enumerate(MODEL_NAMES):
-        off = (i - (len(MODEL_NAMES) - 1) / 2) * width
-        ax[0].bar(x + off, [scores[s][n][0] for s in order], width,
-                  color=palette[n], label=n)
-        ax[1].bar(x + off, [scores[s][n][1] for s in order], width,
-                  color=palette[n], label=n)
-    ax[0].axhline(0.5, ls="--", c=GREY, lw=1, label="no skill = 0.5")
+    fig, ax = plt.subplots(1, 2, figsize=(13.0, 5.2), dpi=160)
+    # Explicit margins rather than tight_layout plus a tight bbox: the title sits
+    # hard left and the legend above, and letting the bbox grow to contain both
+    # padded the canvas instead of the panels.
+    fig.subplots_adjust(left=0.055, right=0.99, top=0.80, bottom=0.21, wspace=0.17)
+    handles = []
+    for i, n in enumerate(SERIES):
+        off = (i - (len(SERIES) - 1) / 2) * width
+        # The consensus is the same three models averaged, not a fourth
+        # independent one, so it is drawn as an outlined bar rather than another
+        # solid colour in the row -- a reader should not read it as a peer.
+        kw = dict(color=palette[n], edgecolor=palette[n])
+        if n == CONSENSUS:
+            kw = dict(color="white", edgecolor=palette[n], hatch="///", linewidth=1.1)
+        b = ax[0].bar(x + off, [scores[s][n][0] for s in order], width, **kw)
+        ax[1].bar(x + off, [scores[s][n][1] for s in order], width, **kw)
+        handles.append(b)
+    ax[0].axhline(0.5, ls="--", c=GREY, lw=1)
     ax[0].set_ylim(0.5, 1.0)
     ax[0].set_ylabel("ROC-AUC")
     ax[0].set_title("Ranking ability", fontsize=12, loc="left", color=INK, pad=8)
-    ax[0].legend(loc="lower right", fontsize=8, frameon=False)
-    ax[1].axhline(base_rate, ls="--", c=GREY, lw=1,
-                  label=f"base rate = {base_rate:.3f}")
+    # Annotated rather than put in the legend: with four series the legend had to
+    # move out of the axes, and these two lines mean different things on each panel.
+    ax[0].text(len(order) - 0.45, 0.502, "no skill", fontsize=8, color=GREY,
+               ha="left", va="bottom")
+    ax[1].axhline(base_rate, ls="--", c=GREY, lw=1)
     ax[1].set_ylim(0, max(scores[s][n][1] for s in order
-                          for n in MODEL_NAMES) * 1.35)
+                          for n in SERIES) * 1.22)
     ax[1].set_ylabel("PR-AUC")
     ax[1].set_title("Precision–recall area", fontsize=12, loc="left", color=INK, pad=8)
-    ax[1].legend(loc="upper right", fontsize=8, frameon=False)
+    ax[1].text(len(order) - 0.45, base_rate * 1.12, "base rate", fontsize=8,
+               color=GREY, ha="left", va="bottom")
+    # One legend for both panels, above them. In the three-bar version it sat
+    # inside the axes and covered the right-hand source's bars.
+    fig.legend(handles, list(SERIES), loc="upper center", ncol=len(SERIES),
+               fontsize=9.5, frameon=False, bbox_to_anchor=(0.52, 0.935))
     for a in ax:
         a.set_xticks(x)
         a.set_xticklabels(labels, rotation=30, ha="right")
+        # Right margin so the reference-line labels have somewhere to sit that is
+        # not on top of the last source's bars.
+        a.set_xlim(-0.62, len(order) - 1 + 1.3)
         a.grid(axis="y", color="#e6e8eb", lw=0.8)
         a.set_axisbelow(True)
         despine(a)
     fig.suptitle("Per-source undercast skill on the held-out year, by algorithm",
-                 fontsize=12.5, color=INK, x=0.005, ha="left")
-    fig.text(0.995, -0.06,
-             f"Unsampled holdout, {len(y):,} hours every source covers "
-             f"(leads up to {max_lead} h), "
-             f"{int(y.sum())} of them undercast ({100*base_rate:.1f}%). "
+                 fontsize=12.5, color=INK, x=0.005, ha="left", y=0.985)
+    fig.text(0.5, 0.055,
+             f"Unsampled holdout, {len(y):,} hours every source covers (leads up to "
+             f"{max_lead} h), {int(y.sum())} of them undercast "
+             f"({100*base_rate:.1f}%; base rate = {base_rate:.3f}). "
              "ROC-AUC starts at 0.5 because that is where skill starts.",
-             ha="right", fontsize=8.5, color=GREY)
-    fig.tight_layout()
+             ha="center", fontsize=8.5, color=GREY)
+    fig.text(0.5, 0.012,
+             "\u201cMean of 3\u201d is the average of the three probabilities. It is NOT the "
+             "2-of-3 majority vote shown in the confusion matrices: a majority is a single "
+             "operating point, so it has no area under anything.",
+             ha="center", fontsize=8.5, color=GREY)
     p = os.path.join(out_dir, "per_source_performance.png")
-    fig.savefig(p, bbox_inches="tight", facecolor="white")
+    fig.savefig(p, facecolor="white")
     plt.close(fig)
     print(f"  {p}")
 

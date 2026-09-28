@@ -185,6 +185,85 @@ author_profile: true
         border-color: #3a4046;
     }
 
+    /* The cuts, stated once at the top, so every "cuts:" pill below can be read
+       against the actual rule. Values are pinned to build_undercast_record.py by
+       scripts/test_observation_cuts.py -- change one, and the test fails until
+       the other matches. */
+    .obs-cuts {
+        border: 1px solid #e3e6e9;
+        border-radius: 6px;
+        padding: 12px 16px 6px;
+        margin: 6px 0 14px;
+        background: #f7f8f9;
+        font-size: 0.9em;
+    }
+
+    .obs-cuts h3 {
+        font-size: 1em;
+        margin: 0 0 8px;
+    }
+
+    .obs-cuts table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 8px;
+        font-size: 0.95em;
+    }
+
+    .obs-cuts th,
+    .obs-cuts td {
+        text-align: left;
+        padding: 5px 8px;
+        border-bottom: 1px solid #e3e6e9;
+        vertical-align: top;
+    }
+
+    /* The site theme paints every thead and draws full cell borders; both are
+       reset here, or the dark theme's grey header swallows the column titles. */
+    .obs-cuts table,
+    .obs-cuts thead,
+    .obs-cuts th,
+    .obs-cuts td {
+        background: transparent;
+        border-left: 0;
+        border-right: 0;
+        border-top: 0;
+    }
+
+    .obs-cuts th {
+        font-weight: 600;
+        color: #4a5058;
+    }
+
+    .obs-cuts td.num {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .obs-cuts p {
+        margin: 0 0 8px;
+        color: #4a5058;
+    }
+
+    .obs-cuts-wrap {
+        overflow-x: auto;
+    }
+
+    html[data-theme="dark"] .obs-cuts {
+        background: #15181b;
+        border-color: #3a4046;
+    }
+
+    html[data-theme="dark"] .obs-cuts th,
+    html[data-theme="dark"] .obs-cuts td {
+        border-color: #3a4046;
+    }
+
+    html[data-theme="dark"] .obs-cuts th,
+    html[data-theme="dark"] .obs-cuts p {
+        color: #c2c7cc;
+    }
+
     html[data-theme="dark"] .obs-metar {
         background: #15181b;
         border-color: #3a4046;
@@ -243,19 +322,102 @@ author_profile: true
         background: #2c3136;
         color: #c2c7cc;
     }
+
+    /* A photo that is a crossfade of two days, because the timelapse has no
+       clean frame of this one. Text colour at reduced opacity, so it reads on
+       either theme without a colour of its own. */
+    .blend-mark {
+        margin-left: 2px;
+        font-weight: 700;
+        cursor: help;
+    }
+
+    .blend-note {
+        font-size: 0.78em;
+        opacity: 0.75;
+        margin-top: 6px;
+    }
+
+    .obs-photo-details {
+        margin: 0 0 14px;
+        font-size: 0.9em;
+    }
+
+    .obs-photo-details summary {
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .obs-photo-details p {
+        margin: 8px 0 0;
+    }
 </style>
 
 <div class="obs-intro">
-    <p>These are the raw materials behind <a href="/weather/details/">the undercast write-up</a>: what the summit
-        cameras saw at local noon, next to what the summit observer wrote down within a few minutes of that frame.</p>
-    <p>Each card carries three independent verdicts — my own score from the photographs, the observer&rsquo;s METAR,
-        and the automated screen that reads the METAR. Where they disagree is the interesting part, and it is the
-        reason the hand labels are kept as a test set rather than used for training.</p>
-    <p><strong>Reading the METAR:</strong> the highlighted pieces are the ones the screen looks at — visibility, any
+    <p>Here, I show comparisons between what I categorized as undercast, and was was labeled as undercast by the summit
+        observer.</p>
+    <p><strong>Reading the METAR:</strong> the relevant pieces are highlighted — visibility, any
         layer overhead, and the <code>TPS LWR</code> group giving the coverage and top height of the deck
         <em>below</em> the 6,288&nbsp;ft summit. Heights in the body are above the station; <code>TPS LWR</code>
-        heights are above sea level.</p>
+        heights are above sea level.
+    </p>
 </div>
+
+<div class="obs-cuts" id="obs-cuts">
+    <h3>The cuts</h3>
+    <p>An observation is called <strong>undercast</strong> only if it passes every test below. If it fails but
+        clears the looser &ldquo;ambiguous&rdquo; bound on every test, it is called <strong>ambiguous</strong>
+        and left out of training. Anything else is <strong>not undercast</strong>. Heights are relative to the
+        6,288&nbsp;ft summit.</p>
+    <div class="obs-cuts-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Test</th>
+                    <th>Undercast</th>
+                    <th>Ambiguous</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Deck below the summit (<code>TPS LWR</code>)</td>
+                    <td class="num" data-cut="POS_COVER">BKN or OVC</td>
+                    <td class="num" data-cut="AMB_COVER">also SCT</td>
+                </tr>
+                <tr>
+                    <td>Visibility</td>
+                    <td class="num" data-cut="MIN_VIS_SM">&gt; 40&nbsp;SM</td>
+                    <td class="num" data-cut="AMB_VIS_SM">&gt; 25&nbsp;SM</td>
+                </tr>
+                <tr>
+                    <td>Deck top below the summit</td>
+                    <td class="num" data-cut="MIN_DEPTH_FT">&ge; 500&nbsp;ft</td>
+                    <td class="num" data-cut="AMB_DEPTH_FT">&ge; 250&nbsp;ft</td>
+                </tr>
+                <tr>
+                    <td>Lowest cloud overhead, any cover (if any)</td>
+                    <td class="num" data-cut="MIN_LOWEST_ABOVE_FT">&ge; 1,000&nbsp;ft</td>
+                    <td class="num" data-cut="AMB_LOWEST_ABOVE_FT">&ge; 500&nbsp;ft</td>
+                </tr>
+                <tr>
+                    <td>Lowest BKN/OVC ceiling overhead (if any)</td>
+                    <td class="num" data-cut="MIN_LID_FT">&ge; 5,000&nbsp;ft</td>
+                    <td class="num" data-cut="AMB_LID_FT">&ge; 3,500&nbsp;ft</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<details class="obs-photo-details">
+    <summary>Photo classification details</summary>
+    <p>The webcam photos come from daily timelapse videos that fade from one day into the next, so some frames
+        show two days blended together. Each date uses a clean frame whose timestamp matches it where one exists.
+        Where none does, the blended frame is shown and marked with an asterisk.</p>
+
+    <p>I was fairly generous when labeling undercast days by hand. Parial undercasts (only visible on one camera or
+        partial cloud deck) were generally labeled as undercast/</p>
+</details>
 
 <div class="obs-filter" id="obs-filter" role="group" aria-label="Filter observations"></div>
 <p class="obs-count" id="obs-count"></p>
@@ -265,6 +427,7 @@ author_profile: true
 <script>
     (function () {
         var BASE = '/files/weather/examples/observations/';
+        var BLEND_NOTE = 'Blended frame: the timelapse only has this day fading into the next, no un-blended image exists.';
         var list = document.getElementById('obs-list');
         var countEl = document.getElementById('obs-count');
         var filterEl = document.getElementById('obs-filter');
@@ -275,9 +438,8 @@ author_profile: true
         var FILTERS = [
             ['all', 'All'],
             ['undercast', 'Undercast'],
-            ['partial', 'Split verdict'],
             ['clear', 'Not undercast'],
-            ['disagree', 'Screen disagrees']
+            ['disagree', 'Cuts disagree']
         ];
 
         function esc(s) {
@@ -286,7 +448,7 @@ author_profile: true
             });
         }
 
-        // Highlight the groups the screen actually keys on: visibility, any
+        // Highlight the groups the cuts actually key on: visibility, any
         // BKN/OVC layer overhead, and the TPS LWR group below.
         //
         // Body and remark are handled separately, split on " RMK ". That keeps
@@ -311,15 +473,18 @@ author_profile: true
         }
 
         function humanPill(e) {
+            // Two-way, same cut as the model's evaluation (two-camera average >= 0.5).
             if (e.hand_avg >= 0.5) return '<span class="pill pill-und">photos: undercast</span>';
-            if (e.hand_avg > 0) return '<span class="pill pill-part">photos: split ' + e.hand_avg + '</span>';
             return '<span class="pill pill-clear">photos: not undercast</span>';
         }
 
-        function screenPill(e) {
-            if (e.screen === 'undercast') return '<span class="pill pill-und">screen: undercast</span>';
-            if (e.screen === 'ambiguous') return '<span class="pill pill-part">screen: ambiguous</span>';
-            return '<span class="pill pill-clear">screen: not undercast</span>';
+        // `e.screen` is the key in the generated JSON, left as-is deliberately:
+        // renaming it means regenerating observations.json in lockstep, and a
+        // mismatch there fails silently as "every card says not undercast".
+        function cutsPill(e) {
+            if (e.screen === 'undercast') return '<span class="pill pill-und">cuts: undercast</span>';
+            if (e.screen === 'ambiguous') return '<span class="pill pill-part">cuts: ambiguous</span>';
+            return '<span class="pill pill-clear">cuts: not undercast</span>';
         }
 
         function card(e) {
@@ -331,9 +496,16 @@ author_profile: true
                         + 'no ' + p[1].toLowerCase() + ' frame this day</div></figure>';
                     return;
                 }
+                // The timelapse crossfades day to day; where no clean frame of this
+                // day exists the blended one is shown, and says so.
+                var bl = (e.blended || []).indexOf(p[0]) >= 0;
                 imgs += '<figure><img loading="lazy" alt="' + p[1] + ' on ' + esc(e.date) + '" src="'
-                    + BASE + encodeURIComponent(e[p[0]]) + '"><figcaption>' + p[1] + '</figcaption></figure>';
+                    + BASE + encodeURIComponent(e[p[0]]) + '"><figcaption>' + p[1]
+                    + (bl ? '<span class="blend-mark" title="' + BLEND_NOTE + '">*</span>' : '')
+                    + '</figcaption></figure>';
             });
+            var blendNote = (e.blended || []).length
+                ? '<div class="blend-note">* ' + BLEND_NOTE + '</div>' : '';
             var facts = '';
             if (e.vis_sm !== '') facts += '<span>visibility <strong>' + esc(e.vis_sm) + ' SM</strong></span>';
             if (e.max_cover) facts += '<span>deck below <strong>' + esc(e.max_cover)
@@ -343,9 +515,9 @@ author_profile: true
 
             return '<div class="obs-card"><div class="obs-head">'
                 + '<span class="obs-date">' + esc(e.date) + '</span>'
-                + humanPill(e) + screenPill(e)
+                + humanPill(e) + cutsPill(e)
                 + (disagrees(e) ? '<span class="pill pill-miss">they disagree</span>' : '')
-                + '</div><div class="obs-imgs">' + imgs + '</div>'
+                + '</div><div class="obs-imgs">' + imgs + '</div>' + blendNote
                 + (e.metar ? '<div class="obs-metar">' + markup(e.metar) + '</div>' : '')
                 + (facts ? '<div class="obs-facts">' + facts + '</div>' : '')
                 + '</div>';
@@ -361,7 +533,7 @@ author_profile: true
                 '<p style="color:#6b7178;">No days in this category.</p>';
             var n = entries.filter(disagrees).length;
             countEl.textContent = shown.length + ' of ' + entries.length + ' days shown. '
-                + 'Across this selection the screen and my own scoring disagree on ' + n
+                + 'Across this selection the cuts and my own scoring disagree on ' + n
                 + ' — the selection deliberately over-samples the hard cases, so this is not the overall error rate.';
         }
 

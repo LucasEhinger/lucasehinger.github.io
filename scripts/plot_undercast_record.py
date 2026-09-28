@@ -14,8 +14,8 @@ Two panels, both for /weather/details/:
 
   training_data_scale.png
       Why the record exists. Hand-labeling a year of webcam stills yields 589
-      days and 24 positives; reading the observer's own words yields 253,317
-      hourly observations and 6,843 positives, from which the training sample is
+      days and 22 positives; reading the observer's own words yields 253,317
+      hourly observations and 6,852 positives, from which the training sample is
       drawn. Log scale, because the point is the order of magnitude.
 
     python3 scripts/plot_undercast_record.py
@@ -32,6 +32,7 @@ import pandas as pd
 
 OUT = "files/weather/examples/model_training_images"
 RECORD = "files/weather/obs/undercast_record.csv"
+LABELS = "files/weather/csv/MtWashington_undercast_orig.csv"
 INK = "#2f3337"
 BLUE = "#4C72B0"
 RED = "#C44E52"
@@ -70,7 +71,7 @@ def drift(df, out):
     fig, (a1, a2) = plt.subplots(2, 1, figsize=(9, 7.0), dpi=160, sharex=True)
 
     a1.plot(years, rate, "-o", ms=4, lw=2, color=RED)
-    a1.set_ylabel("passes the screen (%)", color=INK, fontsize=10.5)
+    a1.set_ylabel("passes the cuts (%)", color=INK, fontsize=10.5)
     a1.set_title("The share of observations reported as undercast drifts upward",
                  color=INK, fontsize=12.5, pad=10, loc="left")
     _style(a1)
@@ -82,7 +83,7 @@ def drift(df, out):
     a2.plot(years, mention, "-o", ms=4, lw=2, color=BLUE,
             label="observer mentions a deck below the summit at all")
     a2.plot(years, cond, "-o", ms=4, lw=2, color=GREEN,
-            label="of those mentions, share clearing the screen")
+            label="of those mentions, share passing the cuts")
     a2.set_ylabel("share (%)", color=INK, fontsize=10.5)
     a2.set_xlabel("year", color=INK, fontsize=11)
     a2.set_title("Both components are reporting behaviour, not weather",
@@ -108,7 +109,17 @@ def drift(df, out):
     return rate, mention
 
 
-def scale(df, out, n_days=589, n_hand_pos=24, n_sample=None):
+def hand_counts(path=LABELS):
+    """(labelled days, undercast days) from the hand scores: Avg >= 0.5, the
+    same cut the model evaluation uses. Counted, not typed, so a relabel moves it."""
+    import csv
+    with open(path, encoding="utf-8-sig") as fh:
+        avgs = [r["Avg"] for r in csv.DictReader(fh)]
+    scored = [float(v) for v in avgs if v not in ("", "?")]
+    return len(avgs), sum(v >= 0.5 for v in scored)
+
+
+def scale(df, out, n_days, n_hand_pos, n_sample=None):
     total = len(df)
     pos = int(df["is_pos"].sum())
     labels = ["Hand-labeled\nwebcam stills", "Observer remarks\n(1997–2026)"]
@@ -127,7 +138,7 @@ def scale(df, out, n_days=589, n_hand_pos=24, n_sample=None):
     ax.set_xlim(8, total * 12)
     ax.margins(y=0.30)
     ax.set_xlabel("count (log scale)", color=INK, fontsize=11)
-    ax.set_title("What reading the observer's own words buys",
+    ax.set_title("Improvement from using METAR report",
                  color=INK, fontsize=12.5, pad=12, loc="left")
     _style(ax)
     ax.grid(axis="y", visible=False)
@@ -173,7 +184,9 @@ def main():
 
     os.makedirs(a.out_dir, exist_ok=True)
     rate, mention = drift(df, os.path.join(a.out_dir, "undercast_rate_drift.png"))
-    scale(df, os.path.join(a.out_dir, "training_data_scale.png"), n_sample=n_sample)
+    n_days, n_hand_pos = hand_counts()
+    scale(df, os.path.join(a.out_dir, "training_data_scale.png"), n_days, n_hand_pos,
+          n_sample=n_sample)
 
     print("\nby year (screen rate % / mention rate %):")
     for y in rate.index:

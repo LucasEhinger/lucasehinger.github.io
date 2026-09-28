@@ -1,0 +1,87 @@
+/* ==========================================================================
+   COLLAPSIBLE SECTIONS
+   ========================================================================== */
+
+/* The weather writeups fold their long asides into <details>. Unstyled, those
+   run flush into the surrounding body text: there is no edge marking where a
+   section begins, and once expanded no way to tell where it stops and the
+   article resumes. So every one gets a bordered, rounded box with a tinted
+   summary bar and, when open, a rule under that bar.
+
+   Scoped to .archive -- the content wrapper in _layouts/archive.html, which is
+   the layout both weather pages use -- so this cannot reach theme chrome. */
+
+.archive {
+
+    details {
+        margin: 1.5em 0;
+        border: 1px solid var(--global-border-color);
+        /* Thicker left edge: the accent the coloured notes below tint. */
+        border-left-width: 4px;
+        border-radius: $border-radius;
+        /* Keeps the summary bar's fill inside the rounded corners. */
+        overflow: hidden;
+    }
+
+    summary {
+        padding: 0.6em 0.9em;
+        /* A translucent neutral rather than a theme colour: it darkens the bar
+           on the light theme and lightens it on the dark one, so the summary
+           text keeps its normal contrast against it either way.
+           --global-thead-color is light in both themes and would put white
+           text on a near-white bar under the dark theme. */
+        background-color: rgba(127, 127, 127, 0.14);
+        font-weight: 600;
+        cursor: pointer;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+    /* --global-link-color, not its -hover variant: the hover shade is darkened
+       for light backgrounds and goes muddy against the dark theme. */
+    summary:hover {
+        color: var(--global-link-color);
+    }
+
+    details[open]>summary {
+        border-bottom: 1px solid var(--global-border-color);
+    }
+
+    /* These boxes hold <p>, <div> and <table> directly rather than a single
+       wrapper, so the inset goes on the children -- padding the box itself
+       would pull the summary bar in off the border. */
+    details>*:not(summary) {
+        margin-left: 0.9em;
+        margin-right: 0.9em;
+    }
+
+    details>summary+* {
+        margin-top: 0.9em;
+    }
+
+    details>*:last-child {
+        margin-bottom: 0.9em;
+    }
+
+    /* A whole section folded into one box puts its heading in the <summary>.
+       Keeping a real <h3> there rather than styled text leaves the section in
+       the document outline and in the JS-built table of contents, which walks
+       "h2, h3"; inlining it just drops the heading margins so it shares the bar
+       with the disclosure triangle. */
+    summary>h1,
+    summary>h2,
+    summary>h3,
+    summary>h4 {
+        display: inline;
+        margin: 0;
+    }
+
+    /* The "(click to expand)" hint next to such a heading -- subdued, so the
+       heading still reads as the heading. */
+    .collapse-hint {
+        font-size: $type-size-6;
+        font-weight: normal;
+        opacity: 0.65;
+        white-space: nowrap;
+    }
+}

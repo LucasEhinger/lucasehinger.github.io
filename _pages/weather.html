@@ -425,8 +425,6 @@ on Mt. Washington.
         #plot5,
         #plot6,
         #plot7,
-        #plot8,
-        #plot9,
         #plot10,
         #plot11 {
             width: 100% !important;
@@ -457,8 +455,24 @@ on Mt. Washington.
        most visitors come for, so it sits above the plots and reads without any
        interaction. Colours come from tokens where the theme provides them, with
        literal fallbacks, so it survives both light and dark. */
+    /* The panel carries its own palette rather than reading the theme's border and
+       caption tokens, because neither survives light mode. --global-border-color is
+       #f2f3f3 there, and bars painted in it sat at about 1.04:1 against the white
+       page -- measured, not guessed: getComputedStyle reported rgb(242,243,243) on
+       #fff, which is invisible. --global-fig-caption-color is worse: the light theme
+       emits the literal string "mix(#fff, #494e52, 25%)", an unevaluated Sass call
+       that is not valid CSS, so every muted colour built on it was invalid at
+       computed-value time and silently inherited full-strength body text instead.
+       Four tokens, defined for light here and overridden for dark below, keep the
+       panel legible on either ground and keep its hierarchy intact. */
     #undercast-headline {
-        border: 1px solid var(--global-border-color, #ccc);
+        --uh-bar: #848f9c;
+        --uh-hit: #C44E52;
+        --uh-muted: #5f6772;
+        --uh-line: #4b5563;
+        --uh-rule: #dfe3e8;
+
+        border: 1px solid var(--uh-rule);
         border-radius: 8px;
         padding: 16px 18px;
         margin: 0 0 22px 0;
@@ -466,11 +480,24 @@ on Mt. Washington.
         color: var(--global-text-color, #333);
     }
 
+    /* Light is the site's default (the theme toggle REMOVES the attribute rather
+       than setting data-theme="light"), so dark is the override. */
+    html[data-theme="dark"] #undercast-headline {
+        --uh-bar: #cdd2d8;
+        /* Lighter than the light-mode pair, and the red is lifted too: the dark
+           panel sits on rgb(71,71,71), not black, so #C44E52 reaches only 2.02:1
+           there against 4.61:1 on white. Both measured in the browser. */
+        --uh-hit: #E8797C;
+        --uh-muted: #b6bcc4;
+        --uh-line: #e5e7eb;
+        --uh-rule: #4a4f55;
+    }
+
     #undercast-headline .uh-eyebrow {
         font-size: 0.78em;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: var(--global-fig-caption-color, #777);
+        color: var(--uh-muted);
         margin-bottom: 6px;
     }
 
@@ -483,57 +510,164 @@ on Mt. Washington.
 
     #undercast-headline .uh-when {
         font-size: 1em;
-        color: var(--global-text-color-light, #555);
+        color: var(--global-text-color, #333);
         margin-bottom: 12px;
+    }
+
+    #undercast-headline .uh-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px 16px;
+    }
+
+    #undercast-headline .uh-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.76em;
+        color: var(--uh-muted);
+    }
+
+    #undercast-headline .uh-legend li {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    #undercast-headline .uh-key {
+        width: 11px;
+        height: 11px;
+        border-radius: 2px;
+        flex: none;
+    }
+
+    #undercast-headline .uh-key-below {
+        background-color: var(--uh-bar);
+    }
+
+    #undercast-headline .uh-key-hit {
+        background-color: var(--uh-hit);
     }
 
     #undercast-headline .uh-strip {
         display: flex;
         align-items: flex-end;
         gap: 1px;
-        height: 46px;
-        margin: 10px 0 4px 0;
+        height: 56px;
+        margin: 10px 0 2px 0;
     }
 
     #undercast-headline .uh-bar {
         flex: 1 1 0;
         min-width: 2px;
         border-radius: 1px 1px 0 0;
-        background-color: var(--global-border-color, #d6d9dd);
+        background-color: var(--uh-bar);
         position: relative;
     }
 
     #undercast-headline .uh-bar.uh-hit {
-        background-color: #C44E52;
+        background-color: var(--uh-hit);
     }
 
-    /* No forecast for this hour, as distinct from a forecast of no undercast. A
-       faint hatch rather than a short bar, because a short bar reads as a
-       confident quiet hour and this is the opposite: the panel reaches six days
-       but only publishes an hour where every model expected at it reported. */
+    /* No forecast for this hour: nothing is drawn. The element stays as a spacer
+       so the hours on either side keep their place under the axis ticks. */
     #undercast-headline .uh-bar.uh-gap {
-        background-color: transparent;
-        background-image: repeating-linear-gradient(
-            45deg,
-            var(--global-border-color, #d6d9dd) 0 1px,
-            transparent 1px 4px
-        );
-        opacity: 0.55;
-        border-radius: 0;
+        background: none;
     }
 
+    /* Ticks are absolutely positioned by time, so they sit under the bar they
+       describe. A flex row with space-between spaced them evenly instead, which
+       on a holed six-day series points at the wrong hour. */
     #undercast-headline .uh-axis {
-        display: flex;
-        justify-content: space-between;
+        position: relative;
+        /* Two rows: tick times, then day names beneath them. */
+        height: 2.9em;
         font-size: 0.78em;
-        color: var(--global-fig-caption-color, #777);
+        color: var(--uh-muted);
         margin-bottom: 12px;
+    }
+
+    #undercast-headline .uh-tick {
+        position: absolute;
+        top: 0;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        padding-top: 7px;
+    }
+
+    /* A short mark joining each label to the strip above it. Without one the
+       labels float and the eye cannot tell which bar a time belongs to -- which
+       is the whole point of placing them by time rather than evenly. */
+    #undercast-headline .uh-tick::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 1px;
+        height: 5px;
+        background: var(--uh-muted);
+    }
+
+    /* The end labels are shifted to stay inside the box, so their mark has to
+       shift with them or it points a label-width away from its own time. */
+    #undercast-headline .uh-tick.uh-tick-start::before {
+        left: 0;
+    }
+
+    #undercast-headline .uh-tick.uh-tick-end::before {
+        left: auto;
+        right: 0;
+    }
+
+    /* Day names, on the second row, centred under the part of each day the strip
+       shows. Set in the body colour rather than muted, so the day reads first and
+       the times second. */
+    #undercast-headline .uh-day {
+        position: absolute;
+        top: 1.55em;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        font-weight: 600;
+        color: var(--global-text-color, #333);
+    }
+
+    /* The line a bar has to reach to become a call. Bar height is the score as a
+       share of that hour's threshold, so this is always at the top of the strip. */
+    #undercast-headline .uh-strip {
+        position: relative;
+    }
+
+    /* Drawn at --uh-line-pct of the way up (set by the script from the same
+       constant that scales the bars), and ABOVE them, so it crosses the no-data
+       bands rather than appearing to cap them. */
+    #undercast-headline .uh-strip::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: var(--uh-line-pct, 80%);
+        border-top: 1px dashed var(--uh-line);
+        opacity: 0.7;
+        pointer-events: none;
+        z-index: 2;
+    }
+
+    #undercast-headline .uh-key-note {
+        font-size: 0.82em;
+        line-height: 1.45;
+        color: var(--uh-muted);
+        margin: 0 0 10px 0;
     }
 
     #undercast-headline .uh-foot {
         font-size: 0.9em;
-        color: var(--global-fig-caption-color, #666);
-        border-top: 1px solid var(--global-dark-border-color, #eee);
+        color: var(--uh-muted);
+        border-top: 1px solid var(--uh-rule);
         padding-top: 10px;
     }
 
@@ -651,11 +785,21 @@ on Mt. Washington.
 </style>
 
 <div id="undercast-headline" hidden>
-    <div class="uh-eyebrow">Undercast forecast &mdash; Mount Washington</div>
+    <div class="uh-head">
+        <div class="uh-eyebrow">Undercast forecast &mdash; Mount Washington</div>
+        <ul class="uh-legend" id="uh-legend">
+            <li><span class="uh-key uh-key-below"></span>No undercast</li>
+            <li><span class="uh-key uh-key-hit"></span>Undercast</li>
+        </ul>
+    </div>
     <p class="uh-verdict" id="uh-verdict"></p>
     <div class="uh-when" id="uh-when"></div>
     <div class="uh-strip" id="uh-strip"></div>
     <div class="uh-axis" id="uh-axis"></div>
+    <p class="uh-key-note" id="uh-key-note">Bar height is the model&rsquo;s score for that hour as a share of its
+        <strong>threshold</strong> &mdash; the score at or above which it calls an undercast. The dashed line is that
+        threshold. Each forecast lead gets its own, fitted on a held-out year to give the best balance of false alarms
+        against misses, and it falls with distance because the model grows less confident further out.</p>
     <div class="uh-foot" id="uh-foot"></div>
 </div>
 
@@ -673,10 +817,7 @@ on Mt. Washington.
     </div>
 </details>
 
-<div id="plot8" style="width:96%;display:inline-block;"></div>
-<div id="plot9" style="width:96%;display:inline-block;"></div>
-
-<details id="individual-params-details" open>
+<details id="individual-params-details">
     <summary>Individual Parameters</summary>
     <div class="wx-plot-grid">
         <div id="plot1"></div>
