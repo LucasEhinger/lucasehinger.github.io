@@ -1,0 +1,45 @@
+/* ==========================================================================
+   THEME TOGGLE ICON
+   ========================================================================== */
+
+/* Font Awesome's sun reads as a gear at masthead size -- its eight rays meet
+   the disc, so the silhouette is a cog rather than a sun. Both weights do it,
+   the outlined one worst of all, so there is no FA sun to switch to.
+
+   Rather than change the markup or the bundled main.min.js (which is what the
+   site actually loads, and cannot be rebuilt without node_modules), keep the
+   .fa-sun / .fa-moon classes the theme script toggles and just repaint what
+   they render: blank the glyph, then mask a hand-drawn SVG in currentColor so
+   the icon still inherits the masthead's link and hover colours. */
+
+$sun-icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%3E%3Ccircle%20cx='12'%20cy='12'%20r='4.5'/%3E%3Cpath%20d='M12%201.9v2.6M12%2019.5v2.6M1.9%2012h2.6M19.5%2012h2.6M4.9%204.9l1.85%201.85M17.25%2017.25l1.85%201.85M19.1%204.9l-1.85%201.85M6.75%2017.25L4.9%2019.1'/%3E%3C/svg%3E");
+$moon-icon: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M20.6%2014.2A8.7%208.7%200%200%201%209.8%203.4%208.7%208.7%200%201%200%2020.6%2014.2Z'/%3E%3C/svg%3E");
+
+#theme-icon.fa-sun::before,
+#theme-icon.fa-moon::before {
+    content: "";
+    display: inline-block;
+    width: 1.05em;
+    height: 1.05em;
+    vertical-align: -0.16em;
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+}
+
+/* A disc with a clear gap before eight separate rays -- the gap is the whole
+   difference between a sun and a cog. */
+#theme-icon.fa-sun::before {
+    -webkit-mask-image: $sun-icon;
+    mask-image: $sun-icon;
+}
+
+/* Drawn at the same stroke weight so the two states match as you toggle. */
+#theme-icon.fa-moon::before {
+    -webkit-mask-image: $moon-icon;
+    mask-image: $moon-icon;
+}

@@ -51,5 +51,8 @@ html[data-theme="dark"] {
     --global-masthead-link-color-hover  : #{$background-light};
     --global-text-color                 : #{$text};
     --global-text-color-light           : #{$light-primary-color};
-    --global-thead-color                : #{$background-lighter};
+    /* Just above the page background, like every other dark theme:
+       $background-lighter is 90% white in this file, which would put
+       white table headings on a near-white bar. */
+    --global-thead-color                : #{mix(#fff, $background, 30%)};
 }

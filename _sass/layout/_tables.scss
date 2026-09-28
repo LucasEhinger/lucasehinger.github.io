@@ -16,7 +16,11 @@ table {
 }
 
 thead {
-  background-color: var(--global-border-color);
+  /* A fill, not a rule -- --global-thead-color, not the border colour. Under a
+     dark theme the border colour is light (it has to contrast with a dark
+     page), so using it here put --global-text-color's white on a near-white
+     bar. The border below stays the border colour. */
+  background-color: var(--global-thead-color);
   border-bottom: 1px solid var(--global-border-color);
 }
 
