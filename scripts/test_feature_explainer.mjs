@@ -15,7 +15,7 @@ const data = JSON.parse(
 
 // Pull the three pieces straight out of the page, so this tests what ships.
 const start = html.indexOf('const FEAT_SOURCE = {');
-const end = html.indexOf('// `renderPanel(key, algoSlug, ALGOS)`');
+const end = html.indexOf('/* `renderPanel(key, algoSlug, ALGOS)`');
 if (start < 0 || end < 0) throw new Error('could not locate the feature block in the page');
 const code = html.slice(start, end);
 

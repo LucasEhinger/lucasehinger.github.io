@@ -169,13 +169,13 @@ author_profile: true
         }
 
         function card(d) {
-            // One camera per card. Tower has the longer archive, so it is the
-            // default; observatory fills in where the tower frame is missing.
+            /* One camera per card. Tower has the longer archive, so it is the */
+            /* default; observatory fills in where the tower frame is missing. */
             var cam = d.images.tower ? 'tower' : Object.keys(d.images)[0];
             var cls = d.undercast ? 'sc-yes' : 'sc-no';
             var word = d.undercast ? 'Undercast' : 'Not undercast';
-            // The timelapse crossfades day to day; where no clean frame of this
-            // day exists the blended one is shown, and says so.
+            /* The timelapse crossfades day to day; where no clean frame of this */
+            /* day exists the blended one is shown, and says so. */
             var blended = (d.blended || []).indexOf(cam) >= 0;
             return '<div class="sc-card">' +
                 '<img loading="lazy" src="' + BASE + esc(d.images[cam]) + '" alt="' +

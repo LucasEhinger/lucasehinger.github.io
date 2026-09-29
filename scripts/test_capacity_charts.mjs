@@ -42,7 +42,7 @@ global.document = {
   createTextNode: (t) => { const e = new El('#text'); e.textContent = t; return e; },
 };
 
-const start = html.indexOf('        // One chart function, two charts.');
+const start = html.indexOf('        /* One chart function, two charts.');
 const end = html.indexOf('    </script>', start);
 if (start < 0 || end < 0) throw new Error('could not locate the capacity-chart script');
 const code = html.slice(start, end);

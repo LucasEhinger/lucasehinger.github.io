@@ -917,8 +917,8 @@ author_profile: true
                 var line = document.getElementById('metar-line');
                 var tip = document.getElementById('metar-tip');
                 if (!line || !tip) return;
-                // Text comes from the key table rather than a second copy in JS,
-                // so editing an explanation updates the tooltip automatically.
+                /* Text comes from the key table rather than a second copy in JS, */
+                /* so editing an explanation updates the tooltip automatically. */
                 var rows = {};
                 document.querySelectorAll('.metar-key tr[data-mk]').forEach(function (tr) {
                     rows[tr.getAttribute('data-mk')] = tr;
@@ -935,7 +935,7 @@ author_profile: true
                     var t = tip.getBoundingClientRect();
                     var left = Math.min(Math.max(8, r.left + r.width / 2 - t.width / 2),
                         window.innerWidth - t.width - 8);
-                    // Above the token normally; below it when there is no room.
+                    /* Above the token normally; below it when there is no room. */
                     var top = r.top - t.height - 10;
                     if (top < 8) top = r.bottom + 10;
                     tip.style.left = left + 'px';
@@ -958,8 +958,8 @@ author_profile: true
                     el.addEventListener('focus', function () { show(el); });
                     el.addEventListener('blur', hide);
                 });
-                // Hovering a key row lights up its token too -- the pairing reads
-                // in both directions.
+                /* Hovering a key row lights up its token too -- the pairing reads */
+                /* in both directions. */
                 Object.keys(rows).forEach(function (k) {
                     var tok = line.querySelector('.mt[data-mk="' + k + '"]');
                     if (!tok) return;
@@ -1958,20 +1958,20 @@ author_profile: true
             };
             const metadataCache = {};
 
-            // Figure pickers: show the confusion-matrix / top-feature images for any
-            // combination of the combined model and the individual weather models.
-            // ---- what a feature actually measures -------------------------------
-            //
-            // Names are systematic -- <quantity>_<level>_<source>, plus a handful of
-            // derived families -- so the explanations are composed rather than written
-            // out 200 times. That also means a retrain that surfaces a feature nobody
-            // has seen before still gets a sensible sentence instead of a blank.
+            /* Figure pickers: show the confusion-matrix / top-feature images for any */
+            /* combination of the combined model and the individual weather models. */
+            /* ---- what a feature actually measures ------------------------------- */
+            /* */
+            /* Names are systematic -- <quantity>_<level>_<source>, plus a handful of */
+            /* derived families -- so the explanations are composed rather than written */
+            /* out 200 times. That also means a retrain that surfaces a feature nobody */
+            /* has seen before still gets a sensible sentence instead of a blank. */
             const FEAT_SOURCE = {
                 hrrr: "HRRR", nam: "NAM", gfs: "GFS",
                 rap: "RAP", ecmwf: "ECMWF", nbm: "NBM",
             };
-            // Summit is 1,917 m, so 925 and 850 mb sit BELOW it and 700 mb above --
-            // which is the whole reason the cross-level differences below matter.
+            /* Summit is 1,917 m, so 925 and 850 mb sit BELOW it and 700 mb above -- */
+            /* which is the whole reason the cross-level differences below matter. */
             const FEAT_LEVEL = {
                 "1000": "1000 mb (~110 m)",
                 "925": "925 mb (~760 m, below the summit)",
@@ -2016,22 +2016,22 @@ author_profile: true
                 hour_cos: "Time of day, encoded as a cosine, paired with hour_sin.",
             };
 
-            // Confusion matrices per (source, lead), from
-            // files/weather/models/obs/confusion_by_lead.json.
+            /* Confusion matrices per (source, lead), from */
+            /* files/weather/models/obs/confusion_by_lead.json. */
             let CM_DATA = null;
             const CM_LEADS = {
                 all: "All leads", 1: "1 h", 24: "24 h", 48: "48 h",
                 72: "72 h", 96: "96 h", 120: "120 h", 144: "144 h",
             };
 
-            // Shading is share of the ROW, not of the total. The negative row
-            // outnumbers the positive one about 40 to 1, so shading by raw count
-            // paints one square black and leaves the other three blank whatever the
-            // model did. Both cell colours are opaque, so each carries its own text
-            // colour rather than inheriting the theme's.
+            /* Shading is share of the ROW, not of the total. The negative row */
+            /* outnumbers the positive one about 40 to 1, so shading by raw count */
+            /* paints one square black and leaves the other three blank whatever the */
+            /* model did. Both cell colours are opaque, so each carries its own text */
+            /* colour rather than inheriting the theme's. */
             function cmCell(count, share, kind) {
                 const good = kind === "good";
-                // A single hue per row-correctness, deepened by the share.
+                /* A single hue per row-correctness, deepened by the share. */
                 const a = 0.10 + 0.62 * Math.min(1, share);
                 const rgb = good ? "76, 114, 176" : "196, 78, 82";
                 const dark = share > 0.55;
@@ -2057,8 +2057,8 @@ author_profile: true
                 }
                 const entry = perLead && perLead[leadKey];
                 if (!entry) {
-                    // Not a gap in the data: these models genuinely stop short. HRRR
-                    // publishes nothing past 48 h, so there is no 96 h forecast to score.
+                    /* Not a gap in the data: these models genuinely stop short. HRRR */
+                    /* publishes nothing past 48 h, so there is no 96 h forecast to score. */
                     wrap.insertAdjacentHTML("beforeend",
                         `<p class="cm-none">${labels[source] || source} does not reach ` +
                         `${CM_LEADS[leadKey] || leadKey} — it publishes no forecast that ` +
@@ -2108,9 +2108,9 @@ author_profile: true
                 return wrap;
             }
 
-            // Drawn from files/weather/models/obs/feature_importances.json, written by
-            // scripts/export_feature_importances.py. Loaded once and cached; until it
-            // arrives the panels say so rather than rendering empty boxes.
+            /* Drawn from files/weather/models/obs/feature_importances.json, written by */
+            /* scripts/export_feature_importances.py. Loaded once and cached; until it */
+            /* arrives the panels say so rather than rendering empty boxes. */
             let FEAT_DATA = null;
             const FEAT_COLOR = {
                 gradient_boosting: "#55A868",
@@ -2142,13 +2142,13 @@ author_profile: true
                 const PROMPT = '<span class="feat-q">Hover or tab to see details.</span>';
                 explain.innerHTML = PROMPT;
 
-                // Share of the largest bar, not of the total: the point of the chart is
-                // the ranking and the size of the drop-off, and normalising by the sum
-                // would squash every bar once a model spreads its gain thinly.
+                /* Share of the largest bar, not of the total: the point of the chart is */
+                /* the ranking and the size of the drop-off, and normalising by the sum */
+                /* would squash every bar once a model spreads its gain thinly. */
                 const top = Math.max.apply(null, rows.map((r) => r[1])) || 1;
                 rows.forEach(([fname, val]) => {
-                    // A button, not a div: this has to be reachable without a mouse,
-                    // and the explanation is the whole point of the element.
+                    /* A button, not a div: this has to be reachable without a mouse, */
+                    /* and the explanation is the whole point of the element. */
                     const row = document.createElement("button");
                     row.type = "button";
                     row.className = "feat-row";
@@ -2169,8 +2169,8 @@ author_profile: true
                     row.append(label, track, num);
 
                     const text = explainFeature(fname);
-                    // Native tooltip as well, so the answer is also available in the
-                    // place people instinctively look for it.
+                    /* Native tooltip as well, so the answer is also available in the */
+                    /* place people instinctively look for it. */
                     row.title = text.replace(/<[^>]+>/g, "");
                     const show = () => { explain.innerHTML = `<strong>${fname}</strong> — ${text}`; };
                     const clear = () => { explain.innerHTML = PROMPT; };
@@ -2178,7 +2178,7 @@ author_profile: true
                     row.addEventListener("focus", show);
                     row.addEventListener("mouseleave", clear);
                     row.addEventListener("blur", clear);
-                    // Tap on a touch screen, where there is no hover at all.
+                    /* Tap on a touch screen, where there is no hover at all. */
                     row.addEventListener("click", show);
                     panel.appendChild(row);
                 });
@@ -2222,9 +2222,9 @@ author_profile: true
                         "Positive means the summit is warmer than the air below it, which is the " +
                         "inversion an undercast sits under, measured directly.";
                 } else if ((m = /^ceil_prob_below_(\d+)m$/.exec(name))) {
-                    // The thresholds are defined in round feet (500 / 1,000 / 3,000) and
-                    // stored as their metric conversion, so converting back lands a foot
-                    // or two off. Snap to the nearest 50 ft to recover the real number.
+                    /* The thresholds are defined in round feet (500 / 1,000 / 3,000) and */
+                    /* stored as their metric conversion, so converting back lands a foot */
+                    /* or two off. Snap to the nearest 50 ft to recover the real number. */
                     const ft = Math.round(Number(m[1]) * 3.28084 / 50) * 50;
                     body = `Probability that the cloud ceiling is below ${ft.toLocaleString()} ft ` +
                         `(${Number(m[1]).toLocaleString()} m). One of NBM's calibrated probability ` +
@@ -2262,10 +2262,10 @@ author_profile: true
                 return body + from;
             }
 
-            // `renderPanel(key, algoSlug, ALGOS)` overrides the default <img> panel.
-            // The feature chart needs the same two-dimensional picker but draws bars
-            // in the page instead of loading a PNG, and duplicating the picker to get
-            // that would leave two copies to keep in step.
+            /* `renderPanel(key, algoSlug, ALGOS)` overrides the default <img> panel. */
+            /* The feature chart needs the same two-dimensional picker but draws bars */
+            /* in the page instead of loading a PNG, and duplicating the picker to get */
+            /* that would leave two copies to keep in step. */
             function wireFigurePicker(toggleId, figuresId, filePrefix, altText, algoToggleId,
                 renderPanel, choices, initial) {
                 const toggle = document.getElementById(toggleId);
@@ -2273,13 +2273,13 @@ author_profile: true
                 if (!toggle || !figures) return;
                 const name = `${toggleId}-source`;
 
-                // Optional second dimension. Feature importances exist per
-                // (source, algorithm), so the filename needs both; confusion
-                // matrices exist per source only and pass no algoToggleId.
-                // The choices are a parameter so one picker serves both users of the
-                // second dimension -- (source, algorithm) for feature importances and
-                // (source, lead) for confusion matrices -- instead of hard-coding one
-                // and copying the widget for the other.
+                /* Optional second dimension. Feature importances exist per */
+                /* (source, algorithm), so the filename needs both; confusion */
+                /* matrices exist per source only and pass no algoToggleId. */
+                /* The choices are a parameter so one picker serves both users of the */
+                /* second dimension -- (source, algorithm) for feature importances and */
+                /* (source, lead) for confusion matrices -- instead of hard-coding one */
+                /* and copying the widget for the other. */
                 const ALGOS = choices || {
                     gradient_boosting: "Gradient Boosting",
                     xgboost: "XGBoost",
@@ -2347,7 +2347,7 @@ author_profile: true
                         const cap = document.createElement("figcaption");
                         cap.textContent = (RESULT_MODELS[key] || key)
                             + (algoToggle ? ` — ${ALGOS[algo]}` : "");
-                        // Title first: it names the plot below it.
+                        /* Title first: it names the plot below it. */
                         fig.appendChild(cap);
                         fig.appendChild(img);
                         figures.appendChild(fig);
@@ -2378,8 +2378,8 @@ author_profile: true
             wireFigurePicker("features-toggle", "features-figures", "top_features",
                 "Top feature importances", "features-algo",
                 (key, algo, ALGOS) => featurePanel(key, algo, ALGOS, RESULT_MODELS));
-            // The JSON arrives after the first draw, so re-draw once it lands rather
-            // than blocking the rest of the page on it.
+            /* The JSON arrives after the first draw, so re-draw once it lands rather */
+            /* than blocking the rest of the page on it. */
             fetch("/files/weather/models/obs/feature_importances.json")
                 .then((r) => r.json())
                 .then((d) => {
@@ -2399,20 +2399,20 @@ author_profile: true
                 return `/files/weather/models/obs/model_metadata_${key}.json`;
             }
 
-            // ---- skill against forecast lead ------------------------------
-            //
-            // Inline SVG, not a PNG: it has to follow the theme, and the data is
-            // already on the page as model_metadata_<source>.json, so rendering a
-            // figure would mean a build step that can drift from the artifacts.
-            //
-            // Four metrics share one chart. They do NOT share a y-axis: ROC-AUC
-            // lives in [0.5, 1] with 0.5 as no-skill, while F1/recall/precision
-            // start at zero and a no-skill classifier scores the base rate. Forcing
-            // one scale would either crush three metrics into a band or imply that
-            // a precision of 0.2 is near-chance, which it very much is not.
+            /* ---- skill against forecast lead ------------------------------ */
+            /* */
+            /* Inline SVG, not a PNG: it has to follow the theme, and the data is */
+            /* already on the page as model_metadata_<source>.json, so rendering a */
+            /* figure would mean a build step that can drift from the artifacts. */
+            /* */
+            /* Four metrics share one chart. They do NOT share a y-axis: ROC-AUC */
+            /* lives in [0.5, 1] with 0.5 as no-skill, while F1/recall/precision */
+            /* start at zero and a no-skill classifier scores the base rate. Forcing */
+            /* one scale would either crush three metrics into a band or imply that */
+            /* a precision of 0.2 is near-chance, which it very much is not. */
             const LC_LEADS = [1, 24, 48, 72, 96, 120, 144];
             const LC_ALGO = "Gradient Boosting";
-            const LC_BASE_RATE = 0.0247;   // 2.4-2.5% at every lead; see baserate_by_lead
+            const LC_BASE_RATE = 0.0247;   /* 2.4-2.5% at every lead; see baserate_by_lead */
             const LC_METRICS = {
                 roc_auc: {
                     label: "ROC-AUC", domain: [0.5, 1],
@@ -2425,7 +2425,7 @@ author_profile: true
                     ref: { at: LC_BASE_RATE, text: "no skill (2.5% base rate)" },
                 },
             };
-            // "all" is the served model, so it leads the list and draws heaviest.
+            /* "all" is the served model, so it leads the list and draws heaviest. */
             const LC_COLORS = {
                 all: "#4C72B0", hrrr: "#DD8452", rap: "#55A868", nam: "#C44E52",
                 gfs: "#8172B3", ecmwf: "#937860", nbm: "#DA8BC3",
@@ -2441,8 +2441,8 @@ author_profile: true
                 return el;
             }
 
-            // Round a data maximum up to a readable tick so the axis does not end on
-            // something like 0.6437.
+            /* Round a data maximum up to a readable tick so the axis does not end on */
+            /* something like 0.6437. */
             function lcNiceMax(v) {
                 const steps = [0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1];
                 const padded = v * 1.08;
@@ -2470,7 +2470,7 @@ author_profile: true
                     role: "img", "aria-label": `${spec.label} against forecast lead, by source`,
                 });
 
-                // y gridlines and ticks
+                /* y gridlines and ticks */
                 const nTicks = 5;
                 for (let i = 0; i <= nTicks; i++) {
                     const v = lo + ((hi - lo) * i) / nTicks;
@@ -2484,7 +2484,7 @@ author_profile: true
                     svg.appendChild(t);
                 }
 
-                // x axis
+                /* x axis */
                 svg.appendChild(lcSvg("line", {
                     class: "lc-axis", x1: M.left, x2: M.left + iw,
                     y1: M.top + ih, y2: M.top + ih,
@@ -2508,7 +2508,7 @@ author_profile: true
                 yl.textContent = spec.label;
                 svg.appendChild(yl);
 
-                // reference line, only when it lands inside the visible range
+                /* reference line, only when it lands inside the visible range */
                 if (spec.ref && spec.ref.at >= lo && spec.ref.at <= hi) {
                     svg.appendChild(lcSvg("line", {
                         class: "lc-ref", x1: M.left, x2: M.left + iw,
@@ -2635,9 +2635,9 @@ author_profile: true
                         const points = LC_LEADS.map((lead) => {
                             const row = by[String(lead)];
                             const v = row ? row[metric] : null;
-                            // A lead a source never reaches is absent, not zero. Dropping
-                            // the point ends the line there; plotting it as 0 would draw a
-                            // cliff to the axis and read as "the model got everything wrong".
+                            /* A lead a source never reaches is absent, not zero. Dropping */
+                            /* the point ends the line there; plotting it as 0 would draw a */
+                            /* cliff to the axis and read as "the model got everything wrong". */
                             if (typeof v !== "number" || !isFinite(v)) return null;
                             const thr = row.threshold;
                             return {
@@ -2673,10 +2673,10 @@ author_profile: true
                 });
             }
 
-            // Deferred, unlike the other pickers on this page: they sit ABOVE this
-            // script block, but the lead-curve markup sits below it, so at parse
-            // time #leadcurve does not exist yet and wiring it immediately is a
-            // silent no-op -- the picker renders empty and no chart appears.
+            /* Deferred, unlike the other pickers on this page: they sit ABOVE this */
+            /* script block, but the lead-curve markup sits below it, so at parse */
+            /* time #leadcurve does not exist yet and wiring it immediately is a */
+            /* silent no-op -- the picker renders empty and no chart appears. */
             if (document.readyState === "loading") {
                 document.addEventListener("DOMContentLoaded", function () {
                     wireLeadCurves("leadcurve-metric", "leadcurve");
@@ -2989,8 +2989,8 @@ author_profile: true
         comparable.</p>
 
     <script>
-        // Self-contained: this section sits below the page's main <script>, so it
-        // gets its own block rather than deferring into that one.
+        /* Self-contained: this section sits below the page's main <script>, so it */
+        /* gets its own block rather than deferring into that one. */
         (function () {
             var host = document.getElementById("redundancy-hist");
             if (!host) return;
@@ -3007,8 +3007,8 @@ author_profile: true
                 var edges = d.edges, same = d.same, base = d.baseline;
                 var W = 720, H = 340, M = { top: 16, right: 16, bottom: 46, left: 52 };
                 var iw = W - M.left - M.right, ih = H - M.top - M.bottom;
-                // Both series are shares of their OWN distribution; the axis has to
-                // cover whichever peaks higher, which is the 0.95-1.00 spike.
+                /* Both series are shares of their OWN distribution; the axis has to */
+                /* cover whichever peaks higher, which is the 0.95-1.00 spike. */
                 var hi = Math.max.apply(null, same.share.concat(base.share)) * 1.08;
                 var x = function (v) { return M.left + v * iw; };
                 var y = function (v) { return M.top + ih - (v / hi) * ih; };
@@ -3060,8 +3060,8 @@ author_profile: true
                     + Math.round(100 * same.share_above_0_9) + "% exceed 0.9.";
                 readout.textContent = idle;
 
-                // Which quantities fall in each bin, for the hover text -- this is
-                // what the table this replaced was actually for.
+                /* Which quantities fall in each bin, for the hover text -- this is */
+                /* what the table this replaced was actually for. */
                 var byBin = {};
                 (d.markers || []).forEach(function (m) {
                     var b = Math.min(edges.length - 2, Math.floor(m.r / d.bin_width));
@@ -3099,8 +3099,8 @@ author_profile: true
                     svg.appendChild(rect);
                 });
 
-                // Baseline as a step outline, so it reads as a reference rather than
-                // as a second set of bars competing with the first.
+                /* Baseline as a step outline, so it reads as a reference rather than */
+                /* as a second set of bars competing with the first. */
                 var dstr = "";
                 base.share.forEach(function (v, i) {
                     dstr += (i ? "L" : "M") + x(edges[i]) + "," + y(v)
@@ -3212,16 +3212,16 @@ author_profile: true
         the chart above: change against the current configuration, with the &plusmn;0.005 reseed band.</p>
 
     <script>
-        // One chart function, two charts. They are the same picture -- change in
-        // skill against the current configuration, with the reseed band -- so a fix
-        // to the axis or the hover belongs in one place, not two.
+        /* One chart function, two charts. They are the same picture -- change in */
+        /* skill against the current configuration, with the reseed band -- so a fix */
+        /* to the axis or the hover belongs in one place, not two. */
         (function () {
             var SVG = "http://www.w3.org/2000/svg";
 
-            // Absolute scores from scripts/undercast_capacity.py. Kept as absolutes
-            // rather than pre-computed deltas so each chart's baseline is visibly one
-            // of its own rows, and a retrain only has to update one set of numbers.
-            //   setting, holdout ROC, holdout PR, webcam ROC, webcam PR
+            /* Absolute scores from scripts/undercast_capacity.py. Kept as absolutes */
+            /* rather than pre-computed deltas so each chart's baseline is visibly one */
+            /* of its own rows, and a retrain only has to update one set of numbers. */
+            /*   setting, holdout ROC, holdout PR, webcam ROC, webcam PR */
             var WIDTH_ROWS = [
                 [8, 0.813, 0.177, 0.829, 0.163],
                 [15, 0.828, 0.204, 0.827, 0.170],
@@ -3238,7 +3238,7 @@ author_profile: true
                 [4, 0.847, 0.203, 0.882, 0.267],
                 [6, 0.834, 0.187, 0.839, 0.221]
             ];
-            var NOISE = 0.005;   // reseed spread of the current config, 5 seeds
+            var NOISE = 0.005;   /* reseed spread of the current config, 5 seeds */
             var SERIES = [
                 { i: 1, label: "Held-out year, ROC-AUC", color: "#4C72B0", dash: null },
                 { i: 2, label: "Held-out year, PR-AUC", color: "#DD8452", dash: null },
@@ -3257,8 +3257,8 @@ author_profile: true
             function deltaChart(hostId, ROWS, baseIdx, xLabel, idle) {
                 var host = document.getElementById(hostId);
                 if (!host) return;
-                // The baseline row is not always the last: the width sweep ends at the
-                // current model, the depth sweep has it in the middle.
+                /* The baseline row is not always the last: the width sweep ends at the */
+                /* current model, the depth sweep has it in the middle. */
                 var full = ROWS[baseIdx];
                 var W = 720, H = 336, M = { top: 14, right: 34, bottom: 44, left: 56 };
                 var iw = W - M.left - M.right, ih = H - M.top - M.bottom;
@@ -3266,15 +3266,15 @@ author_profile: true
                 ROWS.forEach(function (r) {
                     SERIES.forEach(function (sp) { all.push(r[sp.i] - full[sp.i]); });
                 });
-                // Snap the axis to a round step, so ticks read -0.10 / -0.08 rather
-                // than whatever 1.12x the worst delta happens to land on.
+                /* Snap the axis to a round step, so ticks read -0.10 / -0.08 rather */
+                /* than whatever 1.12x the worst delta happens to land on. */
                 var step = 0.02;
                 var lo = Math.floor((Math.min.apply(null, all) * 1.05) / step) * step;
                 var hi = Math.ceil((Math.max(0.01, Math.max.apply(null, all)) * 1.4) / step) * step;
                 var nTicks = Math.round((hi - lo) / step);
-                // Budgets are plotted evenly spaced, not to scale: the interesting
-                // comparisons are between adjacent budgets, and a linear axis would
-                // crush 8/15/25/40 into the left margin.
+                /* Budgets are plotted evenly spaced, not to scale: the interesting */
+                /* comparisons are between adjacent budgets, and a linear axis would */
+                /* crush 8/15/25/40 into the left margin. */
                 var x = function (i) { return M.left + (i / (ROWS.length - 1)) * iw; };
                 var y = function (v) { return M.top + ih - ((v - lo) / (hi - lo)) * ih; };
 
@@ -3291,14 +3291,14 @@ author_profile: true
                     svg.appendChild(lab);
                 }
 
-                // Noise band first, so the lines draw over it.
+                /* Noise band first, so the lines draw over it. */
                 svg.appendChild(el("rect", {
                     x: M.left, width: iw, y: y(NOISE), height: Math.max(1, y(-NOISE) - y(NOISE)),
                     fill: "currentColor", opacity: 0.10
                 }));
                 svg.appendChild(el("line", { "class": "lc-ref", x1: M.left, x2: M.left + iw, y1: y(0), y2: y(0) }));
-                // Anchored left: at the right-hand end every series converges on zero,
-                // and the label landed on top of them.
+                /* Anchored left: at the right-hand end every series converges on zero, */
+                /* and the label landed on top of them. */
                 var zl = el("text", { "class": "lc-ref-label", x: M.left + 4, y: y(0) - 5, "text-anchor": "start" });
                 zl.textContent = "current configuration";
                 svg.appendChild(zl);
@@ -3627,10 +3627,10 @@ author_profile: true
                 .replace(/\s+/g, '-').slice(0, 60);
         }
 
-        // Every h2/h3 in the ARTICLE, except the TOC's own heading. The scope
-        // is the point: a document-wide query also picks up the theme's author
-        // sidebar, whose <h3 class="author__name"> then leads the contents --
-        // and since it precedes every h2, it lands as a top-level entry.
+        /* Every h2/h3 in the ARTICLE, except the TOC's own heading. The scope */
+        /* is the point: a document-wide query also picks up the theme's author */
+        /* sidebar, whose <h3 class="author__name"> then leads the contents -- */
+        /* and since it precedes every h2, it lands as a top-level entry. */
         var scope = nav.closest('.archive') || document;
         var heads = [].slice.call(scope.querySelectorAll('h2, h3'))
             .filter(function (h) {
@@ -3651,8 +3651,8 @@ author_profile: true
             var li = document.createElement('li');
             var a = document.createElement('a');
             a.href = '#' + h.id;
-            // Strip the trailing "(click to expand)" style hints that read as
-            // noise in a contents list.
+            /* Strip the trailing "(click to expand)" style hints that read as */
+            /* noise in a contents list. */
             a.textContent = h.textContent.replace(/\s*\(click to expand\)\s*$/i, '').trim();
             li.appendChild(a);
             links.push({ a: a, h: h });
@@ -3669,15 +3669,15 @@ author_profile: true
             }
         });
 
-        // ---- rules between sections ---------------------------------------
-        //
-        // Driven off the same heading list as the contents, so the two can never
-        // disagree about what a section is. Three cases are skipped:
-        //   * the first heading -- the contents box above it draws its own border;
-        //   * an h3 that OPENS its h2's section -- two rules a line apart reads as
-        //     a mistake rather than as structure;
-        //   * anything inside a <details>, where the rule would be drawn inside
-        //     the collapsible box instead of between sections.
+        /* ---- rules between sections --------------------------------------- */
+        /* */
+        /* Driven off the same heading list as the contents, so the two can never */
+        /* disagree about what a section is. Three cases are skipped: */
+        /*   * the first heading -- the contents box above it draws its own border; */
+        /*   * an h3 that OPENS its h2's section -- two rules a line apart reads as */
+        /*     a mistake rather than as structure; */
+        /*   * anything inside a <details>, where the rule would be drawn inside */
+        /*     the collapsible box instead of between sections. */
         heads.forEach(function (h, i) {
             if (i === 0) return;
             if (h.closest('details')) return;
@@ -3685,24 +3685,24 @@ author_profile: true
             h.classList.add(h.tagName === 'H2' ? 'section-rule' : 'section-rule-sub');
         });
 
-        // ---- the same contents, parked in the sidebar ---------------------
-        //
-        // Past the inline list there is nothing to navigate by on a page this
-        // long, while the author card has already been read. So the two swap:
-        // scroll past the contents and the sidebar becomes the contents.
-        //
-        // Only above 1024px, which is where the theme makes .sidebar
-        // `position: fixed` (_sass/layout/_sidebar.scss). Below that the sidebar
-        // is a normal block stacked ABOVE the article, so "replacing" it would
-        // hide the author card and put a second copy of the contents exactly
-        // where the reader just scrolled past the first.
+        /* ---- the same contents, parked in the sidebar --------------------- */
+        /* */
+        /* Past the inline list there is nothing to navigate by on a page this */
+        /* long, while the author card has already been read. So the two swap: */
+        /* scroll past the contents and the sidebar becomes the contents. */
+        /* */
+        /* Only above 1024px, which is where the theme makes .sidebar */
+        /* `position: fixed` (_sass/layout/_sidebar.scss). Below that the sidebar */
+        /* is a normal block stacked ABOVE the article, so "replacing" it would */
+        /* hide the author card and put a second copy of the contents exactly */
+        /* where the reader just scrolled past the first. */
         var sidebar = document.querySelector('.sidebar.sticky') ||
             document.querySelector('.sidebar');
         var panel = null;
 
         if (sidebar && list.children.length) {
-            // The author card is whatever the theme put in the sidebar; keep a
-            // handle on the actual children rather than guessing a class name.
+            /* The author card is whatever the theme put in the sidebar; keep a */
+            /* handle on the actual children rather than guessing a class name. */
             var authorBits = [].slice.call(sidebar.children);
 
             panel = document.createElement('div');
@@ -3711,7 +3711,7 @@ author_profile: true
             heading.textContent = 'Contents';
             panel.appendChild(heading);
 
-            // cloneNode would duplicate #toc-list; ids have to go, hrefs stay.
+            /* cloneNode would duplicate #toc-list; ids have to go, hrefs stay. */
             var copy = list.cloneNode(true);
             copy.removeAttribute('id');
             [].slice.call(copy.querySelectorAll('[id]'))
@@ -3719,18 +3719,18 @@ author_profile: true
             panel.appendChild(copy);
             sidebar.appendChild(panel);
 
-            // Both copies now point at the same headings, so the scroll-spy has
-            // to light up every anchor for a heading, not just the first.
+            /* Both copies now point at the same headings, so the scroll-spy has */
+            /* to light up every anchor for a heading, not just the first. */
             [].slice.call(copy.querySelectorAll('a')).forEach(function (a) {
                 var h = document.getElementById(a.getAttribute('href').slice(1));
                 if (h) links.push({ a: a, h: h });
             });
 
             var wide = window.matchMedia('(min-width: 1024px)');
-            // null, not false: setMode bails when the state is unchanged, so
-            // starting at `false` would make the initial setMode(false) a no-op
-            // and leave the panel showing NEXT TO the author card until the
-            // first observer callback -- or forever, without IntersectionObserver.
+            /* null, not false: setMode bails when the state is unchanged, so */
+            /* starting at `false` would make the initial setMode(false) a no-op */
+            /* and leave the panel showing NEXT TO the author card until the */
+            /* first observer callback -- or forever, without IntersectionObserver. */
             var showing = null;
 
             function setMode(on) {
@@ -3744,9 +3744,9 @@ author_profile: true
             setMode(false);
 
             if ('IntersectionObserver' in window) {
-                // Fires on the inline contents: once it is off the top of the
-                // screen, the sidebar takes over. Scrolling back up hands it
-                // back, so the top of the page still looks untouched.
+                /* Fires on the inline contents: once it is off the top of the */
+                /* screen, the sidebar takes over. Scrolling back up hands it */
+                /* back, so the top of the page still looks untouched. */
                 new IntersectionObserver(function (entries) {
                     entries.forEach(function (e) {
                         setMode(!e.isIntersecting && e.boundingClientRect.top < 0);
@@ -3759,9 +3759,9 @@ author_profile: true
                 });
         }
 
-        // Mark the section currently in view. Bottom margin keeps only headings
-        // in the upper part of the viewport eligible, so the highlight tracks
-        // what you are reading rather than whatever is last on screen.
+        /* Mark the section currently in view. Bottom margin keeps only headings */
+        /* in the upper part of the viewport eligible, so the highlight tracks */
+        /* what you are reading rather than whatever is last on screen. */
         if ('IntersectionObserver' in window) {
             var active = [];
             var io = new IntersectionObserver(function (entries) {
@@ -3772,8 +3772,8 @@ author_profile: true
                     active.forEach(function (a) { a.classList.remove('toc-on'); });
                     active = hits.map(function (l) { return l.a; });
                     active.forEach(function (a) { a.classList.add('toc-on'); });
-                    // Keep the lit entry visible in the sidebar's own scroller,
-                    // which a 20-entry list on a short screen will need.
+                    /* Keep the lit entry visible in the sidebar's own scroller, */
+                    /* which a 20-entry list on a short screen will need. */
                     if (panel && !panel.hidden && active.length > 1) {
                         var inPanel = active.find(function (a) { return panel.contains(a); });
                         if (inPanel && inPanel.scrollIntoView) {
@@ -3782,8 +3782,8 @@ author_profile: true
                     }
                 });
             }, { rootMargin: '-60px 0px -75% 0px' });
-            // observe() on the same element twice is a no-op, so the duplicated
-            // links do not double-fire.
+            /* observe() on the same element twice is a no-op, so the duplicated */
+            /* links do not double-fire. */
             links.forEach(function (l) { io.observe(l.h); });
         }
     })();

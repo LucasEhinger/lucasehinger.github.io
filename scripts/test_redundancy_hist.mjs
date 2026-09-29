@@ -89,7 +89,7 @@ global.document = {
 let fetched = null;
 global.fetch = (u) => { fetched = u; return Promise.resolve({ ok: true, json: () => Promise.resolve(d) }); };
 
-const start = html.indexOf('        // Self-contained: this section sits below');
+const start = html.indexOf('        /* Self-contained: this section sits below');
 const end = html.indexOf('    </script>', start);
 if (start < 0 || end < 0) throw new Error('could not locate the histogram script');
 new Function(html.slice(start, end))();

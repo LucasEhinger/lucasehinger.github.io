@@ -277,9 +277,9 @@ author_profile: true
 <script src="/assets/js/weather-plots-details.js"></script>
 <script>
     (function () {
-        // The category for each example day already lives in the option label
-        // ("Undercast — 2025-11-15"), so the badge reads it from the selection
-        // instead of keeping a second copy of the mapping that could drift.
+        /* The category for each example day already lives in the option label */
+        /* ("Undercast — 2025-11-15"), so the badge reads it from the selection */
+        /* instead of keeping a second copy of the mapping that could drift. */
         var sel = document.getElementById('details-date-select');
         var box = document.getElementById('day-status');
         var txt = document.getElementById('day-status-text');
@@ -301,8 +301,8 @@ author_profile: true
             txt.textContent = w[1];
         }
         sel.addEventListener('change', update);
-        // index.json populates the select asynchronously, so poll briefly for
-        // the first real option rather than racing it.
+        /* index.json populates the select asynchronously, so poll briefly for */
+        /* the first real option rather than racing it. */
         var tries = 0;
         var t = setInterval(function () {
             if (sel.options.length && sel.options[0].value) { update(); clearInterval(t); }

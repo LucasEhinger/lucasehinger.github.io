@@ -15,7 +15,7 @@ const data = JSON.parse(
   fs.readFileSync('files/weather/models/obs/confusion_by_lead.json', 'utf8'));
 
 const start = html.indexOf('let CM_DATA = null;');
-const end = html.indexOf('// Drawn from files/weather/models/obs/feature_importances.json');
+const end = html.indexOf('/* Drawn from files/weather/models/obs/feature_importances.json');
 if (start < 0 || end < 0) throw new Error('could not locate the confusion block');
 const code = html.slice(start, end);
 

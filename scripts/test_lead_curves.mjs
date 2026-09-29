@@ -87,8 +87,8 @@ ok(markupAt > 0 && callAt > 0, 'both the chart markup and its call site exist');
 ok(markupAt < callAt || deferred,
   'the chart is wired after its markup exists (markup first, or deferred to DOMContentLoaded)');
 
-const start = html.indexOf('// ---- skill against forecast lead');
-const end = html.indexOf('            // Deferred, unlike the other pickers');
+const start = html.indexOf('/* ---- skill against forecast lead');
+const end = html.indexOf('            /* Deferred, unlike the other pickers');
 if (start < 0 || end < 0) throw new Error('could not locate the chart block');
 const run = new Function('metadataCache', 'metadataUrl',
   `${html.slice(start, end)}\nreturn { wireLeadCurves, LC_METRICS, LC_COLORS };`);

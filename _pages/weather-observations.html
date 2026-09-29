@@ -448,17 +448,17 @@ author_profile: true
             });
         }
 
-        // Highlight the groups the cuts actually key on: visibility, any
-        // BKN/OVC layer overhead, and the TPS LWR group below.
-        //
-        // Body and remark are handled separately, split on " RMK ". That keeps
-        // the overhead-layer pattern from also matching the BKN inside
-        // "TPS LWR BKN055" -- they are different data (body heights are above
-        // the station, TPS LWR heights above sea level) and highlighting them
-        // with one pass would either nest spans or need a lookbehind, which
-        // older Safari does not support.
-        //
-        // Runs on the ESCAPED string, so nothing in the remark can inject markup.
+        /* Highlight the groups the cuts actually key on: visibility, any */
+        /* BKN/OVC layer overhead, and the TPS LWR group below. */
+        /* */
+        /* Body and remark are handled separately, split on " RMK ". That keeps */
+        /* the overhead-layer pattern from also matching the BKN inside */
+        /* "TPS LWR BKN055" -- they are different data (body heights are above */
+        /* the station, TPS LWR heights above sea level) and highlighting them */
+        /* with one pass would either nest spans or need a lookbehind, which */
+        /* older Safari does not support. */
+        /* */
+        /* Runs on the ESCAPED string, so nothing in the remark can inject markup. */
         function markup(metar) {
             var parts = esc(metar).split(' RMK ');
             var body = parts[0], rmk = parts.slice(1).join(' RMK ');
@@ -473,14 +473,14 @@ author_profile: true
         }
 
         function humanPill(e) {
-            // Two-way, same cut as the model's evaluation (two-camera average >= 0.5).
+            /* Two-way, same cut as the model's evaluation (two-camera average >= 0.5). */
             if (e.hand_avg >= 0.5) return '<span class="pill pill-und">photos: undercast</span>';
             return '<span class="pill pill-clear">photos: not undercast</span>';
         }
 
-        // `e.screen` is the key in the generated JSON, left as-is deliberately:
-        // renaming it means regenerating observations.json in lockstep, and a
-        // mismatch there fails silently as "every card says not undercast".
+        /* `e.screen` is the key in the generated JSON, left as-is deliberately: */
+        /* renaming it means regenerating observations.json in lockstep, and a */
+        /* mismatch there fails silently as "every card says not undercast". */
         function cutsPill(e) {
             if (e.screen === 'undercast') return '<span class="pill pill-und">cuts: undercast</span>';
             if (e.screen === 'ambiguous') return '<span class="pill pill-part">cuts: ambiguous</span>';
@@ -496,8 +496,8 @@ author_profile: true
                         + 'no ' + p[1].toLowerCase() + ' frame this day</div></figure>';
                     return;
                 }
-                // The timelapse crossfades day to day; where no clean frame of this
-                // day exists the blended one is shown, and says so.
+                /* The timelapse crossfades day to day; where no clean frame of this */
+                /* day exists the blended one is shown, and says so. */
                 var bl = (e.blended || []).indexOf(p[0]) >= 0;
                 imgs += '<figure><img loading="lazy" alt="' + p[1] + ' on ' + esc(e.date) + '" src="'
                     + BASE + encodeURIComponent(e[p[0]]) + '"><figcaption>' + p[1]
