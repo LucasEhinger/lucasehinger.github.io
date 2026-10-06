@@ -95,6 +95,8 @@ author_profile: true
                 <option value="4">Mt. Monadnock</option>
             </select>
         </div>
+        {% comment %} Model and Units toggles hidden while the Individual Parameters plots are; they only affect those plots. {% endcomment %}
+        {% comment %}
         <div id="model-toggle"
             style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--global-dark-border-color); border-radius: 6px; background-color: var(--global-bg-color); color: var(--global-text-color);">
             <span style="font-weight: 600; color: var(--global-text-color);">Model:</span>
@@ -152,6 +154,7 @@ author_profile: true
                 <input type="radio" name="units-toggle" value="stupid" aria-label="Stupid" /> Stupid
             </label> -->
         </div>
+        {% endcomment %}
         <div id="last-update" style="font-size: 0.80em; color: var(--global-fig-caption-color); margin-top: 8px; opacity: 0.5;">
             <!-- Last model update time will be populated here -->
         </div>
@@ -291,8 +294,14 @@ author_profile: true
             });
     }
 
+    function updateSummitNotice(value) {
+        var notice = document.getElementById('summit-only-notice');
+        if (notice) notice.hidden = String(value) === '1';
+    }
+
     document.getElementById('weather-toggle').addEventListener('change', (e) => {
         loadWeatherLinks(e.target.value);
+        updateSummitNotice(e.target.value);
     });
 
     loadWeatherLinks('1');
@@ -300,9 +309,7 @@ author_profile: true
 
 
 Some weather modeling I've done to determine whether it'll be undercast in the mountains. The
-<a href="/weather/details/">model details page</a> covers how the models are built and how well they actually do. TLDR;
-it's undercast only a handful of times per year
-on Mt. Washington.
+<a href="/weather/details/">model details page</a> covers how the models are built and how well they actually do.
 
 <details>
     <summary>Quick Overview</summary>
@@ -411,6 +418,14 @@ on Mt. Washington.
         <a href="/weather/details/">Full model details can be viewed here.</a>
     </div>
 </details>
+
+<p id="summit-only-notice" hidden
+    style="margin: 12px 0; padding: 10px 14px; border-left: 4px solid var(--global-link-color); background-color: rgba(127,127,127,0.08); border-radius: 4px;">
+    The undercast prediction is only available for Mt. Washington right now. Select Mt. Washington above to see it.
+</p>
+<script>
+    updateSummitNotice(document.getElementById('weather-toggle').value);
+</script>
 <br><br>
 
 <script src="https://cdn.plot.ly/plotly-3.3.1.min.js"></script>
@@ -817,6 +832,7 @@ on Mt. Washington.
     </div>
 </details>
 
+<!-- Individual Parameters section hidden for now; weather-plots.js skips plots whose divs are missing.
 <details id="individual-params-details">
     <summary>Individual Parameters</summary>
     <div class="wx-plot-grid">
@@ -842,6 +858,7 @@ on Mt. Washington.
         }
     });
 </script>
+-->
 
 
 <script src="/assets/js/weather-plots.js"></script>

@@ -706,6 +706,8 @@ function loadWeatherPlots(
       // fields), so irrelevant/empty plots collapse out of the grid.
       const renderOrHide = (id, traces, layout) => {
         const el = document.getElementById(id);
+        // The plot grid may be commented out of the page; nothing to draw into.
+        if (!el) return;
         if (!traces || traces.length === 0) {
           if (el) el.style.display = "none";
           return;
@@ -1674,7 +1676,8 @@ function loadWeatherPlots(
       // instead of leaving an empty gap — and so the missing-field access below
       // can't throw and abort the rest of this render (e.g. the tooltip setup).
       if (data.hgt_1000mb_hrrr && data.hgt_1000mb_nam && data.hgt_1000mb_gfs) {
-        document.getElementById("plot11").style.display = "";
+        const plot11Div = document.getElementById("plot11");
+        if (plot11Div) plot11Div.style.display = "";
 
       const hgt_1000mb_hrrr = {
         x: convertedDates,
