@@ -679,13 +679,6 @@ Some weather modeling I've done to determine whether it'll be undercast in the m
         margin: 0 0 10px 0;
     }
 
-    #undercast-headline .uh-foot {
-        font-size: 0.9em;
-        color: var(--uh-muted);
-        border-top: 1px solid var(--uh-rule);
-        padding-top: 10px;
-    }
-
     #undercast-headline.uh-quiet .uh-verdict {
         font-weight: 600;
         font-size: 1.3em;
@@ -813,9 +806,7 @@ Some weather modeling I've done to determine whether it'll be undercast in the m
     <div class="uh-axis" id="uh-axis"></div>
     <p class="uh-key-note" id="uh-key-note">Bar height is the model&rsquo;s score for that hour as a share of its
         <strong>threshold</strong> &mdash; the score at or above which it calls an undercast. The dashed line is that
-        threshold. Each forecast lead gets its own, fitted on a held-out year to give the best balance of false alarms
-        against misses, and it falls with distance because the model grows less confident further out.</p>
-    <div class="uh-foot" id="uh-foot"></div>
+        threshold.</p>
 </div>
 
 <details id="model-performance" hidden>

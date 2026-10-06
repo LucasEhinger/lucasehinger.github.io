@@ -239,7 +239,6 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
   const whenEl = document.getElementById("uh-when");
   const stripEl = document.getElementById("uh-strip");
   const axisEl = document.getElementById("uh-axis");
-  const footEl = document.getElementById("uh-foot");
   const legendEl = document.getElementById("uh-legend");
   if (legendEl) legendEl.hidden = false;
   const keyNoteEl = document.getElementById("uh-key-note");
@@ -264,7 +263,6 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
       "retry in a few hours.";
     stripEl.innerHTML = "";
     axisEl.innerHTML = "";
-    footEl.textContent = "";
     // The key describes a strip that is not being drawn.
     const legendOut = document.getElementById("uh-legend");
     if (legendOut) legendOut.hidden = true;
@@ -517,57 +515,6 @@ function renderUndercastHeadline(data_ML, dateStr, datasetId) {
     dayStart = end;
   }
 
-  // How much to trust it, at the lead that actually matters here. Skill is measured
-  // at the seven ladder leads -- 1, 24, 48, 72, 96, 120 and 144 h -- and the nearest
-  // measured one to the window being described is quoted rather than a single pooled
-  // number, because precision falls from about 0.74 to about 0.08 across that range.
-  // Pooling it would be close to meaningless. The leads are read from the JSON, not
-  // listed here, so a retrain that changes the ladder needs no change to this file.
-  const skill = (cur.model && cur.model.skill_by_lead) || {};
-  const leads = Object.keys(skill).map(Number).sort((a, b) => a - b);
-  const target = runs.length ? runs[0].from.h : pts[Math.floor(pts.length / 2)].h;
-  let trust = "";
-  if (leads.length) {
-    const nearest = leads.reduce((a, b) =>
-      Math.abs(b - target) < Math.abs(a - target) ? b : a
-    );
-    const s = skill[String(nearest)];
-    if (s && typeof s.precision === "number") {
-      // A quiet forecast and a positive one need different numbers. Telling
-      // someone how often the model is right *when it fires* is no use when it
-      // has not fired; what they need then is how often it stays quiet through
-      // an undercast that happens anyway.
-      if (runs.length) {
-        const inTen = Math.round(s.precision * 10);
-        trust =
-          `At about ${nearest} h ahead this model is right roughly ${inTen} time${
-            inTen === 1 ? "" : "s"
-          } in 10 when it calls an undercast, ` +
-          `and catches about ${Math.round(s.recall * 10)} in 10 of the ones that happen. `;
-      } else {
-        trust =
-          `Treat a quiet forecast as weak evidence: at about ${nearest} h ahead this ` +
-          `model misses roughly ${Math.round((1 - s.recall) * 10)} in 10 of the ` +
-          `undercasts that actually occur. `;
-      }
-    }
-  }
-  const label = (cur.model && cur.model.label) || "combined model";
-  footEl.innerHTML = "";
-  footEl.appendChild(
-    document.createTextNode(
-      trust +
-        (runs.length
-          ? `Undercast is rare — about 1 hour in 40 — so even a good model raises a lot of false alarms. `
-          : "") +
-        `${label}. `
-    )
-  );
-  const a = document.createElement("a");
-  a.href = "/weather/details/#results";
-  a.textContent = "How this was built and measured";
-  footEl.appendChild(a);
-  footEl.appendChild(document.createTextNode("."));
   el.hidden = false;
 }
 
