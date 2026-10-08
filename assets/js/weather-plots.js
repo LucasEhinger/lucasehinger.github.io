@@ -2086,9 +2086,7 @@ function drawModelPerformance(m, byLead) {
       `${hours} hours in the held-out year, ${events} of them undercast ` +
       `(${(((events / (d.n || 1)) * 100) || 0).toFixed(1)}%). ` +
       `At this lead it raises ${fp.toLocaleString()} false alarms and misses ` +
-      `${fn.toLocaleString()} real undercasts. Undercast is rare, so even a good ` +
-      `model produces more false alarms than hits at the longer leads — that is ` +
-      `the honest limit of this forecast, not a bug.`;
+      `${fn.toLocaleString()} real undercasts.`;
   }
 
   paint();
