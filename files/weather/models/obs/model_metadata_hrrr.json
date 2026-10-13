@@ -426,5 +426,5 @@
   ],
   "imputation": "constant fill -9999.0 + missingness indicators; cloud-geometry columns carry an explicit _no_cloud flag (nan in source = model reports no cloud = clear)",
   "split_separation": "by DATE with a 1-day buffer, not by observation",
-  "evaluation": "trained on split=train only; threshold tuned on holdout_baserate (true 2.7% base rate); headline metrics on holdout_webcam scored against HUMAN webcam labels; week-grouped 5-fold CV for OOF AUC"
+  "evaluation": "trained on split=train only; threshold tuned on holdout_baserate (true 3.0% base rate); headline metrics on holdout_webcam scored against HUMAN webcam labels; week-grouped 5-fold CV for OOF AUC"
 }

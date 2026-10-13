@@ -751,7 +751,7 @@ def train_source(df, source, out_dir, report_only=False):
                       "(nan in source = model reports no cloud = clear)",
         "split_separation": "by DATE with a 1-day buffer, not by observation",
         "evaluation": "trained on split=train only; threshold tuned on "
-                      "holdout_baserate (true 2.7% base rate); headline metrics on "
+                      f"holdout_baserate (true {base[TARGET].mean():.1%} base rate); headline metrics on "
                       "holdout_webcam scored against HUMAN webcam labels; "
                       "week-grouped 5-fold CV for OOF AUC",
     })
