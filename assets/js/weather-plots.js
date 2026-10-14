@@ -661,6 +661,15 @@ function loadWeatherPlots(
         }
         if (el && el.style.display === "none") el.style.display = "";
         if (layout && layout.xaxis) layout.xaxis.range = computeXRange(traces);
+        // On a touch screen, no drag-to-zoom: Plotly reads a swipe that starts
+        // on the chart as a zoom, so the page will not scroll past it. A mouse
+        // keeps box-zoom.
+        if (layout && window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
+          layout.dragmode = false;
+          Object.keys(layout).forEach((k) => {
+            if (/^[xy]axis\d*$/.test(k) && layout[k]) layout[k].fixedrange = true;
+          });
+        }
         Plotly.newPlot(id, traces, layout).then(() => {
           const e = document.getElementById(id);
           if (e) Plotly.Plots.resize(e);

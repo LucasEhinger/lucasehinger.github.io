@@ -419,7 +419,8 @@
       tickfont: { color: textColor },
       gridcolor: gridColor,
       zerolinecolor: gridColor,
-      linecolor: gridColor
+      linecolor: gridColor,
+      fixedrange: true
     };
 
     var layoutBase = {
@@ -428,7 +429,11 @@
       font: { color: textColor },
       margin: { l: 60, r: 20, t: 30, b: 50 },
       legend: { font: { color: textColor }, orientation: "h", y: -0.2 },
-      hovermode: "closest"
+      hovermode: "closest",
+      // No drag-to-zoom: on a phone Plotly reads a swipe that starts on the
+      // chart as a zoom, so the page will not scroll past it. Tap still
+      // shows the hover label.
+      dragmode: false
     };
     var config = { displayModeBar: false, responsive: true };
 

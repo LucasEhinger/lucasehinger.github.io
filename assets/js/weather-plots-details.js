@@ -123,7 +123,7 @@ function loadDetailsPlotsFromData(data){
   const d_pushTruthy = (arr, items) => items.forEach(t=>t&&arr.push(t));
   // Render a plot, or hide its container when it has no traces for the current
   // selection, so irrelevant/empty plots collapse instead of showing blank axes.
-  const d_renderOrHide = (id, traces, layout) => { const el = document.getElementById(id); if(!el) return; /* the page may not host every plot; Plotly.newPlot on a missing id throws */ if(!traces||traces.length===0){ if(el) el.style.display='none'; return; } if(el && el.style.display==='none') el.style.display=''; if(layout && layout.xaxis) layout.xaxis.range = d_computeXRange(traces); Plotly.newPlot(id, traces, layout).then(()=>{ const e=document.getElementById(id); if(e) Plotly.Plots.resize(e); }); };
+  const d_renderOrHide = (id, traces, layout) => { const el = document.getElementById(id); if(!el) return; /* the page may not host every plot; Plotly.newPlot on a missing id throws */ if(!traces||traces.length===0){ if(el) el.style.display='none'; return; } if(el && el.style.display==='none') el.style.display=''; if(layout && layout.xaxis) layout.xaxis.range = d_computeXRange(traces); /* on a touch screen, no drag-to-zoom: Plotly reads a swipe that starts on the chart as a zoom, so the page will not scroll past it */ if(layout && window.matchMedia && window.matchMedia('(pointer: coarse)').matches){ layout.dragmode=false; Object.keys(layout).forEach(k=>{ if(/^[xy]axis\d*$/.test(k) && layout[k]) layout[k].fixedrange=true; }); } Plotly.newPlot(id, traces, layout).then(()=>{ const e=document.getElementById(id); if(e) Plotly.Plots.resize(e); }); };
 
   // Plot 0: the inversion itself -- T(850 mb) - T(925 mb).
   //

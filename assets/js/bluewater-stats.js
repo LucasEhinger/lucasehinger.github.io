@@ -242,6 +242,16 @@
     document.getElementById("bw-tbody").innerHTML = parts.join("");
   }
 
+  // No drag-to-zoom on any chart: on a phone Plotly reads a swipe that starts
+  // on the chart as a zoom, so the page will not scroll past it. Tap still
+  // shows the hover label and still fires plotly_click.
+  function noZoom(layout) {
+    layout.dragmode = false;
+    layout.xaxis.fixedrange = true;
+    layout.yaxis.fixedrange = true;
+    return layout;
+  }
+
   // When filtering to a specific sail's crew, show everyone (grow the chart to
   // fit); otherwise fall back to the fixed-height Top-15 view.
   // Returns the pixel height so callers can pin layout.height to match. Plotly's
@@ -270,7 +280,20 @@
     if (chartClickBound) return;
     var gd = document.getElementById("bw-chart");
     if (!gd || typeof gd.on !== "function") return;
+    // With drag-to-zoom off, Plotly reports the end of a swipe that started on
+    // a bar as a click on it. A finger that moved was scrolling the page, not
+    // picking a sailor.
+    var touchY = null;
+    var swiped = false;
+    gd.addEventListener("touchstart", function (e) {
+      touchY = e.touches[0].clientY;
+      swiped = false;
+    }, { passive: true, capture: true });
+    gd.addEventListener("touchmove", function (e) {
+      if (touchY !== null && Math.abs(e.touches[0].clientY - touchY) > 10) swiped = true;
+    }, { passive: true, capture: true });
     gd.on("plotly_click", function (ev) {
+      if (swiped) return;
       if (!ev || !ev.points || !ev.points.length) return;
       var s = chartSailors[ev.points[0].pointNumber];
       if (s) window.location.href = sailorUrl(s);
@@ -336,7 +359,7 @@
       yaxis: { tickfont: { color: textColor }, automargin: true },
     };
     layout.height = chartH;
-    Plotly.react("bw-chart", [trace], layout, {
+    Plotly.react("bw-chart", [trace], noZoom(layout), {
       displayModeBar: false,
       responsive: true,
     });
@@ -409,7 +432,7 @@
       legend: { font: { color: textColor }, orientation: "h" },
     };
     layout.height = chartH;
-    Plotly.react("bw-chart", traces, layout, {
+    Plotly.react("bw-chart", traces, noZoom(layout), {
       displayModeBar: false,
       responsive: true,
     });
@@ -628,7 +651,7 @@
   }
 
   function lineLayout(title, textColor) {
-    return {
+    return noZoom({
       title: { text: title, font: { color: textColor } },
       margin: { l: 48, r: 16, t: 44, b: 40 },
       paper_bgcolor: "rgba(0,0,0,0)",
@@ -649,7 +672,7 @@
       showlegend: true,
       hovermode: "x unified",
       hoverlabel: BW.chartHoverLabel(textColor),
-    };
+    });
   }
 
   // Pick a year-label spacing so the (rotated) labels don't overcrowd. On a
@@ -664,7 +687,7 @@
   }
 
   function trendLayout(title, textColor, stacked, dtick) {
-    return {
+    return noZoom({
       title: { text: title, font: { color: textColor } },
       barmode: stacked ? "stack" : "group",
       margin: { l: 48, r: 16, t: 44, b: 40 },
@@ -706,7 +729,7 @@
       },
       showlegend: stacked,
       hoverlabel: BW.chartHoverLabel(textColor),
-    };
+    });
   }
 
   function renderProgramCharts() {

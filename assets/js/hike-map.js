@@ -474,7 +474,10 @@
   function buildMap() {
     loadCss(LEAFLET_CSS);
 
-    state.map = L.map("hm-map", { scrollWheelZoom: false });
+    // On a touch screen a one-finger swipe scrolls the page instead of panning
+    // the map, so the map can't trap the scroll. Pinching still zooms and pans.
+    var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    state.map = L.map("hm-map", { scrollWheelZoom: false, dragging: !touch });
     state.tiles = L.tileLayer(BASEMAPS[isDarkMode() ? "dark" : "light"], {
       attribution: BASEMAP_ATTRIB, maxZoom: 17
     }).addTo(state.map);
