@@ -1,6 +1,6 @@
 {
-  "date_str": "2026-11-10 12:00",
-  "run_time": "2026-11-10 14:47",
+  "date_str": "2026-11-10 18:00",
+  "run_time": "2026-11-10 23:15",
   "current": {
     "status": "unavailable",
     "reason": "no forecast hour carries the sources expected at its lead; the combined model cannot be applied to any of them. Publishing nothing instead."
